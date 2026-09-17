@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\GreenhouseController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -64,3 +65,35 @@ Route::get('/email/verify/{id}/{hash}', function (
 })
     ->middleware(['signed', 'throttle:6,1'])
     ->name('verification.verify');
+
+/*
+|--------------------------------------------------------------------------
+| Rutas protegidas
+|--------------------------------------------------------------------------
+|
+| Estas rutas requieren un JWT válido.
+|
+*/
+
+Route::middleware('auth:api')->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invernaderos
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/greenhouses', [GreenhouseController::class, 'index'])
+        ->name('greenhouses.index');
+
+    Route::post('/greenhouses', [GreenhouseController::class, 'store'])
+        ->name('greenhouses.store');
+
+    Route::get('/greenhouses/{greenhouse}', [GreenhouseController::class, 'show'])
+        ->name('greenhouses.show');
+
+    Route::put('/greenhouses/{greenhouse}', [GreenhouseController::class, 'update'])
+        ->name('greenhouses.update');
+
+    Route::patch('/greenhouses/{greenhouse}', [GreenhouseController::class, 'update']);
+});

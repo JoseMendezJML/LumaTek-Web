@@ -26,3 +26,12 @@ Route::get('/reset-password/{token}', function (
     ]);
 })
     ->name('password.reset');
+
+/*
+|--------------------------------------------------------------------------
+| Panel LumaTek
+|--------------------------------------------------------------------------
+*/
+
+Route::view('/greenhouses', 'greenhouses.index')
+    ->name('greenhouses.web.index');

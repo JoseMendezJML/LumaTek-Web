@@ -197,11 +197,37 @@
              * y definiremos el flujo definitivo de la web.
              */
 
-            sessionStorage.setItem(
-                'lumatek_access_token',
-                data.access_token
-            );
+            /*
+|--------------------------------------------------------------------------
+| Inicio de sesión correcto
+|--------------------------------------------------------------------------
+*/
 
+sessionStorage.setItem(
+    'lumatek_access_token',
+    data.access_token
+);
+
+sessionStorage.setItem(
+    'lumatek_user',
+    JSON.stringify(data.user)
+);
+
+loginMessage.className =
+    'auth-message auth-message-success';
+
+loginMessage.textContent =
+    'Inicio de sesión correcto.';
+
+loginMessage.style.display =
+    'block';
+    
+    setTimeout(function () {
+
+    window.location.href =
+        '/greenhouses';
+
+}, 700);
             loginMessage.className =
                 'auth-message auth-message-success';
 
