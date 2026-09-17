@@ -6,7 +6,7 @@
 
 @section(
     'page-subtitle',
-    'Configura y administra los invernaderos de tu empresa'
+    'Configura y monitorea los invernaderos de tu empresa'
 )
 
 @section('content')
@@ -50,7 +50,6 @@
 
                 <div class="panel-form-grid">
 
-                    {{-- Nombre --}}
                     <div class="panel-form-group">
 
                         <label for="name">
@@ -67,8 +66,6 @@
 
                     </div>
 
-
-                    {{-- Cultivo --}}
                     <div class="panel-form-group">
 
                         <label for="crop_type">
@@ -85,8 +82,6 @@
 
                     </div>
 
-
-                    {{-- Área --}}
                     <div class="panel-form-group">
 
                         <label for="area">
@@ -108,8 +103,6 @@
 
                     </div>
 
-
-                    {{-- Caudal --}}
                     <div class="panel-form-group">
 
                         <label for="nominal_flow">
@@ -131,8 +124,6 @@
 
                     </div>
 
-
-                    {{-- Fecha --}}
                     <div class="panel-form-group">
 
                         <label for="planting_date">
@@ -147,8 +138,6 @@
 
                     </div>
 
-
-                    {{-- Ubicación --}}
                     <div class="panel-form-group">
 
                         <label for="location">
@@ -166,7 +155,6 @@
                     </div>
 
                 </div>
-
 
                 <div class="panel-form-actions">
 
@@ -213,7 +201,7 @@
                 </h2>
 
                 <p>
-                    Invernaderos registrados en tu empresa.
+                    Monitoreo y configuración de tus invernaderos.
                 </p>
             </div>
 
@@ -222,7 +210,6 @@
             </span>
 
         </div>
-
 
         <div class="panel-card-body">
 
@@ -266,13 +253,13 @@
     .greenhouses-grid {
         display: grid;
         grid-template-columns:
-            repeat(auto-fit, minmax(280px, 1fr));
+            repeat(auto-fit, minmax(320px, 1fr));
         gap: 18px;
     }
 
     .greenhouse-card {
         border: 1px solid #e0e8e2;
-        border-radius: 12px;
+        border-radius: 14px;
         background: #ffffff;
         padding: 18px;
     }
@@ -322,6 +309,96 @@
         color: #314239;
         text-align: right;
     }
+
+    /* ================================
+       TEMPERATURA
+       ================================ */
+
+    .temperature-panel {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 12px;
+        background: #f7faf8;
+        border: 1px solid #e0e8e2;
+    }
+
+    .temperature-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .temperature-title {
+        margin: 0;
+        color: #4b5b51;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .temperature-connection {
+        padding: 4px 8px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .connection-connected {
+        background: #e9f7ed;
+        color: #176136;
+    }
+
+    .connection-disconnected {
+        background: #fff1f1;
+        color: #a22626;
+    }
+
+    .connection-no-data {
+        background: #f2f3f2;
+        color: #6d756f;
+    }
+
+    .temperature-value {
+        margin-top: 10px;
+        color: #173d27;
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .temperature-detail {
+        margin-top: 8px;
+        color: #738078;
+        font-size: 11px;
+    }
+
+    .temperature-alert {
+        display: none;
+        margin-top: 12px;
+        padding: 9px 11px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .temperature-alert.high,
+    .temperature-alert.low {
+        display: block;
+        background: #fff3e8;
+        border: 1px solid #efcda9;
+        color: #9b561d;
+    }
+
+    .temperature-alert.normal {
+        display: block;
+        background: #edf8f0;
+        border: 1px solid #bde0c6;
+        color: #176136;
+    }
+
+    /* ================================
+       UMBRALES
+       ================================ */
 
     .threshold-container {
         padding-top: 14px;
@@ -415,12 +492,6 @@
         );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Fecha máxima
-    |--------------------------------------------------------------------------
-    */
-
     document.getElementById(
         'planting_date'
     ).max =
@@ -428,12 +499,6 @@
             .toISOString()
             .split('T')[0];
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Escapar texto
-    |--------------------------------------------------------------------------
-    */
 
     function escapeHtml(value) {
 
@@ -446,12 +511,6 @@
         return div.innerHTML;
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Nombres de variables
-    |--------------------------------------------------------------------------
-    */
 
     function variableName(variable) {
 
@@ -472,12 +531,6 @@
             ?? variable;
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Mostrar mensajes
-    |--------------------------------------------------------------------------
-    */
 
     function showMessage(
         text,
@@ -507,6 +560,271 @@
 
     /*
     |--------------------------------------------------------------------------
+    | Temperatura actual
+    |--------------------------------------------------------------------------
+    */
+
+    async function loadTemperature(
+        greenhouseIdValue,
+        card
+    ) {
+
+        const valueElement =
+            card.querySelector(
+                '.temperature-value'
+            );
+
+        const connectionElement =
+            card.querySelector(
+                '.temperature-connection'
+            );
+
+        const detailElement =
+            card.querySelector(
+                '.temperature-detail'
+            );
+
+        const alertElement =
+            card.querySelector(
+                '.temperature-alert'
+            );
+
+
+        try {
+
+            const response =
+                await fetch(
+                    `/api/greenhouses/${greenhouseIdValue}/temperature/current`,
+                    {
+                        headers: {
+                            'Accept':
+                                'application/json',
+
+                            'Authorization':
+                                `Bearer ${token}`
+                        }
+                    }
+                );
+
+
+            if (response.status === 401) {
+
+                sessionStorage.clear();
+
+                window.location.href =
+                    '/login';
+
+                return;
+            }
+
+
+            const result =
+                await response.json();
+
+            const data =
+                result.data;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Sin sensor
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                data.connection_status ===
+                'no_sensor'
+            ) {
+
+                valueElement.textContent =
+                    '-- °C';
+
+                connectionElement.textContent =
+                    'Sin sensor';
+
+                connectionElement.className =
+                    'temperature-connection connection-no-data';
+
+                detailElement.textContent =
+                    'No hay un sensor de temperatura configurado.';
+
+                alertElement.style.display =
+                    'none';
+
+                return;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Sensor sin lecturas
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                data.connection_status ===
+                'no_data'
+            ) {
+
+                valueElement.textContent =
+                    '-- °C';
+
+                connectionElement.textContent =
+                    'Sin datos';
+
+                connectionElement.className =
+                    'temperature-connection connection-no-data';
+
+                detailElement.textContent =
+                    'El sensor aún no ha enviado lecturas.';
+
+                alertElement.style.display =
+                    'none';
+
+                return;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Temperatura
+            |--------------------------------------------------------------------------
+            */
+
+            valueElement.textContent =
+                Number(
+                    data.temperature
+                ).toFixed(1)
+                + ' °C';
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Estado de conexión
+            |--------------------------------------------------------------------------
+            */
+
+            connectionElement.textContent =
+                data.connection_label;
+
+
+            if (
+                data.connection_status ===
+                'connected'
+            ) {
+
+                connectionElement.className =
+                    'temperature-connection connection-connected';
+
+            } else {
+
+                connectionElement.className =
+                    'temperature-connection connection-disconnected';
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Última lectura
+            |--------------------------------------------------------------------------
+            */
+
+            const minutes =
+                Number(
+                    data.minutes_since_last_reading
+                );
+
+
+            if (minutes === 0) {
+
+                detailElement.textContent =
+                    'Última lectura: hace menos de 1 minuto';
+
+            } else if (minutes === 1) {
+
+                detailElement.textContent =
+                    'Última lectura: hace 1 minuto';
+
+            } else {
+
+                detailElement.textContent =
+                    `Última lectura: hace ${minutes} minutos`;
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Alerta por umbral
+            |--------------------------------------------------------------------------
+            */
+
+            alertElement.className =
+                'temperature-alert';
+
+
+            if (
+                data.alert_status ===
+                'high'
+            ) {
+
+                alertElement.classList.add(
+                    'high'
+                );
+
+                alertElement.textContent =
+                    '⚠ Temperatura superior al umbral configurado.';
+
+            }
+
+            else if (
+                data.alert_status ===
+                'low'
+            ) {
+
+                alertElement.classList.add(
+                    'low'
+                );
+
+                alertElement.textContent =
+                    '⚠ Temperatura inferior al umbral configurado.';
+
+            }
+
+            else {
+
+                alertElement.classList.add(
+                    'normal'
+                );
+
+                alertElement.textContent =
+                    '✓ Temperatura dentro del rango configurado.';
+
+            }
+
+
+        } catch (error) {
+
+            valueElement.textContent =
+                '-- °C';
+
+            connectionElement.textContent =
+                'Error';
+
+            connectionElement.className =
+                'temperature-connection connection-disconnected';
+
+            detailElement.textContent =
+                'No fue posible obtener la temperatura.';
+
+        }
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | Cargar invernaderos
     |--------------------------------------------------------------------------
     */
@@ -520,6 +838,7 @@
             'none';
 
         list.innerHTML = '';
+
 
         try {
 
@@ -646,6 +965,7 @@
 
                             <div class="greenhouse-data-row">
                                 <span>Cultivo</span>
+
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.crop_type
@@ -655,6 +975,7 @@
 
                             <div class="greenhouse-data-row">
                                 <span>Área</span>
+
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.area
@@ -664,6 +985,7 @@
 
                             <div class="greenhouse-data-row">
                                 <span>Ubicación</span>
+
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.location
@@ -673,6 +995,7 @@
 
                             <div class="greenhouse-data-row">
                                 <span>Fecha de siembra</span>
+
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.planting_date
@@ -683,6 +1006,7 @@
 
                             <div class="greenhouse-data-row">
                                 <span>Caudal nominal</span>
+
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.nominal_flow
@@ -693,10 +1017,39 @@
                         </div>
 
 
+                        <div class="temperature-panel">
+
+                            <div class="temperature-header">
+
+                                <h4 class="temperature-title">
+                                    Temperatura actual
+                                </h4>
+
+                                <span
+                                    class="temperature-connection connection-no-data"
+                                >
+                                    Consultando...
+                                </span>
+
+                            </div>
+
+                            <div class="temperature-value">
+                                -- °C
+                            </div>
+
+                            <div class="temperature-detail">
+                                Consultando última lectura...
+                            </div>
+
+                            <div class="temperature-alert"></div>
+
+                        </div>
+
+
                         <div class="threshold-container">
 
                             <h4>
-                                Umbrales iniciales
+                                Umbrales configurados
                             </h4>
 
                             ${thresholdsHtml}
@@ -733,7 +1086,21 @@
                         );
 
 
-                    list.appendChild(card);
+                    list.appendChild(
+                        card
+                    );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Consultar temperatura del invernadero
+                    |--------------------------------------------------------------------------
+                    */
+
+                    loadTemperature(
+                        greenhouse.id,
+                        card
+                    );
 
                 }
             );
@@ -817,7 +1184,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Cancelar edición
+    | Reiniciar formulario
     |--------------------------------------------------------------------------
     */
 
@@ -825,7 +1192,8 @@
 
         greenhouseForm.reset();
 
-        greenhouseId.value = '';
+        greenhouseId.value =
+            '';
 
         formTitle.textContent =
             'Configurar invernadero';
@@ -927,6 +1295,7 @@
                             method: method,
 
                             headers: {
+
                                 'Accept':
                                     'application/json',
 
@@ -1029,6 +1398,23 @@
     */
 
     loadGreenhouses();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CA01 - Actualización cada 5 minutos
+    |--------------------------------------------------------------------------
+    |
+    | La interfaz vuelve a consultar las lecturas cada 5 minutos.
+    | El dispositivo IoT deberá posteriormente enviar también una lectura
+    | con esa frecuencia.
+    |
+    */
+
+    setInterval(
+        loadGreenhouses,
+        5 * 60 * 1000
+    );
 
 </script>
 

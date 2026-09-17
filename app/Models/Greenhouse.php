@@ -43,4 +43,12 @@ class Greenhouse extends Model
     {
         return $this->hasMany(GreenhouseThreshold::class);
     }
+
+    /**
+     * Zonas configuradas dentro del invernadero.
+     */
+    public function zones(): HasMany
+    {
+        return $this->hasMany(Zone::class);
+    }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\GreenhouseController;
+use App\Http\Controllers\TemperatureController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -68,11 +69,8 @@ Route::get('/email/verify/{id}/{hash}', function (
 
 /*
 |--------------------------------------------------------------------------
-| Rutas protegidas
+| Rutas protegidas con JWT
 |--------------------------------------------------------------------------
-|
-| Estas rutas requieren un JWT válido.
-|
 */
 
 Route::middleware('auth:api')->group(function () {
@@ -83,17 +81,56 @@ Route::middleware('auth:api')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/greenhouses', [GreenhouseController::class, 'index'])
-        ->name('greenhouses.index');
+    Route::get(
+        '/greenhouses',
+        [GreenhouseController::class, 'index']
+    )->name('greenhouses.index');
 
-    Route::post('/greenhouses', [GreenhouseController::class, 'store'])
-        ->name('greenhouses.store');
+    Route::post(
+        '/greenhouses',
+        [GreenhouseController::class, 'store']
+    )->name('greenhouses.store');
 
-    Route::get('/greenhouses/{greenhouse}', [GreenhouseController::class, 'show'])
-        ->name('greenhouses.show');
+    Route::get(
+        '/greenhouses/{greenhouse}',
+        [GreenhouseController::class, 'show']
+    )->name('greenhouses.show');
 
-    Route::put('/greenhouses/{greenhouse}', [GreenhouseController::class, 'update'])
-        ->name('greenhouses.update');
+    Route::put(
+        '/greenhouses/{greenhouse}',
+        [GreenhouseController::class, 'update']
+    )->name('greenhouses.update');
 
-    Route::patch('/greenhouses/{greenhouse}', [GreenhouseController::class, 'update']);
+    Route::patch(
+        '/greenhouses/{greenhouse}',
+        [GreenhouseController::class, 'update']
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Temperatura
+    |--------------------------------------------------------------------------
+    |
+    | POST:
+    | registra una nueva lectura.
+    |
+    | GET:
+    | obtiene la temperatura más reciente y el estado de conexión.
+    |
+    */
+
+    Route::post(
+        '/sensors/{sensor}/temperature',
+        [TemperatureController::class, 'store']
+    )->name('temperature.store');
+
+    Route::get(
+        '/sensors/{sensor}/temperature/current',
+        [TemperatureController::class, 'current']
+    )->name('temperature.current');
+
+    Route::get(
+    '/greenhouses/{greenhouse}/temperature/current',
+    [TemperatureController::class, 'currentByGreenhouse']
+)->name('greenhouses.temperature.current');
 });
