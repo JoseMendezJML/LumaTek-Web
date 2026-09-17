@@ -18,8 +18,19 @@ class Company extends Model
         'status',
     ];
 
+    /**
+     * Usuarios que pertenecen a la empresa.
+     */
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * Invernaderos que pertenecen a la empresa.
+     */
+    public function greenhouses(): HasMany
+    {
+        return $this->hasMany(Greenhouse::class);
     }
 }
