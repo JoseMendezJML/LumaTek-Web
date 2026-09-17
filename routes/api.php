@@ -26,17 +26,6 @@ Route::post('/login', [AuthController::class, 'login'])
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
     ->name('password.email');
 
-Route::get('/password/reset/{token}', function (
-    Request $request,
-    string $token
-) {
-    return response()->json([
-        'message' => 'Enlace de recuperación válido. Ingresa una nueva contraseña.',
-        'email' => $request->query('email'),
-    ]);
-})
-    ->name('password.reset');
-
 Route::post('/password/reset', [AuthController::class, 'resetPassword'])
     ->name('password.update');
 

@@ -133,22 +133,25 @@ class AuthController extends Controller
     }
 
     public function forgotPassword(
-        ForgotPasswordRequest $request
-    ): JsonResponse {
-        $status = Password::sendResetLink([
-            'email' => $request->email,
-        ]);
+    ForgotPasswordRequest $request
+): JsonResponse {
 
-        if ($status === Password::RESET_THROTTLED) {
-            return response()->json([
-                'message' => 'Espera antes de solicitar otro enlace de recuperación.',
-            ], 429);
-        }
+    $email = strtolower(trim($request->email));
 
+    $status = Password::sendResetLink([
+        'email' => $email,
+    ]);
+
+    if ($status === Password::RESET_THROTTLED) {
         return response()->json([
-            'message' => 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
-        ]);
+            'message' => 'Espera antes de solicitar otro enlace de recuperación.',
+        ], 429);
     }
+
+    return response()->json([
+        'message' => 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
+    ]);
+}
 
     public function resetPassword(
         ResetPasswordRequest $request
