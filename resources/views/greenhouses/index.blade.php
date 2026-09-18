@@ -14,7 +14,7 @@
 <div class="page-container">
 
     {{-- =========================================================
-         FORMULARIO
+         FORMULARIO DEL INVERNADERO
     ========================================================== --}}
 
     <section class="panel-card">
@@ -185,7 +185,7 @@
 
 
     {{-- =========================================================
-         LISTADO
+         LISTADO DE INVERNADEROS
     ========================================================== --}}
 
     <section
@@ -196,6 +196,7 @@
         <div class="panel-card-header">
 
             <div>
+
                 <h2>
                     Mis invernaderos
                 </h2>
@@ -203,6 +204,7 @@
                 <p>
                     Monitoreo y configuración de tus invernaderos.
                 </p>
+
             </div>
 
             <span id="greenhouse-count">
@@ -249,6 +251,10 @@
 @push('styles')
 
 <style>
+
+    /* =========================================================
+       TARJETAS DE INVERNADEROS
+    ========================================================== */
 
     .greenhouses-grid {
         display: grid;
@@ -310,14 +316,15 @@
         text-align: right;
     }
 
+
     /* =========================================================
        MONITOREO
-       ========================================================= */
+    ========================================================== */
 
     .monitoring-grid {
         display: grid;
         grid-template-columns:
-            repeat(2, minmax(0, 1fr));
+            repeat(3, minmax(0, 1fr));
         gap: 14px;
         margin-top: 18px;
     }
@@ -344,6 +351,26 @@
         font-weight: 700;
     }
 
+    .monitoring-value {
+        margin-top: 10px;
+        color: #173d27;
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .monitoring-detail {
+        margin-top: 8px;
+        color: #738078;
+        font-size: 11px;
+        line-height: 1.4;
+    }
+
+
+    /* =========================================================
+       ESTADO DE CONEXIÓN
+    ========================================================== */
+
     .connection-badge {
         padding: 4px 8px;
         border-radius: 20px;
@@ -367,24 +394,10 @@
         color: #6d756f;
     }
 
-    .monitoring-value {
-        margin-top: 10px;
-        color: #173d27;
-        font-size: 32px;
-        font-weight: 700;
-        line-height: 1;
-    }
-
-    .monitoring-detail {
-        margin-top: 8px;
-        color: #738078;
-        font-size: 11px;
-        line-height: 1.4;
-    }
 
     /* =========================================================
        TEMPERATURA
-       ========================================================= */
+    ========================================================== */
 
     .temperature-alert {
         display: none;
@@ -410,9 +423,10 @@
         color: #176136;
     }
 
+
     /* =========================================================
        HUMEDAD DEL SUELO
-       ========================================================= */
+    ========================================================== */
 
     .soil-level {
         display: inline-flex;
@@ -459,9 +473,55 @@
         display: block;
     }
 
+
     /* =========================================================
-       HISTORIAL 24 H
-       ========================================================= */
+       HUMEDAD AMBIENTAL
+    ========================================================== */
+
+    .ambient-status {
+        display: inline-flex;
+        margin-top: 10px;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .ambient-status-normal {
+        background: #edf8f0;
+        color: #176136;
+    }
+
+    .ambient-status-high {
+        background: #fff0f0;
+        color: #a52626;
+    }
+
+    .ambient-status-neutral {
+        background: #f2f3f2;
+        color: #69746d;
+    }
+
+    .ambient-alert {
+        display: none;
+        margin-top: 10px;
+        padding: 9px 11px;
+        border-radius: 8px;
+        background: #fff1f1;
+        border: 1px solid #efc2c2;
+        color: #a02525;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .ambient-alert.show {
+        display: block;
+    }
+
+
+    /* =========================================================
+       HISTORIAL HUMEDAD DEL SUELO
+    ========================================================== */
 
     .soil-history {
         margin-top: 14px;
@@ -504,9 +564,10 @@
         color: #818b85;
     }
 
+
     /* =========================================================
        UMBRALES
-       ========================================================= */
+    ========================================================== */
 
     .threshold-container {
         padding-top: 14px;
@@ -535,7 +596,21 @@
         justify-content: flex-end;
     }
 
-    @media (max-width: 800px) {
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================== */
+
+    @media (max-width: 1100px) {
+
+        .monitoring-grid {
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+        }
+
+    }
+
+    @media (max-width: 750px) {
 
         .monitoring-grid {
             grid-template-columns: 1fr;
@@ -616,10 +691,18 @@
             .split('T')[0];
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | Utilidades
+    |--------------------------------------------------------------------------
+    */
+
     function escapeHtml(value) {
 
         const div =
-            document.createElement('div');
+            document.createElement(
+                'div'
+            );
 
         div.textContent =
             value ?? '';
@@ -671,6 +754,7 @@
             top: 0,
             behavior: 'smooth'
         });
+
     }
 
 
@@ -692,9 +776,30 @@
     }
 
 
+    function lastReadingText(
+        minutes
+    ) {
+
+        minutes =
+            Number(minutes);
+
+        if (minutes === 0) {
+
+            return 'Última lectura: hace menos de 1 minuto';
+        }
+
+        if (minutes === 1) {
+
+            return 'Última lectura: hace 1 minuto';
+        }
+
+        return `Última lectura: hace ${minutes} minutos`;
+    }
+
+
     /*
     |--------------------------------------------------------------------------
-    | Temperatura
+    | TEMPERATURA
     |--------------------------------------------------------------------------
     */
 
@@ -731,6 +836,7 @@
                     `/api/greenhouses/${greenhouseIdValue}/temperature/current`,
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
@@ -774,6 +880,9 @@
                 detailElement.textContent =
                     'No hay sensor de temperatura configurado.';
 
+                alertElement.className =
+                    'temperature-alert';
+
                 return;
             }
 
@@ -794,6 +903,9 @@
 
                 detailElement.textContent =
                     'El sensor aún no ha enviado lecturas.';
+
+                alertElement.className =
+                    'temperature-alert';
 
                 return;
             }
@@ -820,18 +932,10 @@
                 );
 
 
-            const minutes =
-                Number(
+            detailElement.textContent =
+                lastReadingText(
                     data.minutes_since_last_reading
                 );
-
-
-            detailElement.textContent =
-                minutes === 0
-                    ? 'Última lectura: hace menos de 1 minuto'
-                    : minutes === 1
-                        ? 'Última lectura: hace 1 minuto'
-                        : `Última lectura: hace ${minutes} minutos`;
 
 
             alertElement.className =
@@ -892,6 +996,9 @@
             detailElement.textContent =
                 'No fue posible obtener la temperatura.';
 
+            alertElement.className =
+                'temperature-alert';
+
         }
 
     }
@@ -899,7 +1006,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Humedad del suelo actual
+    | HUMEDAD DEL SUELO
     |--------------------------------------------------------------------------
     */
 
@@ -941,6 +1048,7 @@
                     `/api/greenhouses/${greenhouseIdValue}/soil-moisture/current`,
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
@@ -982,13 +1090,17 @@
                     'connection-badge soil-connection connection-no-data';
 
                 detailElement.textContent =
-                    'No hay sensor de humedad configurado.';
+                    'No hay sensor de humedad del suelo configurado.';
 
                 levelElement.textContent =
                     'Sin sensor';
 
                 levelElement.className =
                     'soil-level soil-level-neutral';
+
+                alertElement.classList.remove(
+                    'show'
+                );
 
                 return;
             }
@@ -1017,6 +1129,10 @@
                 levelElement.className =
                     'soil-level soil-level-neutral';
 
+                alertElement.classList.remove(
+                    'show'
+                );
+
                 return;
             }
 
@@ -1042,18 +1158,10 @@
                 );
 
 
-            const minutes =
-                Number(
+            detailElement.textContent =
+                lastReadingText(
                     data.minutes_since_last_reading
                 );
-
-
-            detailElement.textContent =
-                minutes === 0
-                    ? 'Última lectura: hace menos de 1 minuto'
-                    : minutes === 1
-                        ? 'Última lectura: hace 1 minuto'
-                        : `Última lectura: hace ${minutes} minutos`;
 
 
             levelElement.textContent =
@@ -1115,7 +1223,13 @@
                 'connection-badge soil-connection connection-disconnected';
 
             detailElement.textContent =
-                'No fue posible obtener la humedad.';
+                'No fue posible obtener la humedad del suelo.';
+
+            levelElement.textContent =
+                'Error';
+
+            levelElement.className =
+                'soil-level soil-level-neutral';
 
         }
 
@@ -1124,7 +1238,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Historial humedad del suelo - 24 horas
+    | HISTORIAL HUMEDAD DEL SUELO
     |--------------------------------------------------------------------------
     */
 
@@ -1151,6 +1265,7 @@
                     `/api/greenhouses/${greenhouseIdValue}/soil-moisture/history`,
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
@@ -1174,7 +1289,8 @@
                 await response.json();
 
             const readings =
-                result.data?.readings ?? [];
+                result.data?.readings
+                ?? [];
 
 
             historyCount.textContent =
@@ -1196,12 +1312,9 @@
             }
 
 
-            /*
-            | Mostramos primero la lectura más reciente.
-            */
-
             const ordered =
-                [...readings].reverse();
+                [...readings]
+                    .reverse();
 
 
             historyList.innerHTML =
@@ -1217,6 +1330,7 @@
                                             'T'
                                         )
                                 );
+
 
                             const time =
                                 date.toLocaleTimeString(
@@ -1268,7 +1382,257 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Cargar invernaderos
+    | HUMEDAD AMBIENTAL
+    |--------------------------------------------------------------------------
+    */
+
+    async function loadAmbientHumidity(
+        greenhouseIdValue,
+        card
+    ) {
+
+        const valueElement =
+            card.querySelector(
+                '.ambient-value'
+            );
+
+        const connectionElement =
+            card.querySelector(
+                '.ambient-connection'
+            );
+
+        const detailElement =
+            card.querySelector(
+                '.ambient-detail'
+            );
+
+        const statusElement =
+            card.querySelector(
+                '.ambient-status'
+            );
+
+        const alertElement =
+            card.querySelector(
+                '.ambient-alert'
+            );
+
+
+        try {
+
+            const response =
+                await fetch(
+                    `/api/greenhouses/${greenhouseIdValue}/ambient-humidity/current`,
+                    {
+                        headers: {
+
+                            'Accept':
+                                'application/json',
+
+                            'Authorization':
+                                `Bearer ${token}`
+                        }
+                    }
+                );
+
+
+            if (
+                logoutIfUnauthorized(
+                    response
+                )
+            ) {
+                return;
+            }
+
+
+            const result =
+                await response.json();
+
+            const data =
+                result.data;
+
+
+            /*
+            | Sin sensor
+            */
+
+            if (
+                data.connection_status ===
+                'no_sensor'
+            ) {
+
+                valueElement.textContent =
+                    '-- %';
+
+                connectionElement.textContent =
+                    'Sin sensor';
+
+                connectionElement.className =
+                    'connection-badge ambient-connection connection-no-data';
+
+                detailElement.textContent =
+                    'No hay sensor de humedad ambiental configurado.';
+
+                statusElement.textContent =
+                    'Sin sensor';
+
+                statusElement.className =
+                    'ambient-status ambient-status-neutral';
+
+                alertElement.classList.remove(
+                    'show'
+                );
+
+                return;
+            }
+
+
+            /*
+            | Sensor sin lecturas
+            */
+
+            if (
+                data.connection_status ===
+                'no_data'
+            ) {
+
+                valueElement.textContent =
+                    '-- %';
+
+                connectionElement.textContent =
+                    'Sin datos';
+
+                connectionElement.className =
+                    'connection-badge ambient-connection connection-no-data';
+
+                detailElement.textContent =
+                    'El sensor aún no ha enviado lecturas.';
+
+                statusElement.textContent =
+                    'Sin datos';
+
+                statusElement.className =
+                    'ambient-status ambient-status-neutral';
+
+                alertElement.classList.remove(
+                    'show'
+                );
+
+                return;
+            }
+
+
+            /*
+            | Valor actual
+            */
+
+            valueElement.textContent =
+                Number(
+                    data.humidity
+                ).toFixed(1)
+                + ' %';
+
+
+            /*
+            | Estado de conexión
+            */
+
+            connectionElement.textContent =
+                data.connection_label;
+
+
+            connectionElement.className =
+                'connection-badge ambient-connection ' +
+                (
+                    data.connection_status ===
+                    'connected'
+                        ? 'connection-connected'
+                        : 'connection-disconnected'
+                );
+
+
+            /*
+            | Última lectura
+            */
+
+            detailElement.textContent =
+                lastReadingText(
+                    data.minutes_since_last_reading
+                );
+
+
+            /*
+            | Estado ambiental
+            */
+
+            if (
+                data.status ===
+                'high'
+            ) {
+
+                statusElement.textContent =
+                    'Alta';
+
+                statusElement.className =
+                    'ambient-status ambient-status-high';
+
+
+                alertElement.classList.add(
+                    'show'
+                );
+
+                alertElement.textContent =
+                    '⚠ Humedad ambiental superior al umbral máximo.';
+
+            }
+
+            else {
+
+                statusElement.textContent =
+                    'Normal';
+
+                statusElement.className =
+                    'ambient-status ambient-status-normal';
+
+
+                alertElement.classList.remove(
+                    'show'
+                );
+
+            }
+
+
+        } catch (error) {
+
+            valueElement.textContent =
+                '-- %';
+
+            connectionElement.textContent =
+                'Error';
+
+            connectionElement.className =
+                'connection-badge ambient-connection connection-disconnected';
+
+            detailElement.textContent =
+                'No fue posible obtener la humedad ambiental.';
+
+            statusElement.textContent =
+                'Error';
+
+            statusElement.className =
+                'ambient-status ambient-status-neutral';
+
+            alertElement.classList.remove(
+                'show'
+            );
+
+        }
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CARGAR INVERNADEROS
     |--------------------------------------------------------------------------
     */
 
@@ -1291,6 +1655,7 @@
                     '/api/greenhouses',
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
@@ -1340,7 +1705,8 @@
                 function (greenhouse) {
 
                     const thresholds =
-                        greenhouse.thresholds ?? [];
+                        greenhouse.thresholds
+                        ?? [];
 
 
                     const thresholdsHtml =
@@ -1395,7 +1761,9 @@
                         <div class="greenhouse-card-header">
 
                             <h3 class="greenhouse-card-title">
-                                ${escapeHtml(greenhouse.name)}
+                                ${escapeHtml(
+                                    greenhouse.name
+                                )}
                             </h3>
 
                             <span class="greenhouse-status">
@@ -1410,37 +1778,55 @@
                         <div class="greenhouse-data">
 
                             <div class="greenhouse-data-row">
-                                <span>Cultivo</span>
+
+                                <span>
+                                    Cultivo
+                                </span>
 
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.crop_type
                                     )}
                                 </strong>
+
                             </div>
 
+
                             <div class="greenhouse-data-row">
-                                <span>Área</span>
+
+                                <span>
+                                    Área
+                                </span>
 
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.area
                                     )} m²
                                 </strong>
+
                             </div>
 
+
                             <div class="greenhouse-data-row">
-                                <span>Ubicación</span>
+
+                                <span>
+                                    Ubicación
+                                </span>
 
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.location
                                     )}
                                 </strong>
+
                             </div>
 
+
                             <div class="greenhouse-data-row">
-                                <span>Fecha de siembra</span>
+
+                                <span>
+                                    Fecha de siembra
+                                </span>
 
                                 <strong>
                                     ${escapeHtml(
@@ -1448,16 +1834,22 @@
                                             ?.split('T')[0]
                                     )}
                                 </strong>
+
                             </div>
 
+
                             <div class="greenhouse-data-row">
-                                <span>Caudal nominal</span>
+
+                                <span>
+                                    Caudal nominal
+                                </span>
 
                                 <strong>
                                     ${escapeHtml(
                                         greenhouse.nominal_flow
                                     )} L/min
                                 </strong>
+
                             </div>
 
                         </div>
@@ -1465,7 +1857,8 @@
 
                         <div class="monitoring-grid">
 
-                            {{-- TEMPERATURA --}}
+
+                            <!-- TEMPERATURA -->
 
                             <div class="monitoring-panel">
 
@@ -1483,20 +1876,23 @@
 
                                 </div>
 
+
                                 <div class="monitoring-value temperature-value">
                                     -- °C
                                 </div>
 
+
                                 <div class="monitoring-detail temperature-detail">
                                     Consultando última lectura...
                                 </div>
+
 
                                 <div class="temperature-alert"></div>
 
                             </div>
 
 
-                            {{-- HUMEDAD DEL SUELO --}}
+                            <!-- HUMEDAD DEL SUELO -->
 
                             <div class="monitoring-panel">
 
@@ -1514,17 +1910,21 @@
 
                                 </div>
 
+
                                 <div class="monitoring-value soil-value">
                                     -- %
                                 </div>
+
 
                                 <span class="soil-level soil-level-neutral">
                                     Consultando...
                                 </span>
 
+
                                 <div class="monitoring-detail soil-detail">
                                     Consultando última lectura...
                                 </div>
+
 
                                 <div class="soil-alert"></div>
 
@@ -1539,6 +1939,7 @@
                                         </span>
                                     </summary>
 
+
                                     <div class="soil-history-list">
 
                                         <div class="soil-history-empty">
@@ -1548,6 +1949,45 @@
                                     </div>
 
                                 </details>
+
+                            </div>
+
+
+                            <!-- HUMEDAD AMBIENTAL -->
+
+                            <div class="monitoring-panel">
+
+                                <div class="monitoring-header">
+
+                                    <h4 class="monitoring-title">
+                                        Humedad ambiental
+                                    </h4>
+
+                                    <span
+                                        class="connection-badge ambient-connection connection-no-data"
+                                    >
+                                        Consultando...
+                                    </span>
+
+                                </div>
+
+
+                                <div class="monitoring-value ambient-value">
+                                    -- %
+                                </div>
+
+
+                                <span class="ambient-status ambient-status-neutral">
+                                    Consultando...
+                                </span>
+
+
+                                <div class="monitoring-detail ambient-detail">
+                                    Consultando última lectura...
+                                </div>
+
+
+                                <div class="ambient-alert"></div>
 
                             </div>
 
@@ -1601,7 +2041,7 @@
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Monitoreo
+                    | Cargar monitoreo
                     |--------------------------------------------------------------------------
                     */
 
@@ -1610,12 +2050,20 @@
                         card
                     );
 
+
                     loadSoilMoisture(
                         greenhouse.id,
                         card
                     );
 
+
                     loadSoilHistory(
+                        greenhouse.id,
+                        card
+                    );
+
+
+                    loadAmbientHumidity(
                         greenhouse.id,
                         card
                     );
@@ -1641,7 +2089,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Editar
+    | EDITAR INVERNADERO
     |--------------------------------------------------------------------------
     */
 
@@ -1652,31 +2100,37 @@
         greenhouseId.value =
             greenhouse.id;
 
+
         document.getElementById(
             'name'
         ).value =
             greenhouse.name;
+
 
         document.getElementById(
             'crop_type'
         ).value =
             greenhouse.crop_type;
 
+
         document.getElementById(
             'area'
         ).value =
             greenhouse.area;
+
 
         document.getElementById(
             'location'
         ).value =
             greenhouse.location;
 
+
         document.getElementById(
             'planting_date'
         ).value =
             greenhouse.planting_date
                 ?.split('T')[0];
+
 
         document.getElementById(
             'nominal_flow'
@@ -1687,8 +2141,10 @@
         formTitle.textContent =
             'Editar perfil del invernadero';
 
+
         saveButton.textContent =
             'Guardar cambios';
+
 
         cancelEditButton.style.display =
             'inline-flex';
@@ -1704,7 +2160,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Reiniciar formulario
+    | REINICIAR FORMULARIO
     |--------------------------------------------------------------------------
     */
 
@@ -1712,14 +2168,18 @@
 
         greenhouseForm.reset();
 
+
         greenhouseId.value =
             '';
+
 
         formTitle.textContent =
             'Configurar invernadero';
 
+
         saveButton.textContent =
             'Guardar invernadero';
+
 
         cancelEditButton.style.display =
             'none';
@@ -1735,7 +2195,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Guardar / actualizar
+    | GUARDAR / ACTUALIZAR INVERNADERO
     |--------------------------------------------------------------------------
     */
 
@@ -1745,11 +2205,14 @@
 
             event.preventDefault();
 
+
             message.style.display =
                 'none';
 
+
             saveButton.disabled =
                 true;
+
 
             saveButton.textContent =
                 'Guardando...';
@@ -1850,19 +2313,24 @@
 
                 if (!response.ok) {
 
-                    if (result.errors) {
+                    if (
+                        result.errors
+                    ) {
 
                         const errors =
                             Object.values(
                                 result.errors
                             ).flat();
 
+
                         showMessage(
                             errors.join(' '),
                             'error'
                         );
 
-                    } else {
+                    }
+
+                    else {
 
                         showMessage(
                             result.message
@@ -1884,6 +2352,7 @@
 
                 resetForm();
 
+
                 await loadGreenhouses();
 
 
@@ -1899,6 +2368,7 @@
                 saveButton.disabled =
                     false;
 
+
                 saveButton.textContent =
                     greenhouseId.value
                         ? 'Guardar cambios'
@@ -1912,7 +2382,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Inicio
+    | CARGA INICIAL
     |--------------------------------------------------------------------------
     */
 
@@ -1921,7 +2391,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | CA01 - Actualización cada 5 minutos
+    | ACTUALIZACIÓN AUTOMÁTICA CADA 5 MINUTOS
     |--------------------------------------------------------------------------
     */
 
