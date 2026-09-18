@@ -635,25 +635,23 @@
 
             {{-- RIEGO --}}
 
-            <a
-                href="#"
-                class="sidebar-link disabled"
-                onclick="return false;"
-            >
+<a
+    href="{{ url('/irrigation') }}"
+    class="
+        sidebar-link
+        {{ request()->is('irrigation*') ? 'active' : '' }}
+    "
+>
 
-                <span class="sidebar-icon">
-                    💧
-                </span>
+    <span class="sidebar-icon">
+        💧
+    </span>
 
-                <span>
-                    Riego
-                </span>
+    <span>
+        Riego
+    </span>
 
-                <span class="menu-coming-soon">
-                    Próximo
-                </span>
-
-            </a>
+</a>
 
 
             {{-- HISTORIAL --}}

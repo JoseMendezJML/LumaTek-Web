@@ -44,3 +44,6 @@ Route::view('/alerts', 'alerts.index')
 
 Route::view('/dashboard', 'dashboard.index')
     ->name('dashboard');
+
+Route::view('/irrigation', 'irrigation.index')
+    ->name('irrigation.index');
