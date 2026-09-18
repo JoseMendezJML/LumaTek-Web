@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SoilMoistureController;
+use App\Http\Controllers\AmbientHumidityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -165,4 +166,26 @@ Route::get(
     '/greenhouses/{greenhouse}/soil-moisture/history',
     [SoilMoistureController::class, 'historyByGreenhouse']
 )->name('greenhouses.soil-moisture.history');
+
+/*
+|--------------------------------------------------------------------------
+| Humedad ambiental
+|--------------------------------------------------------------------------
+*/
+
+Route::post(
+    '/sensors/{sensor}/ambient-humidity',
+    [AmbientHumidityController::class, 'store']
+)->name('ambient-humidity.store');
+
+Route::get(
+    '/sensors/{sensor}/ambient-humidity/current',
+    [AmbientHumidityController::class, 'current']
+)->name('ambient-humidity.current');
+
+Route::get(
+    '/greenhouses/{greenhouse}/ambient-humidity/current',
+    [AmbientHumidityController::class, 'currentByGreenhouse']
+)->name('greenhouses.ambient-humidity.current');
+
 });
