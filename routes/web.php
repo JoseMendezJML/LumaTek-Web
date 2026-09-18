@@ -38,3 +38,6 @@ Route::view('/greenhouses', 'greenhouses.index')
 
 Route::view('/zones', 'zones.index')
     ->name('zones.index');
+
+Route::view('/alerts', 'alerts.index')
+    ->name('alerts.index');
