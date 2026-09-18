@@ -8,6 +8,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SoilMoistureController;
 use App\Http\Controllers\AmbientHumidityController;
+use App\Http\Controllers\ZoneController;
+use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\SensorController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -187,5 +191,83 @@ Route::get(
     '/greenhouses/{greenhouse}/ambient-humidity/current',
     [AmbientHumidityController::class, 'currentByGreenhouse']
 )->name('greenhouses.ambient-humidity.current');
+
+/*
+|--------------------------------------------------------------------------
+| Zonas
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/greenhouses/{greenhouse}/zones',
+    [ZoneController::class, 'index']
+)->name('greenhouses.zones.index');
+
+Route::post(
+    '/greenhouses/{greenhouse}/zones',
+    [ZoneController::class, 'store']
+)->name('greenhouses.zones.store');
+
+Route::put(
+    '/zones/{zone}',
+    [ZoneController::class, 'update']
+)->name('zones.update');
+
+Route::patch(
+    '/zones/{zone}/status',
+    [ZoneController::class, 'changeStatus']
+)->name('zones.status');
+
+/*
+|--------------------------------------------------------------------------
+| Dispositivos
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/zones/{zone}/devices',
+    [DeviceController::class, 'index']
+)->name('zones.devices.index');
+
+Route::post(
+    '/zones/{zone}/devices',
+    [DeviceController::class, 'store']
+)->name('zones.devices.store');
+
+Route::put(
+    '/devices/{device}',
+    [DeviceController::class, 'update']
+)->name('devices.update');
+
+Route::patch(
+    '/devices/{device}/status',
+    [DeviceController::class, 'changeStatus']
+)->name('devices.status');
+
+/*
+|--------------------------------------------------------------------------
+| Sensores
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/devices/{device}/sensors',
+    [SensorController::class, 'index']
+)->name('devices.sensors.index');
+
+Route::post(
+    '/devices/{device}/sensors',
+    [SensorController::class, 'store']
+)->name('devices.sensors.store');
+
+Route::put(
+    '/sensors/{sensor}',
+    [SensorController::class, 'update']
+)->name('sensors.update');
+
+Route::patch(
+    '/sensors/{sensor}/status',
+    [SensorController::class, 'changeStatus']
+)->name('sensors.status');
 
 });
