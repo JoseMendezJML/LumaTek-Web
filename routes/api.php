@@ -11,6 +11,7 @@ use App\Http\Controllers\SensorController;
 use App\Http\Controllers\SoilMoistureController;
 use App\Http\Controllers\TemperatureController;
 use App\Http\Controllers\ZoneController;
+use App\Http\Controllers\ZoneIrrigationSettingController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,7 @@ Route::post(
     '/register',
     [AuthController::class, 'register']
 )->name('api.register');
+
 
 Route::post(
     '/login',
@@ -43,6 +45,7 @@ Route::post(
     '/forgot-password',
     [AuthController::class, 'forgotPassword']
 )->name('password.email');
+
 
 Route::post(
     '/password/reset',
@@ -66,6 +69,7 @@ Route::get(
 
         $user = User::findOrFail($id);
 
+
         abort_unless(
             hash_equals(
                 (string) $hash,
@@ -76,6 +80,7 @@ Route::get(
             403
         );
 
+
         if ($user->hasVerifiedEmail()) {
 
             return response()->json([
@@ -84,7 +89,9 @@ Route::get(
             ]);
         }
 
+
         $user->markEmailAsVerified();
+
 
         return response()->json([
             'message' =>
@@ -356,33 +363,55 @@ Route::middleware('auth:api')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Riego
+    | Riego manual e historial
     |--------------------------------------------------------------------------
     */
 
     Route::get(
-    '/irrigation-events',
-    [IrrigationController::class, 'index']
-)->name('api.irrigation.index');
+        '/irrigation-events',
+        [IrrigationController::class, 'index']
+    )->name('api.irrigation.index');
 
-Route::get(
-    '/irrigation-events/{irrigationEvent}',
-    [IrrigationController::class, 'show']
-)->name('api.irrigation.show');
 
-Route::post(
-    '/zones/{zone}/irrigation/start',
-    [IrrigationController::class, 'startManual']
-)->name('api.irrigation.start');
+    Route::get(
+        '/irrigation-events/{irrigationEvent}',
+        [IrrigationController::class, 'show']
+    )->name('api.irrigation.show');
 
-Route::patch(
-    '/irrigation-events/{irrigationEvent}/complete',
-    [IrrigationController::class, 'complete']
-)->name('api.irrigation.complete');
 
-Route::patch(
-    '/irrigation-events/{irrigationEvent}/cancel',
-    [IrrigationController::class, 'cancel']
-)->name('api.irrigation.cancel');
+    Route::post(
+        '/zones/{zone}/irrigation/start',
+        [IrrigationController::class, 'startManual']
+    )->name('api.irrigation.start');
+
+
+    Route::patch(
+        '/irrigation-events/{irrigationEvent}/complete',
+        [IrrigationController::class, 'complete']
+    )->name('api.irrigation.complete');
+
+
+    Route::patch(
+        '/irrigation-events/{irrigationEvent}/cancel',
+        [IrrigationController::class, 'cancel']
+    )->name('api.irrigation.cancel');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Configuración de riego automático por zona
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/zones/{zone}/irrigation-setting',
+        [ZoneIrrigationSettingController::class, 'show']
+    )->name('api.irrigation-settings.show');
+
+
+    Route::put(
+        '/zones/{zone}/irrigation-setting',
+        [ZoneIrrigationSettingController::class, 'update']
+    )->name('api.irrigation-settings.update');
 
 });

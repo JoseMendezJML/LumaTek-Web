@@ -14,15 +14,26 @@
 <div class="irrigation-page">
 
     {{-- =========================================================
+         RIEGO AUTOMÁTICO
+    ========================================================== --}}
+
+    @include('irrigation.automatic-settings')
+
+
+    {{-- =========================================================
          RESUMEN
     ========================================================== --}}
 
     <section class="irrigation-summary">
 
         <article class="summary-card">
-            <span class="summary-icon">💧</span>
+
+            <span class="summary-icon">
+                💧
+            </span>
 
             <div>
+
                 <span class="summary-label">
                     Total de riegos
                 </span>
@@ -30,14 +41,20 @@
                 <strong id="summary-total">
                     0
                 </strong>
+
             </div>
+
         </article>
 
 
         <article class="summary-card active-card">
-            <span class="summary-icon">🚿</span>
+
+            <span class="summary-icon">
+                🚿
+            </span>
 
             <div>
+
                 <span class="summary-label">
                     En curso
                 </span>
@@ -45,14 +62,20 @@
                 <strong id="summary-active">
                     0
                 </strong>
+
             </div>
+
         </article>
 
 
         <article class="summary-card">
-            <span class="summary-icon">✅</span>
+
+            <span class="summary-icon">
+                ✅
+            </span>
 
             <div>
+
                 <span class="summary-label">
                     Completados
                 </span>
@@ -60,14 +83,20 @@
                 <strong id="summary-completed">
                     0
                 </strong>
+
             </div>
+
         </article>
 
 
         <article class="summary-card">
-            <span class="summary-icon">❌</span>
+
+            <span class="summary-icon">
+                ❌
+            </span>
 
             <div>
+
                 <span class="summary-label">
                     Cancelados
                 </span>
@@ -75,7 +104,9 @@
                 <strong id="summary-cancelled">
                     0
                 </strong>
+
             </div>
+
         </article>
 
     </section>
@@ -93,7 +124,7 @@
 
 
     {{-- =========================================================
-         INICIAR RIEGO
+         INICIAR RIEGO MANUAL
     ========================================================== --}}
 
     <section class="irrigation-card">
@@ -101,6 +132,7 @@
         <div class="section-header">
 
             <div>
+
                 <h2>
                     Iniciar riego manual
                 </h2>
@@ -108,7 +140,9 @@
                 <p>
                     Selecciona el invernadero y la zona donde se realizará el riego.
                 </p>
+
             </div>
+
 
             <span class="manual-badge">
                 Manual
@@ -121,6 +155,8 @@
 
             <div class="form-grid">
 
+                {{-- INVERNADERO --}}
+
                 <div class="form-group">
 
                     <label for="greenhouse-select">
@@ -131,13 +167,17 @@
                         id="greenhouse-select"
                         required
                     >
+
                         <option value="">
                             Selecciona un invernadero
                         </option>
+
                     </select>
 
                 </div>
 
+
+                {{-- ZONA --}}
 
                 <div class="form-group">
 
@@ -150,13 +190,17 @@
                         required
                         disabled
                     >
+
                         <option value="">
                             Selecciona primero un invernadero
                         </option>
+
                     </select>
 
                 </div>
 
+
+                {{-- AGUA --}}
 
                 <div class="form-group">
 
@@ -174,6 +218,8 @@
 
                 </div>
 
+
+                {{-- OBSERVACIONES --}}
 
                 <div class="form-group notes-group">
 
@@ -211,7 +257,7 @@
 
 
     {{-- =========================================================
-         RIEGOS ACTIVOS
+         RIEGOS EN CURSO
     ========================================================== --}}
 
     <section class="irrigation-card">
@@ -219,6 +265,7 @@
         <div class="section-header">
 
             <div>
+
                 <h2>
                     Riegos en curso
                 </h2>
@@ -226,7 +273,9 @@
                 <p>
                     Riegos que todavía no han finalizado.
                 </p>
+
             </div>
+
 
             <button
                 type="button"
@@ -244,6 +293,7 @@
             class="empty-state"
             style="display:none;"
         >
+
             <div class="empty-icon">
                 💧
             </div>
@@ -255,6 +305,7 @@
             <span>
                 Los nuevos riegos aparecerán aquí.
             </span>
+
         </div>
 
 
@@ -275,6 +326,7 @@
         <div class="section-header">
 
             <div>
+
                 <h2>
                     Historial de riego
                 </h2>
@@ -282,10 +334,13 @@
                 <p>
                     Consulta los eventos registrados anteriormente.
                 </p>
+
             </div>
 
         </div>
 
+
+        {{-- FILTROS --}}
 
         <div class="filters-row">
 
@@ -362,6 +417,7 @@
             class="empty-state"
             style="display:none;"
         >
+
             <div class="empty-icon">
                 📋
             </div>
@@ -373,6 +429,7 @@
             <span>
                 Todavía no hay eventos de riego con estos filtros.
             </span>
+
         </div>
 
 
@@ -387,6 +444,10 @@
 
 @endsection
 
+
+{{-- =============================================================
+     ESTILOS
+============================================================= --}}
 
 @push('styles')
 
@@ -405,9 +466,12 @@
         display: grid;
         grid-template-columns:
             repeat(4, minmax(0, 1fr));
+
         gap: 14px;
+
         margin-bottom: 22px;
     }
+
 
     .summary-card {
         min-height: 95px;
@@ -423,6 +487,7 @@
         border: 1px solid #e0e8e2;
         border-radius: 13px;
     }
+
 
     .summary-icon {
         width: 42px;
@@ -441,6 +506,7 @@
         font-size: 20px;
     }
 
+
     .summary-label {
         display: block;
 
@@ -448,6 +514,7 @@
 
         font-size: 10px;
     }
+
 
     .summary-card strong {
         display: block;
@@ -458,6 +525,7 @@
 
         font-size: 25px;
     }
+
 
     .active-card {
         border-left: 4px solid #3a8c5c;
@@ -479,14 +547,17 @@
         border-radius: 14px;
     }
 
+
     .section-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
+
         gap: 15px;
 
         margin-bottom: 18px;
     }
+
 
     .section-header h2 {
         margin: 0;
@@ -496,6 +567,7 @@
         font-size: 17px;
     }
 
+
     .section-header p {
         margin: 5px 0 0;
 
@@ -503,6 +575,7 @@
 
         font-size: 10px;
     }
+
 
     .manual-badge {
         padding: 6px 10px;
@@ -519,7 +592,7 @@
 
 
     /* =========================================================
-       FORMULARIO
+       FORMULARIOS
     ========================================================== */
 
     .form-grid {
@@ -531,16 +604,20 @@
         gap: 14px;
     }
 
+
     .form-group {
         display: flex;
         flex-direction: column;
+
         gap: 6px;
     }
+
 
     .notes-group {
         grid-column:
             span 3;
     }
+
 
     .form-group label {
         color: #55645b;
@@ -548,6 +625,7 @@
         font-size: 10px;
         font-weight: 700;
     }
+
 
     .form-group input,
     .form-group select {
@@ -569,6 +647,7 @@
         outline: none;
     }
 
+
     .form-group input:focus,
     .form-group select:focus {
         border-color: #4c8b62;
@@ -577,10 +656,13 @@
             0 0 0 2px rgba(76, 139, 98, .10);
     }
 
+
     .form-group select:disabled {
         background: #f3f5f4;
+
         color: #929a95;
     }
+
 
     .form-actions {
         display: flex;
@@ -611,16 +693,20 @@
         font-weight: 700;
     }
 
+
     .primary-button,
     .success-button {
         background: #176136;
+
         color: #ffffff;
     }
+
 
     .primary-button:hover,
     .success-button:hover {
         background: #104c2a;
     }
+
 
     .secondary-button {
         border: 1px solid #dbe4dd;
@@ -630,9 +716,11 @@
         color: #526159;
     }
 
+
     .secondary-button:hover {
         background: #f4f7f5;
     }
+
 
     .danger-button {
         background: #fff0f0;
@@ -640,12 +728,15 @@
         color: #a22e2e;
     }
 
+
     .danger-button:hover {
         background: #f9dddd;
     }
 
+
     button:disabled {
         opacity: .55;
+
         cursor: not-allowed;
     }
 
@@ -663,22 +754,27 @@
         gap: 14px;
     }
 
+
     .active-irrigation-card {
         padding: 16px;
 
         border: 1px solid #dfe7e1;
         border-left: 4px solid #3a8c5c;
+
         border-radius: 11px;
 
         background: #fbfdfb;
     }
 
+
     .active-irrigation-header {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
+
         gap: 12px;
     }
+
 
     .active-irrigation-header h3 {
         margin: 0;
@@ -688,6 +784,7 @@
         font-size: 13px;
     }
 
+
     .active-irrigation-header p {
         margin: 4px 0 0;
 
@@ -695,6 +792,7 @@
 
         font-size: 9px;
     }
+
 
     .status-running {
         padding: 5px 8px;
@@ -709,6 +807,7 @@
         font-weight: 700;
     }
 
+
     .irrigation-info-grid {
         display: grid;
 
@@ -720,6 +819,7 @@
         margin-top: 14px;
     }
 
+
     .info-box {
         padding: 9px;
 
@@ -728,6 +828,7 @@
         background: #f2f7f3;
     }
 
+
     .info-box span {
         display: block;
 
@@ -735,6 +836,7 @@
 
         font-size: 8px;
     }
+
 
     .info-box strong {
         display: block;
@@ -746,8 +848,10 @@
         font-size: 11px;
     }
 
+
     .active-actions {
         display: flex;
+
         gap: 8px;
 
         margin-top: 14px;
@@ -755,7 +859,7 @@
 
 
     /* =========================================================
-       HISTORIAL
+       FILTROS
     ========================================================== */
 
     .filters-row {
@@ -769,10 +873,17 @@
         margin-bottom: 18px;
     }
 
+
+    /* =========================================================
+       HISTORIAL
+    ========================================================== */
+
     .history-list {
         display: grid;
+
         gap: 10px;
     }
+
 
     .history-item {
         display: grid;
@@ -791,6 +902,7 @@
         border-radius: 10px;
     }
 
+
     .history-main strong {
         display: block;
 
@@ -798,6 +910,7 @@
 
         font-size: 11px;
     }
+
 
     .history-main span {
         display: block;
@@ -809,6 +922,7 @@
         font-size: 9px;
     }
 
+
     .history-column span {
         display: block;
 
@@ -816,6 +930,7 @@
 
         font-size: 8px;
     }
+
 
     .history-column strong {
         display: block;
@@ -826,6 +941,7 @@
 
         font-size: 10px;
     }
+
 
     .status-badge {
         display: inline-flex;
@@ -838,25 +954,31 @@
         font-weight: 700;
     }
 
+
     .status-started {
         background: #e8f6ed;
+
         color: #176136;
     }
 
+
     .status-completed {
         background: #eaf4ff;
+
         color: #2d6591;
     }
+
 
     .status-cancelled,
     .status-failed {
         background: #fff0f0;
+
         color: #a22e2e;
     }
 
 
     /* =========================================================
-       ESTADOS Y MENSAJES
+       MENSAJES Y ESTADOS
     ========================================================== */
 
     .empty-state,
@@ -868,6 +990,7 @@
         color: #758079;
     }
 
+
     .empty-state strong {
         display: block;
 
@@ -878,6 +1001,7 @@
         font-size: 12px;
     }
 
+
     .empty-state span {
         display: block;
 
@@ -886,9 +1010,11 @@
         font-size: 9px;
     }
 
+
     .empty-icon {
         font-size: 26px;
     }
+
 
     .message-box {
         margin-bottom: 18px;
@@ -900,15 +1026,19 @@
         font-size: 10px;
     }
 
+
     .message-success {
         background: #eaf7ee;
+
         color: #176136;
 
         border: 1px solid #cae8d3;
     }
 
+
     .message-error {
         background: #fff0f0;
+
         color: #a22e2e;
 
         border: 1px solid #f1cccc;
@@ -926,19 +1056,23 @@
                 repeat(2, minmax(0, 1fr));
         }
 
+
         .form-grid {
             grid-template-columns:
                 repeat(2, minmax(0, 1fr));
         }
+
 
         .notes-group {
             grid-column:
                 span 2;
         }
 
+
         .active-irrigations-grid {
             grid-template-columns: 1fr;
         }
+
 
         .history-item {
             grid-template-columns:
@@ -956,15 +1090,18 @@
             grid-template-columns: 1fr;
         }
 
+
         .notes-group {
             grid-column:
                 span 1;
         }
 
+
         .section-header {
             align-items: flex-start;
             flex-direction: column;
         }
+
 
         .active-actions {
             flex-direction: column;
@@ -976,9 +1113,19 @@
 @endpush
 
 
+{{-- =============================================================
+     JAVASCRIPT
+============================================================= --}}
+
 @push('scripts')
 
 <script>
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOKEN
+    |--------------------------------------------------------------------------
+    */
 
     const irrigationToken =
         sessionStorage.getItem(
@@ -1102,14 +1249,18 @@
                 'div'
             );
 
+
         element.textContent =
             value ?? '';
+
 
         return element.innerHTML;
     }
 
 
-    function handleUnauthorized(response) {
+    function handleUnauthorized(
+        response
+    ) {
 
         if (response.status === 401) {
 
@@ -1117,15 +1268,19 @@
                 'lumatek_access_token'
             );
 
+
             sessionStorage.removeItem(
                 'lumatek_user'
             );
 
+
             window.location.href =
                 '/login';
 
+
             return true;
         }
+
 
         return false;
     }
@@ -1155,7 +1310,7 @@
 
         window.scrollTo({
             top: 0,
-            behavior: 'smooth'
+            behavior: 'smooth',
         });
     }
 
@@ -1167,9 +1322,12 @@
     }
 
 
-    function formatDate(value) {
+    function formatDate(
+        value
+    ) {
 
         if (!value) {
+
             return '—';
         }
 
@@ -1192,20 +1350,26 @@
         return date.toLocaleString(
             'es-MX',
             {
-                dateStyle: 'short',
-                timeStyle: 'short',
+                dateStyle:
+                    'short',
+
+                timeStyle:
+                    'short',
             }
         );
     }
 
 
-    function humidityValue(value) {
+    function humidityValue(
+        value
+    ) {
 
         if (
             value === null
             ||
             value === undefined
         ) {
+
             return '—';
         }
 
@@ -1216,7 +1380,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | INVERNADEROS
+    | CARGAR INVERNADEROS
     |--------------------------------------------------------------------------
     */
 
@@ -1229,12 +1393,13 @@
                     '/api/greenhouses',
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
                             'Authorization':
                                 `Bearer ${irrigationToken}`,
-                        }
+                        },
                     }
                 );
 
@@ -1306,7 +1471,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | ZONAS
+    | CARGAR ZONAS
     |--------------------------------------------------------------------------
     */
 
@@ -1335,6 +1500,7 @@
                     </option>
                 `;
 
+
             return;
         }
 
@@ -1346,12 +1512,13 @@
                     `/api/greenhouses/${greenhouseId}/zones`,
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
                             'Authorization':
                                 `Bearer ${irrigationToken}`,
-                        }
+                        },
                     }
                 );
 
@@ -1438,7 +1605,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | INICIAR RIEGO
+    | INICIAR RIEGO MANUAL
     |--------------------------------------------------------------------------
     */
 
@@ -1462,6 +1629,7 @@
                 'Selecciona una zona.',
                 'error'
             );
+
 
             return;
         }
@@ -1505,9 +1673,11 @@
                 await fetch(
                     `/api/zones/${zoneId}/irrigation/start`,
                     {
-                        method: 'POST',
+                        method:
+                            'POST',
 
                         headers: {
+
                             'Accept':
                                 'application/json',
 
@@ -1546,6 +1716,7 @@
                     ?? 'No fue posible iniciar el riego.',
                     'error'
                 );
+
 
                 return;
             }
@@ -1590,7 +1761,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | FINALIZAR RIEGO
+    | FINALIZAR
     |--------------------------------------------------------------------------
     */
 
@@ -1605,6 +1776,7 @@
 
 
         if (!confirmed) {
+
             return;
         }
 
@@ -1618,9 +1790,11 @@
                 await fetch(
                     `/api/irrigation-events/${id}/complete`,
                     {
-                        method: 'PATCH',
+                        method:
+                            'PATCH',
 
                         headers: {
+
                             'Accept':
                                 'application/json',
 
@@ -1658,6 +1832,7 @@
                     'error'
                 );
 
+
                 return;
             }
 
@@ -1683,7 +1858,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | CANCELAR RIEGO
+    | CANCELAR
     |--------------------------------------------------------------------------
     */
 
@@ -1698,6 +1873,7 @@
 
 
         if (!confirmed) {
+
             return;
         }
 
@@ -1711,9 +1887,11 @@
                 await fetch(
                     `/api/irrigation-events/${id}/cancel`,
                     {
-                        method: 'PATCH',
+                        method:
+                            'PATCH',
 
                         headers: {
+
                             'Accept':
                                 'application/json',
 
@@ -1727,7 +1905,7 @@
                         body:
                             JSON.stringify({
                                 notes:
-                                    'Riego cancelado desde la interfaz web.'
+                                    'Riego cancelado desde la interfaz web.',
                             }),
                     }
                 );
@@ -1753,6 +1931,7 @@
                     ?? 'No fue posible cancelar el riego.',
                     'error'
                 );
+
 
                 return;
             }
@@ -1836,12 +2015,13 @@
                     url,
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
                             'Authorization':
                                 `Bearer ${irrigationToken}`,
-                        }
+                        },
                     }
                 );
 
@@ -1867,6 +2047,7 @@
                     'error'
                 );
 
+
                 return;
             }
 
@@ -1877,7 +2058,7 @@
 
             /*
             |--------------------------------------------------------------------------
-            | Para resumen y activos usamos listado completo
+            | Listado completo para resumen y activos
             |--------------------------------------------------------------------------
             */
 
@@ -1886,14 +2067,24 @@
                     '/api/irrigation-events',
                     {
                         headers: {
+
                             'Accept':
                                 'application/json',
 
                             'Authorization':
                                 `Bearer ${irrigationToken}`,
-                        }
+                        },
                     }
                 );
+
+
+            if (
+                handleUnauthorized(
+                    allResponse
+                )
+            ) {
+                return;
+            }
 
 
             const allResult =
@@ -1988,7 +2179,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | ACTIVOS
+    | RIEGOS ACTIVOS
     |--------------------------------------------------------------------------
     */
 
@@ -2004,6 +2195,7 @@
 
             activeEmpty.style.display =
                 'block';
+
 
             return;
         }
@@ -2026,6 +2218,12 @@
                     'active-irrigation-card';
 
 
+                const modeLabel =
+                    event.mode === 'automatic'
+                        ? '🤖 Automático'
+                        : '👤 Manual';
+
+
                 card.innerHTML = `
 
                     <div class="active-irrigation-header">
@@ -2040,10 +2238,16 @@
                             </h3>
 
                             <p>
+
                                 ${escapeHtml(
                                     event.greenhouse?.name
                                     ?? 'Sin invernadero'
                                 )}
+
+                                ·
+
+                                ${modeLabel}
+
                             </p>
 
                         </div>
@@ -2080,6 +2284,7 @@
                             </span>
 
                             <strong>
+
                                 ${
                                     event.water_liters !== null
                                         ? `${Number(
@@ -2087,6 +2292,7 @@
                                         ).toFixed(2)} L`
                                         : '—'
                                 }
+
                             </strong>
 
                         </div>
@@ -2161,6 +2367,7 @@
             historyEmpty.style.display =
                 'block';
 
+
             return;
         }
 
@@ -2182,6 +2389,12 @@
                     'history-item';
 
 
+                const modeLabel =
+                    event.mode === 'automatic'
+                        ? 'Automático'
+                        : 'Manual';
+
+
                 item.innerHTML = `
 
                     <div class="history-main">
@@ -2194,10 +2407,16 @@
                         </strong>
 
                         <span>
+
                             ${escapeHtml(
                                 event.greenhouse?.name
                                 ?? 'Sin invernadero'
                             )}
+
+                            ·
+
+                            ${modeLabel}
+
                         </span>
 
                     </div>
@@ -2219,9 +2438,11 @@
                                     )}
                                 "
                             >
+
                                 ${escapeHtml(
                                     event.status_label
                                 )}
+
                             </span>
 
                         </strong>
@@ -2236,13 +2457,17 @@
                         </span>
 
                         <strong>
+
                             ${humidityValue(
                                 event.soil_humidity_before
                             )}
+
                             →
+
                             ${humidityValue(
                                 event.soil_humidity_after
                             )}
+
                         </strong>
 
                     </div>
@@ -2255,6 +2480,7 @@
                         </span>
 
                         <strong>
+
                             ${
                                 event.water_liters !== null
                                     ? `${Number(
@@ -2262,6 +2488,7 @@
                                     ).toFixed(2)} L`
                                     : '—'
                             }
+
                         </strong>
 
                     </div>
@@ -2336,7 +2563,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | INICIO
+    | INICIALIZAR
     |--------------------------------------------------------------------------
     */
 
