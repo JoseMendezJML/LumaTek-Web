@@ -2,7 +2,7 @@
 
 @section('title', 'Dashboard | LumaTek')
 
-@section('page-title', 'Dashboard')
+@section('page-title', 'Resumen general')
 
 @section(
     'page-subtitle',

@@ -555,7 +555,7 @@
                 </span>
 
                 <span>
-                    Dashboard
+                    Resumen general
                 </span>
 
             </a>
