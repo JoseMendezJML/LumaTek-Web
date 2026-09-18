@@ -381,6 +381,7 @@
         </div>
 
     </section>
+    @include('history.irrigations')
 
 </div>
 

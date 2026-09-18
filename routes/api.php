@@ -418,4 +418,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/history', [HistoryController::class, 'index'])
     ->name('api.history.index');
 
+    Route::get('/history/irrigations', [HistoryController::class, 'irrigations'])
+    ->name('api.history.irrigations');
+
 });
