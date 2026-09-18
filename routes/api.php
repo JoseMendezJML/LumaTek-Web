@@ -15,6 +15,7 @@ use App\Http\Controllers\ZoneIrrigationSettingController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\HistoryController;
 
 
 /*
@@ -413,5 +414,8 @@ Route::middleware('auth:api')->group(function () {
         '/zones/{zone}/irrigation-setting',
         [ZoneIrrigationSettingController::class, 'update']
     )->name('api.irrigation-settings.update');
+
+    Route::get('/history', [HistoryController::class, 'index'])
+    ->name('api.history.index');
 
 });

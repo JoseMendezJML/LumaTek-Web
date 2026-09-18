@@ -47,3 +47,6 @@ Route::view('/dashboard', 'dashboard.index')
 
 Route::view('/irrigation', 'irrigation.index')
     ->name('irrigation.index');
+
+Route::view('/history', 'history.index')
+    ->name('history.index');
