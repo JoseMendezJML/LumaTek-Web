@@ -35,3 +35,6 @@ Route::get('/reset-password/{token}', function (
 
 Route::view('/greenhouses', 'greenhouses.index')
     ->name('greenhouses.web.index');
+
+Route::view('/zones', 'zones.index')
+    ->name('zones.index');
