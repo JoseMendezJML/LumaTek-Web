@@ -12,6 +12,7 @@ use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\SensorController;
 use App\Http\Controllers\AlertController;
+use App\Http\Controllers\DashboardController;
 
 
 /*
@@ -291,5 +292,16 @@ Route::patch(
     '/alerts/{alert}/resolve',
     [AlertController::class, 'resolve']
 )->name('alerts.resolve');
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/dashboard',
+    [DashboardController::class, 'index']
+)->name('dashboard.index');
 
 });
