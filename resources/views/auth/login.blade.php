@@ -225,7 +225,7 @@ loginMessage.style.display =
     setTimeout(function () {
 
     window.location.href =
-        '/greenhouses';
+        '/dashboard';
 
 }, 700);
             loginMessage.className =

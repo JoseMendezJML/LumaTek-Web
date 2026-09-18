@@ -19,26 +19,14 @@
         @yield('title', 'LumaTek')
     </title>
 
-
-    {{-- =========================================================
-         CSS PRINCIPAL
-    ========================================================== --}}
-
     <link
         rel="stylesheet"
         href="{{ asset('css/panel.css') }}"
     >
 
-
-    {{-- Estilos específicos de cada página --}}
     @stack('styles')
 
-
     <style>
-
-        /* =========================================================
-           LAYOUT GENERAL
-        ========================================================== */
 
         * {
             box-sizing: border-box;
@@ -46,10 +34,7 @@
 
         body {
             margin: 0;
-            font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
             background: #f4f7f5;
             color: #26372d;
         }
@@ -58,7 +43,6 @@
             min-height: 100vh;
             display: flex;
         }
-
 
         /* =========================================================
            SIDEBAR
@@ -83,11 +67,6 @@
             overflow-y: auto;
         }
 
-
-        /* =========================================================
-           LOGO
-        ========================================================== */
-
         .sidebar-brand {
             min-height: 86px;
 
@@ -97,12 +76,7 @@
             padding: 18px 20px;
 
             border-bottom:
-                1px solid rgba(
-                    255,
-                    255,
-                    255,
-                    .10
-                );
+                1px solid rgba(255, 255, 255, .10);
         }
 
         .sidebar-brand img {
@@ -111,7 +85,6 @@
             max-height: 52px;
             object-fit: contain;
         }
-
 
         /* =========================================================
            MENÚ
@@ -123,18 +96,10 @@
         }
 
         .sidebar-section-title {
-            margin:
-                15px
-                12px
-                8px;
+            margin: 15px 12px 8px;
 
             color:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    .45
-                );
+                rgba(255, 255, 255, .45);
 
             font-size: 10px;
             font-weight: 700;
@@ -152,19 +117,12 @@
 
             margin-bottom: 5px;
 
-            padding:
-                11px
-                13px;
+            padding: 11px 13px;
 
             border-radius: 9px;
 
             color:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    .82
-                );
+                rgba(255, 255, 255, .82);
 
             text-decoration: none;
 
@@ -178,24 +136,14 @@
 
         .sidebar-link:hover {
             background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    .10
-                );
+                rgba(255, 255, 255, .10);
 
             color: #ffffff;
         }
 
         .sidebar-link.active {
             background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    .16
-                );
+                rgba(255, 255, 255, .16);
 
             color: #ffffff;
         }
@@ -205,11 +153,6 @@
             text-align: center;
             font-size: 16px;
         }
-
-
-        /* =========================================================
-           ELEMENTOS PRÓXIMOS
-        ========================================================== */
 
         .sidebar-link.disabled {
             opacity: .45;
@@ -223,23 +166,15 @@
         .menu-coming-soon {
             margin-left: auto;
 
-            padding:
-                3px
-                6px;
+            padding: 3px 6px;
 
             border-radius: 10px;
 
             background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    .10
-                );
+                rgba(255, 255, 255, .10);
 
             font-size: 8px;
         }
-
 
         /* =========================================================
            ÁREA PRINCIPAL
@@ -251,7 +186,6 @@
 
             margin-left: 245px;
         }
-
 
         /* =========================================================
            TOPBAR
@@ -266,9 +200,7 @@
 
             gap: 20px;
 
-            padding:
-                12px
-                28px;
+            padding: 12px 28px;
 
             background: #ffffff;
 
@@ -290,16 +222,12 @@
         }
 
         .page-heading p {
-            margin:
-                4px
-                0
-                0;
+            margin: 4px 0 0;
 
             color: #7b867f;
 
             font-size: 11px;
         }
-
 
         /* =========================================================
            PERFIL
@@ -314,12 +242,9 @@
             align-items: center;
             gap: 10px;
 
-            padding:
-                7px
-                10px;
+            padding: 7px 10px;
 
             border: 1px solid #e0e8e2;
-
             border-radius: 10px;
 
             background: #ffffff;
@@ -383,9 +308,8 @@
             font-size: 10px;
         }
 
-
         /* =========================================================
-           DROPDOWN PERFIL
+           DROPDOWN
         ========================================================== */
 
         .profile-menu {
@@ -400,23 +324,13 @@
 
             padding: 7px;
 
-            border:
-                1px solid #e0e8e2;
-
+            border: 1px solid #e0e8e2;
             border-radius: 11px;
 
             background: #ffffff;
 
             box-shadow:
-                0
-                10px
-                30px
-                rgba(
-                    20,
-                    60,
-                    40,
-                    .10
-                );
+                0 10px 30px rgba(20, 60, 40, .10);
 
             z-index: 1100;
         }
@@ -426,9 +340,7 @@
         }
 
         .profile-menu-header {
-            padding:
-                10px
-                11px;
+            padding: 10px 11px;
 
             border-bottom:
                 1px solid #edf1ee;
@@ -463,12 +375,9 @@
             align-items: center;
             gap: 9px;
 
-            padding:
-                10px
-                11px;
+            padding: 10px 11px;
 
             border: 0;
-
             border-radius: 8px;
 
             background: transparent;
@@ -478,7 +387,6 @@
             cursor: pointer;
 
             text-align: left;
-
             text-decoration: none;
 
             font-size: 11px;
@@ -492,22 +400,13 @@
             color: #a13232;
         }
 
-
         /* =========================================================
            CONTENIDO
         ========================================================== */
 
         .app-content {
-            padding:
-                26px
-                28px
-                40px;
+            padding: 26px 28px 40px;
         }
-
-
-        /* =========================================================
-           MENÚ MÓVIL
-        ========================================================== */
 
         .mobile-menu-button {
             display: none;
@@ -515,9 +414,7 @@
             width: 39px;
             height: 39px;
 
-            border:
-                1px solid #dce5de;
-
+            border: 1px solid #dce5de;
             border-radius: 9px;
 
             background: #ffffff;
@@ -527,15 +424,9 @@
             font-size: 18px;
         }
 
-
-        /* =========================================================
-           OVERLAY
-        ========================================================== */
-
         .sidebar-overlay {
             display: none;
         }
-
 
         /* =========================================================
            RESPONSIVE
@@ -544,16 +435,12 @@
         @media (max-width: 900px) {
 
             .app-sidebar {
-                transform:
-                    translateX(-100%);
-
-                transition:
-                    transform .2s ease;
+                transform: translateX(-100%);
+                transition: transform .2s ease;
             }
 
             .app-sidebar.open {
-                transform:
-                    translateX(0);
+                transform: translateX(0);
             }
 
             .app-main {
@@ -568,16 +455,11 @@
             }
 
             .app-topbar {
-                padding:
-                    12px
-                    17px;
+                padding: 12px 17px;
             }
 
             .app-content {
-                padding:
-                    20px
-                    16px
-                    35px;
+                padding: 20px 16px 35px;
             }
 
             .page-heading {
@@ -594,26 +476,18 @@
 
             .sidebar-overlay {
                 position: fixed;
-
                 inset: 0;
 
                 z-index: 950;
 
                 background:
-                    rgba(
-                        0,
-                        0,
-                        0,
-                        .35
-                    );
+                    rgba(0, 0, 0, .35);
             }
 
             .sidebar-overlay.show {
                 display: block;
             }
-
         }
-
 
         @media (max-width: 600px) {
 
@@ -624,18 +498,15 @@
             .page-heading p {
                 display: none;
             }
-
         }
 
     </style>
 
 </head>
 
-
 <body>
 
 <div class="app-layout">
-
 
     {{-- =========================================================
          SIDEBAR
@@ -646,12 +517,11 @@
         class="app-sidebar"
     >
 
-
         {{-- LOGO --}}
 
         <div class="sidebar-brand">
 
-            <a href="{{ url('/greenhouses') }}">
+            <a href="{{ url('/dashboard') }}">
 
                 <img
                     src="{{ asset('images/lumatek-logo.png') }}"
@@ -663,14 +533,32 @@
         </div>
 
 
-        {{-- MENÚ --}}
-
         <nav class="sidebar-menu">
-
 
             <div class="sidebar-section-title">
                 Monitoreo
             </div>
+
+
+            {{-- DASHBOARD --}}
+
+            <a
+                href="{{ url('/dashboard') }}"
+                class="
+                    sidebar-link
+                    {{ request()->is('dashboard*') ? 'active' : '' }}
+                "
+            >
+
+                <span class="sidebar-icon">
+                    📊
+                </span>
+
+                <span>
+                    Dashboard
+                </span>
+
+            </a>
 
 
             {{-- INVERNADEROS --}}
@@ -737,7 +625,7 @@
 
 
             {{-- =================================================
-                 FUNCIONES QUE IREMOS COMPLETANDO
+                 GESTIÓN
             ================================================== --}}
 
             <div class="sidebar-section-title">
@@ -837,7 +725,9 @@
             </a>
 
 
-            {{-- CONFIGURACIÓN --}}
+            {{-- =================================================
+                 SISTEMA
+            ================================================== --}}
 
             <div class="sidebar-section-title">
                 Sistema
@@ -865,8 +755,6 @@
     </aside>
 
 
-    {{-- Overlay móvil --}}
-
     <div
         id="sidebar-overlay"
         class="sidebar-overlay"
@@ -874,16 +762,12 @@
 
 
     {{-- =========================================================
-         CONTENIDO PRINCIPAL
+         PRINCIPAL
     ========================================================== --}}
 
     <main class="app-main">
 
-
-        {{-- TOPBAR --}}
-
         <header class="app-topbar">
-
 
             <div
                 style="
@@ -930,7 +814,6 @@
 
             <div class="profile-container">
 
-
                 <button
                     type="button"
                     id="profile-button"
@@ -971,13 +854,10 @@
                 </button>
 
 
-                {{-- DROPDOWN --}}
-
                 <div
                     id="profile-menu"
                     class="profile-menu"
                 >
-
 
                     <div class="profile-menu-header">
 
@@ -1013,10 +893,6 @@
         </header>
 
 
-        {{-- =====================================================
-             CONTENIDO DE CADA PÁGINA
-        ====================================================== --}}
-
         <section class="app-content">
 
             @yield('content')
@@ -1028,17 +904,7 @@
 </div>
 
 
-{{-- =============================================================
-     JAVASCRIPT GENERAL
-============================================================= --}}
-
 <script>
-
-    /*
-    |--------------------------------------------------------------------------
-    | Elementos
-    |--------------------------------------------------------------------------
-    */
 
     const appSidebar =
         document.getElementById(
@@ -1078,7 +944,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Usuario guardado en sessionStorage
+    | USUARIO
     |--------------------------------------------------------------------------
     */
 
@@ -1119,11 +985,6 @@
                 ?? 'Administrador';
 
 
-            /*
-            | Si el backend devuelve company_admin,
-            | lo mostramos de forma amigable.
-            */
-
             const roleLabels = {
 
                 company_admin:
@@ -1143,10 +1004,6 @@
                 ?? role;
 
 
-            /*
-            | Nombre
-            */
-
             document.getElementById(
                 'profile-name'
             ).textContent =
@@ -1159,29 +1016,17 @@
                 name;
 
 
-            /*
-            | Correo
-            */
-
             document.getElementById(
                 'profile-menu-email'
             ).textContent =
                 email;
 
 
-            /*
-            | Rol
-            */
-
             document.getElementById(
                 'profile-role'
             ).textContent =
                 role;
 
-
-            /*
-            | Inicial del avatar
-            */
 
             const initial =
                 name
@@ -1209,7 +1054,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Dropdown del perfil
+    | PERFIL
     |--------------------------------------------------------------------------
     */
 
@@ -1254,7 +1099,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Cerrar sesión
+    | LOGOUT
     |--------------------------------------------------------------------------
     */
 
@@ -1281,7 +1126,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | Sidebar móvil
+    | SIDEBAR MÓVIL
     |--------------------------------------------------------------------------
     */
 
@@ -1319,18 +1164,11 @@
     );
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cargar datos iniciales
-    |--------------------------------------------------------------------------
-    */
-
     loadUserInformation();
 
 </script>
 
 
-{{-- Scripts específicos de las vistas --}}
 @stack('scripts')
 
 </body>

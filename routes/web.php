@@ -41,3 +41,6 @@ Route::view('/zones', 'zones.index')
 
 Route::view('/alerts', 'alerts.index')
     ->name('alerts.index');
+
+Route::view('/dashboard', 'dashboard.index')
+    ->name('dashboard');
