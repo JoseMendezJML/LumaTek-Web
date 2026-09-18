@@ -6,6 +6,7 @@ use App\Http\Controllers\TemperatureController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\SoilMoistureController;
 
 /*
 |--------------------------------------------------------------------------
@@ -132,5 +133,36 @@ Route::middleware('auth:api')->group(function () {
     Route::get(
     '/greenhouses/{greenhouse}/temperature/current',
     [TemperatureController::class, 'currentByGreenhouse']
-)->name('greenhouses.temperature.current');
+    )->name('greenhouses.temperature.current');
+
+    /*
+|--------------------------------------------------------------------------
+| Humedad del suelo
+|--------------------------------------------------------------------------
+*/
+
+Route::post(
+    '/sensors/{sensor}/soil-moisture',
+    [SoilMoistureController::class, 'store']
+)->name('soil-moisture.store');
+
+Route::get(
+    '/sensors/{sensor}/soil-moisture/current',
+    [SoilMoistureController::class, 'current']
+)->name('soil-moisture.current');
+
+Route::get(
+    '/sensors/{sensor}/soil-moisture/history',
+    [SoilMoistureController::class, 'history']
+)->name('soil-moisture.history');
+
+Route::get(
+    '/greenhouses/{greenhouse}/soil-moisture/current',
+    [SoilMoistureController::class, 'currentByGreenhouse']
+)->name('greenhouses.soil-moisture.current');
+
+Route::get(
+    '/greenhouses/{greenhouse}/soil-moisture/history',
+    [SoilMoistureController::class, 'historyByGreenhouse']
+)->name('greenhouses.soil-moisture.history');
 });
