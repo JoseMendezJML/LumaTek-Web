@@ -11,6 +11,7 @@ use App\Http\Controllers\AmbientHumidityController;
 use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\SensorController;
+use App\Http\Controllers\AlertController;
 
 
 /*
@@ -269,5 +270,26 @@ Route::patch(
     '/sensors/{sensor}/status',
     [SensorController::class, 'changeStatus']
 )->name('sensors.status');
+
+/*
+|--------------------------------------------------------------------------
+| Alertas
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/alerts',
+    [AlertController::class, 'index']
+)->name('alerts.index');
+
+Route::patch(
+    '/alerts/{alert}/acknowledge',
+    [AlertController::class, 'acknowledge']
+)->name('alerts.acknowledge');
+
+Route::patch(
+    '/alerts/{alert}/resolve',
+    [AlertController::class, 'resolve']
+)->name('alerts.resolve');
 
 });
