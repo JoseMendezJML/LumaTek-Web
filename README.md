@@ -83,3 +83,15 @@ El desarrollo se administra mediante Jira. Las ramas y commits incluyen la clave
 Ejemplo de commit:
 
     feat(LUM-56): configurar estructura inicial del proyecto Laravel
+
+
+
+## Flujo de colaboración
+
+Los cambios del proyecto se desarrollan en ramas `feature/*` y se integran mediante Pull Request.
+
+- `main`: versión estable.
+- `develop`: integración de funcionalidades.
+- `feature/*`: desarrollo de funcionalidades específicas.
+
+Los Pull Request deben ser revisados por al menos un integrante del equipo antes de su integración.
