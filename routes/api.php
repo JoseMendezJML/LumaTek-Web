@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\UserManagementController;
+use App\Http\Controllers\CompanySettingsController;
 
 
 /*
@@ -451,5 +452,22 @@ Route::middleware('auth:api')->group(function () {
         '/users/{user}/status',
         [UserManagementController::class, 'changeStatus']
     )->name('api.users.status');
+
+        /*
+    |--------------------------------------------------------------------------
+    | Configuración de empresa
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/company/settings',
+        [CompanySettingsController::class, 'show']
+    )->name('api.company.settings.show');
+
+
+    Route::put(
+        '/company/settings',
+        [CompanySettingsController::class, 'update']
+    )->name('api.company.settings.update');
 
 });

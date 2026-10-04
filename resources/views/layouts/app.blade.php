@@ -719,20 +719,20 @@
 
 
             <a
-                href="#"
-                class="sidebar-link disabled"
-                onclick="return false;"
-            >
+    href="{{ route('settings.index') }}"
+    class="
+        sidebar-link
+        {{ request()->routeIs('settings.*') ? 'active' : '' }}
+    "
+>
+    <span class="sidebar-icon">
+        ⚙️
+    </span>
 
-                <span class="sidebar-icon">
-                    ⚙️
-                </span>
-
-                <span>
-                    Configuración
-                </span>
-
-            </a>
+    <span>
+        Configuración
+    </span>
+</a>
 
         </nav>
 
