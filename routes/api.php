@@ -16,6 +16,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HistoryController;
+use App\Http\Controllers\UserManagementController;
 
 
 /*
@@ -420,5 +421,35 @@ Route::middleware('auth:api')->group(function () {
 
     Route::get('/history/irrigations', [HistoryController::class, 'irrigations'])
     ->name('api.history.irrigations');
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Usuarios y empleados
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/users',
+        [UserManagementController::class, 'index']
+    )->name('api.users.index');
+
+
+    Route::post(
+        '/users',
+        [UserManagementController::class, 'store']
+    )->name('api.users.store');
+
+
+    Route::put(
+        '/users/{user}',
+        [UserManagementController::class, 'update']
+    )->name('api.users.update');
+
+
+    Route::patch(
+        '/users/{user}/status',
+        [UserManagementController::class, 'changeStatus']
+    )->name('api.users.status');
 
 });

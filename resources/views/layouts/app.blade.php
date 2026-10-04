@@ -694,30 +694,24 @@
 
             {{-- USUARIOS --}}
 
-            <a
-                href="#"
-                class="sidebar-link disabled"
-                onclick="return false;"
-            >
+<a
+    href="{{ route('users.index') }}"
+    class="
+        sidebar-link
+        {{ request()->routeIs('users.*') ? 'active' : '' }}
+    "
+>
+    <span class="sidebar-icon">
+        U
+    </span>
 
-                <span class="sidebar-icon">
-                    👥
-                </span>
-
-                <span>
-                    Usuarios
-                </span>
-
-                <span class="menu-coming-soon">
-                    Próximo
-                </span>
-
-            </a>
+    <span>
+        Usuarios
+    </span>
+</a>
 
 
-            {{-- =================================================
-                 SISTEMA
-            ================================================== --}}
+            {{-- ================SISTEMA======================================= --}}
 
             <div class="sidebar-section-title">
                 Sistema
