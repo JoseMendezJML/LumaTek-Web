@@ -3,9 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return redirect('/login');
-});
+Route::view('/', 'landing')
+    ->name('landing');
 
 Route::view('/login', 'auth.login')
     ->name('login');
