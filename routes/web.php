@@ -50,3 +50,6 @@ Route::view('/irrigation', 'irrigation.index')
 
 Route::view('/history', 'history.index')
     ->name('history.index');
+
+Route::view('/users', 'users.index')
+    ->name('users.index');
