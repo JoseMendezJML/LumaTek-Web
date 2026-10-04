@@ -53,3 +53,6 @@ Route::view('/history', 'history.index')
 
 Route::view('/users', 'users.index')
     ->name('users.index');
+
+Route::view('/settings', 'settings.index')
+    ->name('settings.index');
