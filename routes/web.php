@@ -55,3 +55,6 @@ Route::view('/users', 'users.index')
 
 Route::view('/settings', 'settings.index')
     ->name('settings.index');
+
+Route::view('/reports', 'reports.index')
+    ->name('reports.index');

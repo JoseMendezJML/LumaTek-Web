@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\CompanySettingsController;
+use App\Http\Controllers\ReportController;
 
 
 /*
@@ -469,5 +470,22 @@ Route::middleware('auth:api')->group(function () {
         '/company/settings',
         [CompanySettingsController::class, 'update']
     )->name('api.company.settings.update');
+
+
+    /*
+|--------------------------------------------------------------------------
+| Reportes
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/reports',
+    [ReportController::class, 'index']
+)->name('api.reports.index');
+
+Route::get(
+    '/reports/pdf',
+    [ReportController::class, 'pdf']
+)->name('api.reports.pdf');
 
 });
