@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\IrrigationEvent;
 use App\Models\Reading;
 use App\Models\Zone;
+use App\Models\Greenhouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -314,6 +315,282 @@ class IrrigationController extends Controller
                 $this->formatEvent($event),
         ], 201);
     }
+
+    /**
+ * Inicia un riego manual en todas las zonas activas
+ * de un invernadero.
+ */
+public function startManualByGreenhouse(
+    Request $request,
+    Greenhouse $greenhouse
+): JsonResponse {
+
+    $user = auth('api')->user();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Seguridad multiempresa
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $greenhouse->company_id
+        !== $user->company_id
+    ) {
+
+        return response()->json([
+            'message' =>
+                'El invernadero seleccionado no es válido.',
+        ], 404);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invernadero activo
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $greenhouse->status
+        !== 'active'
+    ) {
+
+        return response()->json([
+            'message' =>
+                'No se puede iniciar el riego porque el invernadero está inactivo.',
+        ], 422);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validación
+    |--------------------------------------------------------------------------
+    |
+    | water_liters representa la cantidad registrada
+    | para cada zona.
+    |
+    */
+
+    $data = $request->validate([
+
+        'water_liters' => [
+            'nullable',
+            'numeric',
+            'min:0',
+            'max:99999999.99',
+        ],
+
+        'notes' => [
+            'nullable',
+            'string',
+            'max:1000',
+        ],
+
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Zonas activas
+    |--------------------------------------------------------------------------
+    */
+
+    $zones = Zone::query()
+        ->where(
+            'greenhouse_id',
+            $greenhouse->id
+        )
+        ->where(
+            'status',
+            'active'
+        )
+        ->orderBy('name')
+        ->get();
+
+
+    if ($zones->isEmpty()) {
+
+        return response()->json([
+            'message' =>
+                'El invernadero no tiene zonas activas disponibles para riego.',
+        ], 422);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Evitar riego parcial
+    |--------------------------------------------------------------------------
+    |
+    | Si cualquiera de las zonas ya tiene un riego activo,
+    | no iniciamos el proceso en ninguna zona.
+    |
+    */
+
+    $zoneIds =
+        $zones->pluck('id');
+
+
+    $zonesWithActiveIrrigation =
+        IrrigationEvent::query()
+            ->whereIn(
+                'zone_id',
+                $zoneIds
+            )
+            ->where(
+                'status',
+                'started'
+            )
+            ->with('zone')
+            ->get();
+
+
+    if (
+        $zonesWithActiveIrrigation
+            ->isNotEmpty()
+    ) {
+
+        $zoneNames =
+            $zonesWithActiveIrrigation
+                ->pluck('zone.name')
+                ->filter()
+                ->implode(', ');
+
+
+        return response()->json([
+            'message' =>
+                'No se puede iniciar el riego de todo el invernadero porque existen zonas con riego activo.'
+                . (
+                    $zoneNames
+                        ? ' Zonas: ' . $zoneNames . '.'
+                        : ''
+                ),
+        ], 422);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Crear un evento por cada zona
+    |--------------------------------------------------------------------------
+    */
+
+    $events = DB::transaction(
+        function () use (
+            $zones,
+            $user,
+            $data
+        ) {
+
+            $createdEvents =
+                collect();
+
+
+            foreach ($zones as $zone) {
+
+                $soilReading =
+                    $this->latestSoilReading(
+                        $zone->id
+                    );
+
+
+                $event =
+                    IrrigationEvent::create([
+
+                        'zone_id' =>
+                            $zone->id,
+
+                        'user_id' =>
+                            $user->id,
+
+                        'trigger_reading_id' =>
+                            null,
+
+                        'mode' =>
+                            'manual',
+
+                        'status' =>
+                            'started',
+
+                        'duration_minutes' =>
+                            null,
+
+                        'water_liters' =>
+                            $data['water_liters']
+                            ?? null,
+
+                        'soil_humidity_before' =>
+                            $soilReading
+                                ? (float) $soilReading->value
+                                : null,
+
+                        'soil_humidity_after' =>
+                            null,
+
+                        'started_at' =>
+                            now(),
+
+                        'ended_at' =>
+                            null,
+
+                        'notes' =>
+                            $data['notes']
+                            ?? 'Riego manual iniciado para todo el invernadero.',
+                    ]);
+
+
+                $event->load([
+                    'zone.greenhouse',
+                    'user',
+                    'triggerReading.sensor',
+                ]);
+
+
+                $createdEvents->push(
+                    $this->formatEvent(
+                        $event
+                    )
+                );
+            }
+
+
+            return $createdEvents;
+        }
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Respuesta
+    |--------------------------------------------------------------------------
+    */
+
+    return response()->json([
+
+        'message' =>
+            'Riego manual iniciado en todas las zonas activas del invernadero.',
+
+        'summary' => [
+
+            'greenhouse_id' =>
+                $greenhouse->id,
+
+            'greenhouse_name' =>
+                $greenhouse->name,
+
+            'zones_started' =>
+                $events->count(),
+
+        ],
+
+        'data' =>
+            $events,
+
+    ], 201);
+}
 
 
     /**

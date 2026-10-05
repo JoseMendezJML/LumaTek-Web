@@ -138,8 +138,9 @@
                 </h2>
 
                 <p>
-                    Selecciona el invernadero y la zona donde se realizará el riego.
-                </p>
+    Selecciona un invernadero. Para un riego individual elige una zona,
+    o utiliza la opción para regar todas las zonas activas.
+</p>
 
             </div>
 
@@ -205,8 +206,8 @@
                 <div class="form-group">
 
                     <label for="water-liters">
-                        Agua estimada (L)
-                    </label>
+    Agua estimada por zona (L)
+</label>
 
                     <input
                         id="water-liters"
@@ -241,15 +242,24 @@
 
             <div class="form-actions">
 
-                <button
-                    id="start-irrigation-button"
-                    type="submit"
-                    class="primary-button"
-                >
-                    💧 Iniciar riego
-                </button>
+    <button
+        id="start-irrigation-button"
+        type="submit"
+        class="primary-button"
+    >
+        Iniciar riego de zona
+    </button>
 
-            </div>
+
+    <button
+        id="start-greenhouse-irrigation-button"
+        type="button"
+        class="secondary-button"
+    >
+        Regar todo el invernadero
+    </button>
+
+</div>
 
         </form>
 
@@ -665,11 +675,12 @@
 
 
     .form-actions {
-        display: flex;
-        justify-content: flex-end;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
 
-        margin-top: 16px;
-    }
+    margin-top: 16px;
+}
 
 
     /* =========================================================
@@ -1180,6 +1191,11 @@
         document.getElementById(
             'start-irrigation-button'
         );
+
+    const startGreenhouseButton =
+    document.getElementById(
+        'start-greenhouse-irrigation-button'
+    );
 
 
     const activeList =
@@ -1757,6 +1773,180 @@
                 '💧 Iniciar riego';
         }
     }
+
+    /*
+|--------------------------------------------------------------------------
+| INICIAR RIEGO MANUAL DE TODO EL INVERNADERO
+|--------------------------------------------------------------------------
+*/
+
+async function startGreenhouseIrrigation() {
+
+    hideMessage();
+
+
+    const greenhouseId =
+        greenhouseSelect.value;
+
+
+    if (!greenhouseId) {
+
+        showMessage(
+            'Selecciona un invernadero.',
+            'error'
+        );
+
+
+        return;
+    }
+
+
+    const confirmed =
+        confirm(
+            '¿Deseas iniciar el riego manual en todas las zonas activas de este invernadero?'
+        );
+
+
+    if (!confirmed) {
+
+        return;
+    }
+
+
+    const body = {};
+
+
+    if (
+        waterLitersInput.value !== ''
+    ) {
+
+        body.water_liters =
+            Number(
+                waterLitersInput.value
+            );
+    }
+
+
+    if (
+        notesInput.value.trim()
+        !== ''
+    ) {
+
+        body.notes =
+            notesInput.value.trim();
+    }
+
+
+    startGreenhouseButton.disabled =
+        true;
+
+
+    startButton.disabled =
+        true;
+
+
+    startGreenhouseButton.textContent =
+        'Iniciando riego...';
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/greenhouses/${greenhouseId}/irrigation/start`,
+                {
+                    method:
+                        'POST',
+
+                    headers: {
+
+                        'Accept':
+                            'application/json',
+
+                        'Content-Type':
+                            'application/json',
+
+                        'Authorization':
+                            `Bearer ${irrigationToken}`,
+                    },
+
+                    body:
+                        JSON.stringify(
+                            body
+                        ),
+                }
+            );
+
+
+        if (
+            handleUnauthorized(
+                response
+            )
+        ) {
+            return;
+        }
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            showMessage(
+                result.message
+                ?? 'No fue posible iniciar el riego del invernadero.',
+                'error'
+            );
+
+
+            return;
+        }
+
+
+        const zonesStarted =
+            result.summary?.zones_started
+            ?? 0;
+
+
+        showMessage(
+            `${result.message} Zonas iniciadas: ${zonesStarted}.`
+        );
+
+
+        waterLitersInput.value =
+            '';
+
+
+        notesInput.value =
+            '';
+
+
+        await loadIrrigations();
+
+
+    } catch (error) {
+
+        showMessage(
+            'No fue posible conectar con el servidor.',
+            'error'
+        );
+
+
+    } finally {
+
+        startGreenhouseButton.disabled =
+            false;
+
+
+        startButton.disabled =
+            false;
+
+
+        startGreenhouseButton.textContent =
+            'Regar todo el invernadero';
+    }
+}
 
 
     /*
@@ -2540,6 +2730,11 @@
     irrigationForm.addEventListener(
         'submit',
         startIrrigation
+    );
+
+    startGreenhouseButton.addEventListener(
+        'click',
+        startGreenhouseIrrigation
     );
 
 
