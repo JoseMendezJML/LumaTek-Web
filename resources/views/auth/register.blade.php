@@ -165,6 +165,12 @@
 
     </div>
 
+    <div class="auth-back-home">
+    <a href="{{ url('/') }}">
+        ← Volver a LumaTek
+    </a>
+</div>
+
 </div>
 
 @endsection
