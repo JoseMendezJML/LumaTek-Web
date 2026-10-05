@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Greenhouse;
 use App\Models\Zone;
 use App\Models\ZoneIrrigationSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ZoneIrrigationSettingController extends Controller
 {
@@ -306,6 +308,262 @@ class ZoneIrrigationSettingController extends Controller
             ],
         ]);
     }
+
+    /**
+ * Guarda o actualiza la configuración de riego automático
+ * para todas las zonas activas de un invernadero.
+ */
+public function updateByGreenhouse(
+    Request $request,
+    Greenhouse $greenhouse
+): JsonResponse {
+
+    $user = auth('api')->user();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Seguridad multiempresa
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $greenhouse->company_id
+        !== $user->company_id
+    ) {
+
+        return response()->json([
+            'message' =>
+                'Invernadero no encontrado.',
+        ], 404);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validación
+    |--------------------------------------------------------------------------
+    */
+
+    $data = $request->validate([
+
+        'automatic_enabled' => [
+            'required',
+            'boolean',
+        ],
+
+        'duration_minutes' => [
+            'required',
+            'integer',
+            'min:1',
+            'max:1440',
+        ],
+
+        'water_liters' => [
+            'nullable',
+            'numeric',
+            'min:0',
+            'max:99999999.99',
+        ],
+
+        'cooldown_minutes' => [
+            'required',
+            'integer',
+            'min:1',
+            'max:10080',
+        ],
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invernadero activo
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        $data['automatic_enabled']
+        &&
+        $greenhouse->status !== 'active'
+    ) {
+
+        return response()->json([
+            'message' =>
+                'No se puede activar el riego automático porque el invernadero está inactivo.',
+        ], 422);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Umbral mínimo de humedad del suelo
+    |--------------------------------------------------------------------------
+    */
+
+    $greenhouse->load(
+        'thresholds'
+    );
+
+
+    $soilThreshold =
+        $greenhouse
+            ->thresholds
+            ->firstWhere(
+                'variable',
+                'soil_humidity'
+            );
+
+
+    if (
+        $data['automatic_enabled']
+        &&
+        (
+            !$soilThreshold
+            ||
+            $soilThreshold->min_value === null
+        )
+    ) {
+
+        return response()->json([
+            'message' =>
+                'Configura primero el umbral mínimo de humedad del suelo del invernadero.',
+        ], 422);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Obtener zonas activas
+    |--------------------------------------------------------------------------
+    */
+
+    $zones = Zone::query()
+        ->where(
+            'greenhouse_id',
+            $greenhouse->id
+        )
+        ->where(
+            'status',
+            'active'
+        )
+        ->orderBy('name')
+        ->get();
+
+
+    if ($zones->isEmpty()) {
+
+        return response()->json([
+            'message' =>
+                'El invernadero no tiene zonas activas disponibles.',
+        ], 422);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Aplicar configuración a todas las zonas
+    |--------------------------------------------------------------------------
+    */
+
+    $settings = DB::transaction(
+        function () use (
+            $zones,
+            $data
+        ) {
+
+            $updatedSettings =
+                collect();
+
+
+            foreach ($zones as $zone) {
+
+                $setting =
+                    ZoneIrrigationSetting::updateOrCreate(
+                        [
+                            'zone_id' =>
+                                $zone->id,
+                        ],
+                        [
+                            'automatic_enabled' =>
+                                $data['automatic_enabled'],
+
+                            'duration_minutes' =>
+                                $data['duration_minutes'],
+
+                            'water_liters' =>
+                                $data['water_liters']
+                                ?? null,
+
+                            'cooldown_minutes' =>
+                                $data['cooldown_minutes'],
+                        ]
+                    );
+
+
+                $updatedSettings->push([
+                    'zone_id' =>
+                        $zone->id,
+
+                    'zone_name' =>
+                        $zone->name,
+
+                    'automatic_enabled' =>
+                        (bool) $setting->automatic_enabled,
+
+                    'duration_minutes' =>
+                        (int) $setting->duration_minutes,
+
+                    'water_liters' =>
+                        $setting->water_liters !== null
+                            ? (float) $setting->water_liters
+                            : null,
+
+                    'cooldown_minutes' =>
+                        (int) $setting->cooldown_minutes,
+                ]);
+            }
+
+
+            return $updatedSettings;
+        }
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Respuesta
+    |--------------------------------------------------------------------------
+    */
+
+    return response()->json([
+
+        'message' =>
+            $data['automatic_enabled']
+                ? 'La configuración automática fue aplicada a todas las zonas activas del invernadero.'
+                : 'La configuración fue aplicada y el riego automático quedó desactivado en todas las zonas activas.',
+
+        'summary' => [
+
+            'greenhouse_id' =>
+                $greenhouse->id,
+
+            'greenhouse_name' =>
+                $greenhouse->name,
+
+            'zones_updated' =>
+                $settings->count(),
+
+            'soil_humidity_minimum' =>
+                $soilThreshold?->min_value !== null
+                    ? (float) $soilThreshold->min_value
+                    : null,
+        ],
+
+        'data' =>
+            $settings,
+
+    ]);
+}
 
 
     /**

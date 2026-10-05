@@ -388,6 +388,11 @@ Route::middleware('auth:api')->group(function () {
         [IrrigationController::class, 'startManual']
     )->name('api.irrigation.start');
 
+    Route::post(
+    '/greenhouses/{greenhouse}/irrigation/start',
+    [IrrigationController::class, 'startManualByGreenhouse']
+)->name('api.irrigation.greenhouse.start');
+
 
     Route::patch(
         '/irrigation-events/{irrigationEvent}/complete',
@@ -417,6 +422,12 @@ Route::middleware('auth:api')->group(function () {
         '/zones/{zone}/irrigation-setting',
         [ZoneIrrigationSettingController::class, 'update']
     )->name('api.irrigation-settings.update');
+
+
+    Route::put(
+    '/greenhouses/{greenhouse}/irrigation-setting',
+    [ZoneIrrigationSettingController::class, 'updateByGreenhouse']
+)->name('api.irrigation-settings.greenhouse.update');
 
     Route::get('/history', [HistoryController::class, 'index'])
     ->name('api.history.index');

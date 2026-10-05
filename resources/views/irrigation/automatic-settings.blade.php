@@ -210,16 +210,26 @@
 
         <div class="form-actions">
 
-            <button
-                type="submit"
-                id="save-automatic-button"
-                class="primary-button"
-                disabled
-            >
-                Guardar configuración
-            </button>
+    <button
+        type="submit"
+        id="save-automatic-button"
+        class="primary-button"
+        disabled
+    >
+        Guardar configuración de zona
+    </button>
 
-        </div>
+
+    <button
+        type="button"
+        id="apply-automatic-all-button"
+        class="secondary-button"
+        disabled
+    >
+        Aplicar a todas las zonas
+    </button>
+
+</div>
 
     </form>
 
@@ -511,6 +521,11 @@ document.addEventListener(
             document.getElementById(
                 'save-automatic-button'
             );
+
+        const applyAllButton =
+    document.getElementById(
+        'apply-automatic-all-button'
+    );
 
 
         const form =
@@ -838,6 +853,12 @@ document.addEventListener(
             saveButton.disabled =
                 true;
 
+            applyAllButton.disabled =
+    true;
+
+            applyAllButton.disabled =
+    true;
+
 
             if (!zoneId) {
 
@@ -955,6 +976,9 @@ document.addEventListener(
 
 
                 saveButton.disabled =
+                    false;
+
+                applyAllButton.disabled =
                     false;
 
 
@@ -1108,6 +1132,187 @@ document.addEventListener(
             }
         }
 
+        /*
+|--------------------------------------------------------------------------
+| APLICAR CONFIGURACIÓN A TODAS LAS ZONAS
+|--------------------------------------------------------------------------
+*/
+
+async function applySettingToAllZones() {
+
+    const greenhouseId =
+        greenhouse.value;
+
+
+    const zoneId =
+        zone.value;
+
+
+    if (!greenhouseId) {
+
+        automaticMessage(
+            'Selecciona un invernadero.',
+            'error'
+        );
+
+
+        return;
+    }
+
+
+    if (!zoneId) {
+
+        automaticMessage(
+            'Selecciona una zona para tomar su configuración.',
+            'error'
+        );
+
+
+        return;
+    }
+
+
+    const confirmed =
+        confirm(
+            '¿Deseas aplicar esta configuración de riego automático a todas las zonas activas del invernadero?'
+        );
+
+
+    if (!confirmed) {
+
+        return;
+    }
+
+
+    const body = {
+
+        automatic_enabled:
+            enabled.checked,
+
+        duration_minutes:
+            Number(
+                duration.value
+            ),
+
+        water_liters:
+            water.value !== ''
+                ? Number(
+                    water.value
+                )
+                : null,
+
+        cooldown_minutes:
+            Number(
+                cooldown.value
+            ),
+    };
+
+
+    applyAllButton.disabled =
+        true;
+
+
+    saveButton.disabled =
+        true;
+
+
+    applyAllButton.textContent =
+        'Aplicando...';
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/greenhouses/${greenhouseId}/irrigation-setting`,
+                {
+                    method:
+                        'PUT',
+
+                    headers: {
+
+                        'Accept':
+                            'application/json',
+
+                        'Content-Type':
+                            'application/json',
+
+                        'Authorization':
+                            `Bearer ${automaticToken}`,
+                    },
+
+                    body:
+                        JSON.stringify(
+                            body
+                        ),
+                }
+            );
+
+
+        if (
+            handleAutomaticUnauthorized(
+                response
+            )
+        ) {
+            return;
+        }
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            automaticMessage(
+                result.message
+                ?? 'No fue posible aplicar la configuración.',
+                'error'
+            );
+
+
+            return;
+        }
+
+
+        const zonesUpdated =
+            result.summary?.zones_updated
+            ?? 0;
+
+
+        automaticMessage(
+            `${result.message} Zonas actualizadas: ${zonesUpdated}.`
+        );
+
+
+        await loadSetting(
+            zoneId
+        );
+
+
+    } catch (error) {
+
+        automaticMessage(
+            'No fue posible conectar con el servidor.',
+            'error'
+        );
+
+
+    } finally {
+
+        applyAllButton.disabled =
+            false;
+
+
+        saveButton.disabled =
+            false;
+
+
+        applyAllButton.textContent =
+            'Aplicar a todas las zonas';
+    }
+}
+
 
         greenhouse.addEventListener(
             'change',
@@ -1141,6 +1346,11 @@ document.addEventListener(
             'submit',
             saveSetting
         );
+
+        applyAllButton.addEventListener(
+    'click',
+    applySettingToAllZones
+);
 
 
         updateVisualState();
