@@ -671,25 +671,21 @@
 
             {{-- REPORTES --}}
 
-            <a
-                href="#"
-                class="sidebar-link disabled"
-                onclick="return false;"
-            >
+<a
+    href="{{ route('reports.index') }}"
+    class="
+        sidebar-link
+        {{ request()->routeIs('reports.*') ? 'active' : '' }}
+    "
+>
+    <span class="sidebar-icon">
+        R
+    </span>
 
-                <span class="sidebar-icon">
-                    📄
-                </span>
-
-                <span>
-                    Reportes
-                </span>
-
-                <span class="menu-coming-soon">
-                    Próximo
-                </span>
-
-            </a>
+    <span>
+        Reportes
+    </span>
+</a>
 
 
             {{-- USUARIOS --}}
