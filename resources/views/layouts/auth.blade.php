@@ -36,11 +36,18 @@
             <div class="auth-form-section">
 
                 <div class="auth-logo">
-                    <img
-                        src="{{ asset('images/lumatek-logo.png') }}"
-                        alt="LumaTek"
-                    >
-                </div>
+
+    <a
+        href="{{ url('/') }}"
+        aria-label="Volver a la página principal de LumaTek"
+    >
+        <img
+            src="{{ asset('images/lumatek-logo.png') }}"
+            alt="LumaTek"
+        >
+    </a>
+
+</div>
 
                 @yield('content')
 
