@@ -41,6 +41,7 @@ class AuthController extends Controller
             return User::create([
                 'company_id' => $company->id,
                 'role_id' => $role->id,
+                'is_company_owner' => true,
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => $request->password,
