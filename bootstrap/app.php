@@ -14,8 +14,13 @@ return Application::configure(
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
-    })
+
+    $middleware->alias([
+        'company.admin' =>
+            \App\Http\Middleware\EnsureCompanyAdmin::class,
+    ]);
+
+})
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })

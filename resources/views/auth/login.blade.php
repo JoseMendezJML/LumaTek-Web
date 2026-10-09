@@ -160,22 +160,43 @@
 
         try {
 
-            const response = await fetch('/api/login', {
+            const csrfToken =
+    document
+        .querySelector(
+            'meta[name="csrf-token"]'
+        )
+        .getAttribute('content');
 
-                method: 'POST',
 
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
+const remember =
+    document.getElementById(
+        'remember'
+    ).checked;
 
-                body: JSON.stringify({
-                    email: email,
-                    password: password
-                })
 
-            });
+const response =
+    await fetch('/login', {
 
+        method: 'POST',
+
+        headers: {
+            'Content-Type':
+                'application/json',
+
+            'Accept':
+                'application/json',
+
+            'X-CSRF-TOKEN':
+                csrfToken
+        },
+
+        body: JSON.stringify({
+            email: email,
+            password: password,
+            remember: remember
+        })
+
+    });
 
             const data = await response.json();
 

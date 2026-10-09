@@ -688,23 +688,27 @@
 </a>
 
 
-            {{-- USUARIOS --}}
+@if(auth()->user()?->role?->name === 'company_admin')
 
-<a
-    href="{{ route('users.index') }}"
-    class="
-        sidebar-link
-        {{ request()->routeIs('users.*') ? 'active' : '' }}
-    "
->
-    <span class="sidebar-icon">
-        U
-    </span>
+    {{-- USUARIOS --}}
 
-    <span>
-        Usuarios
-    </span>
-</a>
+    <a
+        href="{{ route('users.index') }}"
+        class="
+            sidebar-link
+            {{ request()->routeIs('users.*') ? 'active' : '' }}
+        "
+    >
+        <span class="sidebar-icon">
+            U
+        </span>
+
+        <span>
+            Usuarios
+        </span>
+    </a>
+
+@endif
 
 
             {{-- ================SISTEMA======================================= --}}
@@ -714,21 +718,25 @@
             </div>
 
 
-            <a
-    href="{{ route('settings.index') }}"
-    class="
-        sidebar-link
-        {{ request()->routeIs('settings.*') ? 'active' : '' }}
-    "
->
-    <span class="sidebar-icon">
-        ⚙️
-    </span>
+            @if(auth()->user()?->role?->name === 'company_admin')
 
-    <span>
-        Configuración
-    </span>
-</a>
+    <a
+        href="{{ route('settings.index') }}"
+        class="
+            sidebar-link
+            {{ request()->routeIs('settings.*') ? 'active' : '' }}
+        "
+    >
+        <span class="sidebar-icon">
+            ⚙️
+        </span>
+
+        <span>
+            Configuración
+        </span>
+    </a>
+
+@endif
 
         </nav>
 
@@ -1084,24 +1092,57 @@
     */
 
     logoutButton.addEventListener(
-        'click',
-        function () {
+    'click',
+    async function () {
+
+        const csrfToken =
+            document
+                .querySelector(
+                    'meta[name="csrf-token"]'
+                )
+                .getAttribute('content');
+
+
+        try {
+
+            await fetch(
+                '/logout',
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Accept':
+                            'application/json',
+
+                        'X-CSRF-TOKEN':
+                            csrfToken
+                    }
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                'No fue posible cerrar la sesión en el servidor.'
+            );
+
+        } finally {
 
             sessionStorage.removeItem(
                 'lumatek_access_token'
             );
 
-
             sessionStorage.removeItem(
                 'lumatek_user'
             );
-
 
             window.location.href =
                 '/login';
 
         }
-    );
+
+    }
+);
 
 
     /*
