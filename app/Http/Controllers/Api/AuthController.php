@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
@@ -131,6 +133,229 @@ class AuthController extends Controller
             ],
         ]);
     }
+
+    /**
+ * Inicio de sesión para la aplicación web.
+ *
+ * Crea una sesión Laravel para proteger las rutas web
+ * y también devuelve el JWT utilizado por las peticiones API.
+ */
+public function webLogin(
+    LoginRequest $request
+): JsonResponse {
+
+    $key = $this->loginThrottleKey(
+        $request->email,
+        $request->ip()
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bloqueo por demasiados intentos
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        RateLimiter::tooManyAttempts(
+            $key,
+            self::MAX_LOGIN_ATTEMPTS
+        )
+    ) {
+
+        $seconds =
+            RateLimiter::availableIn(
+                $key
+            );
+
+
+        return response()->json([
+            'message' =>
+                'Demasiados intentos fallidos. Intenta nuevamente más tarde.',
+
+            'retry_after_seconds' =>
+                $seconds,
+        ], 429);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Buscar usuario
+    |--------------------------------------------------------------------------
+    */
+
+    $user =
+        User::where(
+            'email',
+            $request->email
+        )->first();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validar credenciales
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !$user
+        ||
+        !Hash::check(
+            $request->password,
+            $user->password
+        )
+    ) {
+
+        RateLimiter::hit(
+            $key,
+            self::LOCKOUT_SECONDS
+        );
+
+
+        $remaining =
+            RateLimiter::remaining(
+                $key,
+                self::MAX_LOGIN_ATTEMPTS
+            );
+
+
+        return response()->json([
+            'message' =>
+                'Correo o contraseña incorrectos.',
+
+            'attempts_remaining' =>
+                $remaining,
+        ], 401);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cuenta activa
+    |--------------------------------------------------------------------------
+    */
+
+    if ($user->status !== 'active') {
+
+        return response()->json([
+            'message' =>
+                'La cuenta se encuentra inactiva.',
+        ], 403);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Correo verificado
+    |--------------------------------------------------------------------------
+    */
+
+    if (!$user->hasVerifiedEmail()) {
+
+        return response()->json([
+            'message' =>
+                'Debes verificar tu correo electrónico antes de iniciar sesión.',
+        ], 403);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Inicio de sesión web
+    |--------------------------------------------------------------------------
+    */
+
+    Auth::guard('web')->login(
+        $user,
+        $request->boolean('remember')
+    );
+
+
+    $request
+        ->session()
+        ->regenerate();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Limpiar intentos fallidos
+    |--------------------------------------------------------------------------
+    */
+
+    RateLimiter::clear(
+        $key
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | JWT para las peticiones API actuales
+    |--------------------------------------------------------------------------
+    */
+
+    $token =
+        JWTAuth::fromUser(
+            $user
+        );
+
+
+    $user->loadMissing(
+        'role'
+    );
+
+
+    return response()->json([
+        'message' =>
+            'Inicio de sesión correcto.',
+
+        'access_token' =>
+            $token,
+
+        'token_type' =>
+            'Bearer',
+
+        'expires_in' =>
+            (int) config('jwt.ttl') * 60,
+
+        'user' => [
+            'id' =>
+                $user->id,
+
+            'name' =>
+                $user->name,
+
+            'email' =>
+                $user->email,
+
+            'company_id' =>
+                $user->company_id,
+
+            'role' =>
+                $user->role?->name,
+        ],
+    ]);
+}
+
+public function webLogout(
+    Request $request
+): JsonResponse {
+
+    Auth::guard('web')->logout();
+
+    $request
+        ->session()
+        ->invalidate();
+
+    $request
+        ->session()
+        ->regenerateToken();
+
+    return response()->json([
+        'message' =>
+            'Sesión cerrada correctamente.',
+    ]);
+}
 
     public function forgotPassword(
     ForgotPasswordRequest $request

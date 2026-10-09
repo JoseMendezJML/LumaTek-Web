@@ -2,12 +2,18 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
 
 Route::view('/', 'landing')
     ->name('landing');
 
 Route::view('/login', 'auth.login')
     ->name('login');
+
+Route::post(
+    '/login',
+    [AuthController::class, 'webLogin']
+)->name('web.login');
 
 Route::view('/register', 'auth.register')
     ->name('register');
@@ -32,29 +38,44 @@ Route::get('/reset-password/{token}', function (
 |--------------------------------------------------------------------------
 */
 
-Route::view('/greenhouses', 'greenhouses.index')
-    ->name('greenhouses.web.index');
+Route::middleware('auth')->group(function () {
 
-Route::view('/zones', 'zones.index')
-    ->name('zones.index');
+    Route::view('/greenhouses', 'greenhouses.index')
+        ->name('greenhouses.web.index');
 
-Route::view('/alerts', 'alerts.index')
-    ->name('alerts.index');
+    Route::view('/zones', 'zones.index')
+        ->name('zones.index');
 
-Route::view('/dashboard', 'dashboard.index')
-    ->name('dashboard');
+    Route::view('/alerts', 'alerts.index')
+        ->name('alerts.index');
 
-Route::view('/irrigation', 'irrigation.index')
-    ->name('irrigation.index');
+    Route::view('/dashboard', 'dashboard.index')
+        ->name('dashboard');
 
-Route::view('/history', 'history.index')
-    ->name('history.index');
+    Route::view('/irrigation', 'irrigation.index')
+        ->name('irrigation.index');
 
-Route::view('/users', 'users.index')
-    ->name('users.index');
+    Route::view('/history', 'history.index')
+        ->name('history.index');
 
-Route::view('/settings', 'settings.index')
-    ->name('settings.index');
+    Route::view('/reports', 'reports.index')
+        ->name('reports.index');
 
-Route::view('/reports', 'reports.index')
-    ->name('reports.index');
+
+    Route::middleware('company.admin')->group(function () {
+
+        Route::view('/users', 'users.index')
+            ->name('users.index');
+
+        Route::view('/settings', 'settings.index')
+            ->name('settings.index');
+
+    });
+
+
+    Route::post(
+        '/logout',
+        [AuthController::class, 'webLogout']
+    )->name('web.logout');
+
+});
