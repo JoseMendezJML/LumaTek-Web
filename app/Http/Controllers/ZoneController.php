@@ -6,6 +6,7 @@ use App\Models\Greenhouse;
 use App\Models\Zone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Models\User;
 
 class ZoneController extends Controller
 {
@@ -47,6 +48,52 @@ class ZoneController extends Controller
     ): JsonResponse {
 
         $user = auth('api')->user();
+
+        if (!($user instanceof User)) {
+    return response()->json([
+        'message' =>
+            'Usuario no autenticado.',
+    ], 401);
+}
+
+$user->loadMissing(
+    'company.activeSubscription.plan'
+);
+
+$plan =
+    $user
+        ->company
+        ?->activeSubscription
+        ?->plan;
+
+if (!$plan) {
+    return response()->json([
+        'message' =>
+            'La empresa no tiene un plan activo configurado.',
+    ], 422);
+}
+
+$activeZones =
+    $greenhouse
+        ->zones()
+        ->where(
+            'status',
+            'active'
+        )
+        ->count();
+
+if (
+    $activeZones
+    >=
+    $plan->max_zones_per_greenhouse
+) {
+    return response()->json([
+        'message' =>
+            'Has alcanzado el límite de zonas activas por invernadero de tu plan '
+            . $plan->name
+            . '.',
+    ], 422);
+}
 
         if ($greenhouse->company_id !== $user->company_id) {
             return response()->json([
@@ -290,6 +337,62 @@ class ZoneController extends Controller
                 'in:active,inactive',
             ],
         ]);
+
+        if (
+    $validated['status'] === 'active'
+    &&
+    $zone->status !== 'active'
+) {
+
+    if (!($user instanceof User)) {
+        return response()->json([
+            'message' =>
+                'Usuario no autenticado.',
+        ], 401);
+    }
+
+    $user->loadMissing(
+        'company.activeSubscription.plan'
+    );
+
+    $plan =
+        $user
+            ->company
+            ?->activeSubscription
+            ?->plan;
+
+    if (!$plan) {
+        return response()->json([
+            'message' =>
+                'La empresa no tiene un plan activo configurado.',
+        ], 422);
+    }
+
+    $activeZones =
+        Zone::query()
+            ->where(
+                'greenhouse_id',
+                $zone->greenhouse_id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->count();
+
+    if (
+        $activeZones
+        >=
+        $plan->max_zones_per_greenhouse
+    ) {
+        return response()->json([
+            'message' =>
+                'Has alcanzado el límite de zonas activas por invernadero de tu plan '
+                . $plan->name
+                . '.',
+        ], 422);
+    }
+}
 
         $zone->update([
             'status' =>

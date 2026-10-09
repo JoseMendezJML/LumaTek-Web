@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Company extends Model
 {
@@ -33,4 +34,26 @@ class Company extends Model
     {
         return $this->hasMany(Greenhouse::class);
     }
+
+    /**
+ * Historial de suscripciones de la empresa.
+ */
+public function subscriptions(): HasMany
+{
+    return $this->hasMany(
+        Subscription::class
+    );
+}
+
+
+/**
+ * Suscripción activa actual de la empresa.
+ */
+public function activeSubscription(): HasOne
+{
+    return $this
+        ->hasOne(Subscription::class)
+        ->where('status', 'active')
+        ->latestOfMany();
+}
 }

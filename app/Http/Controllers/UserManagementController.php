@@ -85,12 +85,19 @@ public function store(Request $request): JsonResponse
 {
     $authenticatedUser = auth('api')->user();
 
-    if (!$this->isCompanyAdmin($authenticatedUser)) {
-        return response()->json([
-            'message' =>
-                'No tienes permiso para crear usuarios.',
-        ], 403);
-    }
+if (!($authenticatedUser instanceof User)) {
+    return response()->json([
+        'message' =>
+            'Usuario no autenticado.',
+    ], 401);
+}
+
+if (!$this->isCompanyAdmin($authenticatedUser)) {
+    return response()->json([
+        'message' =>
+            'No tienes permiso para crear usuarios.',
+    ], 403);
+}
 
     $validated = $request->validate([
         'name' => [
@@ -142,6 +149,96 @@ public function store(Request $request): JsonResponse
                 'El rol seleccionado no está configurado.',
         ], 422);
     }
+
+
+    $authenticatedUser->loadMissing(
+    'company.activeSubscription.plan'
+);
+
+$plan =
+    $authenticatedUser
+        ->company
+        ?->activeSubscription
+        ?->plan;
+
+if (!$plan) {
+    return response()->json([
+        'message' =>
+            'La empresa no tiene un plan activo configurado.',
+    ], 422);
+}
+
+$activeUsers =
+    User::query()
+        ->where(
+            'company_id',
+            $authenticatedUser->company_id
+        )
+        ->where(
+            'status',
+            'active'
+        )
+        ->count();
+
+if (
+    $activeUsers
+    >=
+    $plan->max_users
+) {
+    return response()->json([
+        'message' =>
+            'Has alcanzado el límite de usuarios activos de tu plan '
+            . $plan->name
+            . '.',
+    ], 422);
+
+
+}
+
+
+    if (
+    $validated['role'] === 'company_admin'
+) {
+
+    $activeAdditionalAdmins =
+        User::query()
+            ->where(
+                'company_id',
+                $authenticatedUser->company_id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->where(
+                'is_company_owner',
+                false
+            )
+            ->whereHas(
+                'role',
+                function ($query) {
+                    $query->where(
+                        'name',
+                        'company_admin'
+                    );
+                }
+            )
+            ->count();
+
+
+    if (
+        $activeAdditionalAdmins
+        >=
+        $plan->max_additional_admins
+    ) {
+        return response()->json([
+            'message' =>
+                'Has alcanzado el límite de administradores adicionales de tu plan '
+                . $plan->name
+                . '.',
+        ], 422);
+    }
+}
 
     /*
     |--------------------------------------------------------------------------
@@ -238,26 +335,29 @@ public function update(
 ): JsonResponse {
 
     $authenticatedUser =
-        auth('api')->user();
+    auth('api')->user();
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Permiso
-    |--------------------------------------------------------------------------
-    */
+if (!($authenticatedUser instanceof User)) {
 
-    if (
-        !$this->isCompanyAdmin(
-            $authenticatedUser
-        )
-    ) {
+    return response()->json([
+        'message' =>
+            'Usuario no autenticado.',
+    ], 401);
+}
 
-        return response()->json([
-            'message' =>
-                'No tienes permiso para modificar usuarios.',
-        ], 403);
-    }
+
+if (
+    !$this->isCompanyAdmin(
+        $authenticatedUser
+    )
+) {
+
+    return response()->json([
+        'message' =>
+            'No tienes permiso para modificar usuarios.',
+    ], 403);
+}
 
 
     /*
@@ -398,6 +498,72 @@ public function update(
                 'El rol seleccionado no está configurado.',
         ], 422);
     }
+
+    $authenticatedUser->loadMissing(
+    'company.activeSubscription.plan'
+);
+
+$plan =
+    $authenticatedUser
+        ->company
+        ?->activeSubscription
+        ?->plan;
+
+if (!$plan) {
+    return response()->json([
+        'message' =>
+            'La empresa no tiene un plan activo configurado.',
+    ], 422);
+}
+
+
+if (
+    $user->role?->name !== 'company_admin'
+    &&
+    $validated['role'] === 'company_admin'
+    &&
+    $user->status === 'active'
+) {
+
+    $activeAdditionalAdmins =
+        User::query()
+            ->where(
+                'company_id',
+                $authenticatedUser->company_id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->where(
+                'is_company_owner',
+                false
+            )
+            ->whereHas(
+                'role',
+                function ($query) {
+                    $query->where(
+                        'name',
+                        'company_admin'
+                    );
+                }
+            )
+            ->count();
+
+
+    if (
+        $activeAdditionalAdmins
+        >=
+        $plan->max_additional_admins
+    ) {
+        return response()->json([
+            'message' =>
+                'Has alcanzado el límite de administradores adicionales de tu plan '
+                . $plan->name
+                . '.',
+        ], 422);
+    }
+}
 
 
     /*
@@ -728,6 +894,103 @@ public function changeStatus(
             ], 422);
         }
     }
+
+    if ($validated['status'] === 'active') {
+
+    /** @var User $authenticatedUser */
+
+    $authenticatedUser->loadMissing(
+        'company.activeSubscription.plan'
+    );
+
+    $plan =
+        $authenticatedUser
+            ->company
+            ?->activeSubscription
+            ?->plan;
+
+
+    if (!$plan) {
+        return response()->json([
+            'message' =>
+                'La empresa no tiene un plan activo configurado.',
+        ], 422);
+    }
+
+
+    $activeUsers =
+        User::query()
+            ->where(
+                'company_id',
+                $authenticatedUser->company_id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->count();
+
+
+    if (
+        $activeUsers
+        >=
+        $plan->max_users
+    ) {
+        return response()->json([
+            'message' =>
+                'Has alcanzado el límite de usuarios activos de tu plan '
+                . $plan->name
+                . '.',
+        ], 422);
+    }
+
+
+    if (
+        $user->role?->name === 'company_admin'
+        &&
+        !$user->is_company_owner
+    ) {
+
+        $activeAdditionalAdmins =
+            User::query()
+                ->where(
+                    'company_id',
+                    $authenticatedUser->company_id
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->where(
+                    'is_company_owner',
+                    false
+                )
+                ->whereHas(
+                    'role',
+                    function ($query) {
+                        $query->where(
+                            'name',
+                            'company_admin'
+                        );
+                    }
+                )
+                ->count();
+
+
+        if (
+            $activeAdditionalAdmins
+            >=
+            $plan->max_additional_admins
+        ) {
+            return response()->json([
+                'message' =>
+                    'Has alcanzado el límite de administradores adicionales de tu plan '
+                    . $plan->name
+                    . '.',
+            ], 422);
+        }
+    }
+}
 
 
     /*

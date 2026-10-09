@@ -154,6 +154,11 @@ Route::middleware('auth:api')->group(function () {
         [GreenhouseController::class, 'update']
     );
 
+    Route::patch(
+    '/greenhouses/{greenhouse}/status',
+    [GreenhouseController::class, 'changeStatus']
+)->name('greenhouses.status');
+
 
     /*
     |--------------------------------------------------------------------------

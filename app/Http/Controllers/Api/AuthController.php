@@ -10,6 +10,8 @@ use App\Http\Requests\ResetPasswordRequest;
 use App\Models\Company;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Plan;
+use App\Models\Subscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -38,15 +40,34 @@ class AuthController extends Controller
                 'status' => 'active',
             ]);
 
-            return User::create([
-                'company_id' => $company->id,
-                'role_id' => $role->id,
-                'is_company_owner' => true,
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => $request->password,
-                'status' => 'active',
-            ]);
+            $user = User::create([
+    'company_id' => $company->id,
+    'role_id' => $role->id,
+    'is_company_owner' => true,
+    'name' => $request->name,
+    'email' => $request->email,
+    'password' => $request->password,
+    'status' => 'active',
+]);
+
+
+$freePlan = Plan::where(
+    'slug',
+    'free'
+)->firstOrFail();
+
+
+Subscription::create([
+    'company_id' => $company->id,
+    'plan_id' => $freePlan->id,
+    'status' => 'active',
+    'starts_at' => now(),
+    'ends_at' => null,
+    'auto_renew' => false,
+]);
+
+
+return $user;
         });
 
         $user->sendEmailVerificationNotification();

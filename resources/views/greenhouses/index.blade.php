@@ -257,11 +257,11 @@
     ========================================================== */
 
     .greenhouses-grid {
-        display: grid;
-        grid-template-columns:
-            repeat(auto-fit, minmax(340px, 1fr));
-        gap: 18px;
-    }
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(560px, 1fr));
+    gap: 18px;
+}
 
     .greenhouse-card {
         border: 1px solid #e0e8e2;
@@ -2007,37 +2007,60 @@
 
                         <div class="greenhouse-card-actions">
 
-                            <button
-                                type="button"
-                                class="btn-secondary edit-greenhouse"
-                            >
-                                Editar perfil
-                            </button>
+    <button
+        type="button"
+        class="btn-secondary edit-greenhouse"
+    >
+        Editar perfil
+    </button>
 
-                        </div>
+    <button
+        type="button"
+        class="btn-secondary toggle-greenhouse-status"
+    >
+        ${greenhouse.status === 'active'
+            ? 'Desactivar'
+            : 'Activar'}
+    </button>
+
+</div>
                     `;
 
+card
+    .querySelector(
+        '.edit-greenhouse'
+    )
+    .addEventListener(
+        'click',
+        function () {
 
-                    card
-                        .querySelector(
-                            '.edit-greenhouse'
-                        )
-                        .addEventListener(
-                            'click',
-                            function () {
+            startEdit(
+                greenhouse
+            );
 
-                                startEdit(
-                                    greenhouse
-                                );
-
-                            }
-                        );
+        }
+    );
 
 
-                    list.appendChild(
-                        card
-                    );
+card
+    .querySelector(
+        '.toggle-greenhouse-status'
+    )
+    .addEventListener(
+        'click',
+        function () {
 
+            changeGreenhouseStatus(
+                greenhouse
+            );
+
+        }
+    );
+
+
+list.appendChild(
+    card
+);
 
                     /*
                     |--------------------------------------------------------------------------
@@ -2378,6 +2401,106 @@
 
         }
     );
+
+    async function changeGreenhouseStatus(
+    greenhouse
+) {
+
+    const newStatus =
+        greenhouse.status === 'active'
+            ? 'inactive'
+            : 'active';
+
+
+    const action =
+        newStatus === 'active'
+            ? 'activar'
+            : 'desactivar';
+
+
+    const confirmed =
+        confirm(
+            `¿Deseas ${action} el invernadero "${greenhouse.name}"?`
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/greenhouses/${greenhouse.id}/status`,
+                {
+                    method: 'PATCH',
+
+                    headers: {
+
+                        'Accept':
+                            'application/json',
+
+                        'Content-Type':
+                            'application/json',
+
+                        'Authorization':
+                            `Bearer ${token}`
+                    },
+
+                    body:
+                        JSON.stringify({
+                            status:
+                                newStatus
+                        })
+                }
+            );
+
+
+        const result =
+            await response.json();
+
+
+        if (
+            logoutIfUnauthorized(
+                response
+            )
+        ) {
+            return;
+        }
+
+
+        if (!response.ok) {
+
+            showMessage(
+                result.message
+                ?? 'No fue posible cambiar el estado del invernadero.',
+                'error'
+            );
+
+            return;
+        }
+
+
+        showMessage(
+            result.message,
+            'success'
+        );
+
+
+        await loadGreenhouses();
+
+
+    } catch (error) {
+
+        showMessage(
+            'No fue posible conectar con el servidor.',
+            'error'
+        );
+
+    }
+}
 
 
     /*

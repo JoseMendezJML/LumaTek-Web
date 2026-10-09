@@ -74,9 +74,63 @@ class SensorController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+    return response()->json([
+        'message' =>
+            'Usuario no autenticado.',
+    ], 401);
+}
+
+$user->loadMissing(
+    'company.activeSubscription.plan'
+);
+
+$plan =
+    $user
+        ->company
+        ?->activeSubscription
+        ?->plan;
+
+if (!$plan) {
+    return response()->json([
+        'message' =>
+            'La empresa no tiene un plan activo configurado.',
+    ], 422);
+}
+
         $device->load(
             'zone.greenhouse'
         );
+
+        $activeSensors =
+    \App\Models\Sensor::query()
+        ->whereHas(
+            'device',
+            function ($query) use ($device) {
+                $query->where(
+                    'zone_id',
+                    $device->zone_id
+                );
+            }
+        )
+        ->where(
+            'status',
+            'active'
+        )
+        ->count();
+
+if (
+    $activeSensors
+    >=
+    $plan->max_sensors_per_zone
+) {
+    return response()->json([
+        'message' =>
+            'Has alcanzado el límite de sensores activos por zona de tu plan '
+            . $plan->name
+            . '.',
+    ], 422);
+}
 
         /*
         |--------------------------------------------------------------------------
@@ -470,6 +524,69 @@ class SensorController extends Controller
                 'in:active,inactive',
             ],
         ]);
+
+        if (
+    $validated['status'] === 'active'
+    &&
+    $sensor->status !== 'active'
+) {
+
+    if (!($user instanceof \App\Models\User)) {
+        return response()->json([
+            'message' =>
+                'Usuario no autenticado.',
+        ], 401);
+    }
+
+    $user->loadMissing(
+        'company.activeSubscription.plan'
+    );
+
+    $plan =
+        $user
+            ->company
+            ?->activeSubscription
+            ?->plan;
+
+    if (!$plan) {
+        return response()->json([
+            'message' =>
+                'La empresa no tiene un plan activo configurado.',
+        ], 422);
+    }
+
+    $activeSensors =
+        Sensor::query()
+            ->whereHas(
+                'device',
+                function ($query) use ($sensor) {
+                    $query->where(
+                        'zone_id',
+                        $sensor
+                            ->device
+                            ->zone_id
+                    );
+                }
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->count();
+
+    if (
+        $activeSensors
+        >=
+        $plan->max_sensors_per_zone
+    ) {
+        return response()->json([
+            'message' =>
+                'Has alcanzado el límite de sensores activos por zona de tu plan '
+                . $plan->name
+                . '.',
+        ], 422);
+    }
+}
 
         /*
         |--------------------------------------------------------------------------
