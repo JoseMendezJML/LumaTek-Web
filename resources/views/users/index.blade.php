@@ -19,62 +19,62 @@
 
     <section class="users-summary-grid">
 
-        <article class="summary-card">
-            <span class="summary-label">
-                Usuarios
-            </span>
+    <article class="summary-card">
+        <span class="summary-label">
+            Usuarios
+        </span>
 
-            <strong
-                id="summary-total"
-                class="summary-value"
-            >
-                0
-            </strong>
-        </article>
-
-
-        <article class="summary-card summary-employees">
-            <span class="summary-label">
-                Empleados
-            </span>
-
-            <strong
-                id="summary-employees"
-                class="summary-value"
-            >
-                0
-            </strong>
-        </article>
+        <strong
+            id="summary-total"
+            class="summary-value"
+        >
+            0
+        </strong>
+    </article>
 
 
-        <article class="summary-card summary-active">
-            <span class="summary-label">
-                Empleados activos
-            </span>
+    <article class="summary-card">
+        <span class="summary-label">
+            Administradores
+        </span>
 
-            <strong
-                id="summary-active"
-                class="summary-value"
-            >
-                0
-            </strong>
-        </article>
+        <strong
+            id="summary-admins"
+            class="summary-value"
+        >
+            0
+        </strong>
+    </article>
 
 
-        <article class="summary-card summary-inactive">
-            <span class="summary-label">
-                Empleados inactivos
-            </span>
+    <article class="summary-card summary-employees">
+        <span class="summary-label">
+            Empleados
+        </span>
 
-            <strong
-                id="summary-inactive"
-                class="summary-value"
-            >
-                0
-            </strong>
-        </article>
+        <strong
+            id="summary-employees"
+            class="summary-value"
+        >
+            0
+        </strong>
+    </article>
 
-    </section>
+
+    <article class="summary-card summary-active">
+        <span class="summary-label">
+            Usuarios activos
+        </span>
+
+        <strong
+            id="summary-active"
+            class="summary-value"
+        >
+            0
+        </strong>
+    </article>
+
+</section>
 
 
     <div
@@ -100,12 +100,12 @@
 
                 <div>
                     <h2 id="form-title">
-                        Registrar empleado
-                    </h2>
+    Registrar usuario
+</h2>
 
-                    <p id="form-description">
-                        Crea una cuenta para un empleado de tu empresa.
-                    </p>
+<p id="form-description">
+    Crea una cuenta para un usuario de tu empresa.
+</p>
                 </div>
 
             </div>
@@ -198,31 +198,49 @@
                     </div>
 
 
-                    <div class="form-note">
+                    <div class="form-group">
 
-                        <strong>
-                            Rol asignado:
-                        </strong>
+    <label for="user-role">
+        Rol
+    </label>
 
-                        Empleado
+    <select
+        id="user-role"
+        required
+    >
 
-                        <span>
-                            La cuenta pertenecerá automáticamente
-                            a tu empresa.
-                        </span>
+        <option value="employee">
+            Empleado
+        </option>
 
-                    </div>
+        <option value="company_admin">
+            Administrador
+        </option>
+
+    </select>
+
+</div>
+
+
+<div class="form-note">
+
+    <span>
+        La cuenta pertenecerá automáticamente
+        a tu empresa.
+    </span>
+
+</div>
 
 
                     <div class="form-actions">
 
                         <button
-                            type="submit"
-                            id="save-user-button"
-                            class="btn-primary"
-                        >
-                            Registrar empleado
-                        </button>
+    type="submit"
+    id="save-user-button"
+    class="btn-primary"
+>
+    Registrar usuario
+</button>
 
 
                         <button
@@ -424,9 +442,6 @@
         border-left: 4px solid #2d7b4a;
     }
 
-    .summary-inactive {
-        border-left: 4px solid #9b5b45;
-    }
 
 
     /* =========================================================
@@ -841,6 +856,16 @@
         color: #946521;
     }
 
+    .owner-label {
+    display: block;
+    margin-top: 6px;
+
+    color: #176136;
+
+    font-size: 10px;
+    font-weight: 700;
+}
+
 
     /* =========================================================
        ACCIONES
@@ -1022,9 +1047,14 @@
 
 
     const userName =
-        document.getElementById(
-            'user-name'
-        );
+    document.getElementById(
+        'user-name'
+    );
+
+    const userRole =
+    document.getElementById(
+        'user-role'
+    );
 
 
     const userEmail =
@@ -1129,22 +1159,22 @@
         );
 
 
-    const summaryEmployees =
-        document.getElementById(
-            'summary-employees'
-        );
+    const summaryAdmins =
+    document.getElementById(
+        'summary-admins'
+    );
 
 
-    const summaryActive =
-        document.getElementById(
-            'summary-active'
-        );
+const summaryEmployees =
+    document.getElementById(
+        'summary-employees'
+    );
 
 
-    const summaryInactive =
-        document.getElementById(
-            'summary-inactive'
-        );
+const summaryActive =
+    document.getElementById(
+        'summary-active'
+    );
 
 
     let usersData = [];
@@ -1335,45 +1365,45 @@
 
     function updateSummary() {
 
-        const employees =
-            usersData.filter(
-                user =>
-                    user.role?.name ===
-                    'employee'
-            );
+    const admins =
+        usersData.filter(
+            user =>
+                user.role?.name ===
+                'company_admin'
+        );
 
 
-        const activeEmployees =
-            employees.filter(
-                user =>
-                    user.status ===
-                    'active'
-            );
+    const employees =
+        usersData.filter(
+            user =>
+                user.role?.name ===
+                'employee'
+        );
 
 
-        const inactiveEmployees =
-            employees.filter(
-                user =>
-                    user.status ===
-                    'inactive'
-            );
+    const activeUsers =
+        usersData.filter(
+            user =>
+                user.status ===
+                'active'
+        );
 
 
-        summaryTotal.textContent =
-            usersData.length;
+    summaryTotal.textContent =
+        usersData.length;
 
 
-        summaryEmployees.textContent =
-            employees.length;
+    summaryAdmins.textContent =
+        admins.length;
 
 
-        summaryActive.textContent =
-            activeEmployees.length;
+    summaryEmployees.textContent =
+        employees.length;
 
 
-        summaryInactive.textContent =
-            inactiveEmployees.length;
-    }
+    summaryActive.textContent =
+        activeUsers.length;
+}
 
 
     /*
@@ -1551,16 +1581,26 @@
 
                     <td>
 
-                        <span
-                            class="badge ${roleClass}"
-                        >
-                            ${escapeHtml(
-                                user.role?.label
-                                ?? 'Sin rol'
-                            )}
-                        </span>
+    <span
+        class="badge ${roleClass}"
+    >
+        ${escapeHtml(
+            user.role?.label
+            ?? 'Sin rol'
+        )}
+    </span>
 
-                    </td>
+    ${
+        user.is_company_owner
+            ? `
+                <small class="owner-label">
+                    Propietario
+                </small>
+            `
+            : ''
+    }
+
+</td>
 
 
                     <td>
@@ -1686,7 +1726,7 @@
                     text.textContent =
                         user.is_current_user
                             ? 'Cuenta actual'
-                            : 'Sin acciones';
+                            : 'Cuenta protegida';
 
 
                     actions.appendChild(
@@ -1727,14 +1767,17 @@
 
             const payload = {
 
-                name:
-                    userName.value.trim(),
+    name:
+        userName.value.trim(),
 
-                email:
-                    userEmail.value
-                        .trim()
-                        .toLowerCase()
-            };
+    email:
+        userEmail.value
+            .trim()
+            .toLowerCase(),
+
+    role:
+        userRole.value
+};
 
 
             if (!editing) {
@@ -1864,7 +1907,7 @@
                 if (!userId.value) {
 
                     saveUserButton.textContent =
-                        'Registrar empleado';
+                        'Registrar usuario';
                 }
             }
         }
@@ -1893,6 +1936,10 @@
         userEmail.value =
             user.email ?? '';
 
+        userRole.value =
+    user.role?.name
+    ?? 'employee';
+
 
         passwordFields.style.display =
             'none';
@@ -1907,11 +1954,10 @@
 
 
         formTitle.textContent =
-            'Editar empleado';
+    'Editar usuario';
 
-
-        formDescription.textContent =
-            'Actualiza el nombre o correo del empleado.';
+formDescription.textContent =
+    'Actualiza los datos y el rol del usuario.';
 
 
         saveUserButton.textContent =
@@ -1943,6 +1989,9 @@
         userId.value =
             '';
 
+        userRole.value =
+    'employee';
+
 
         passwordFields.style.display =
             'block';
@@ -1957,11 +2006,10 @@
 
 
         formTitle.textContent =
-            'Registrar empleado';
+    'Registrar usuario';
 
-
-        formDescription.textContent =
-            'Crea una cuenta para un empleado de tu empresa.';
+formDescription.textContent =
+    'Crea una cuenta para un usuario de tu empresa.';
 
 
         saveUserButton.textContent =
