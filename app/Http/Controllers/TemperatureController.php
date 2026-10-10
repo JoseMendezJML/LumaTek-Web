@@ -44,13 +44,21 @@ class TemperatureController extends Controller
 
         $greenhouse =
             $sensor
-                ->device
-                ->zone
-                ->greenhouse;
+            ->device
+            ->zone
+            ->greenhouse;
 
         if ($greenhouse->company_id !== $user->company_id) {
             return response()->json([
                 'message' => 'No tienes permiso para registrar lecturas en este sensor.',
+            ], 403);
+        }
+
+        if ($greenhouse->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
             ], 403);
         }
 
@@ -78,19 +86,19 @@ class TemperatureController extends Controller
             ],
         ], [
             'value.required' =>
-                'La temperatura es obligatoria.',
+            'La temperatura es obligatoria.',
 
             'value.numeric' =>
-                'La temperatura debe ser un valor numérico.',
+            'La temperatura debe ser un valor numérico.',
 
             'recorded_at.date' =>
-                'La fecha de la lectura no es válida.',
+            'La fecha de la lectura no es válida.',
 
             'recorded_at.before_or_equal' =>
-                'La fecha de la lectura no puede ser futura.',
+            'La fecha de la lectura no puede ser futura.',
 
             'source.in' =>
-                'La fuente debe ser simulation o iot.',
+            'La fuente debe ser simulation o iot.',
         ]);
 
         /*
@@ -109,14 +117,14 @@ class TemperatureController extends Controller
                 $reading =
                     $sensor->readings()->create([
                         'value' =>
-                            $validated['value'],
+                        $validated['value'],
 
                         'recorded_at' =>
-                            $validated['recorded_at']
+                        $validated['recorded_at']
                             ?? now(),
 
                         'source' =>
-                            $validated['source']
+                        $validated['source']
                             ?? 'simulation',
                     ]);
 
@@ -130,7 +138,7 @@ class TemperatureController extends Controller
                     ->device
                     ->update([
                         'last_connection_at' =>
-                            $reading->recorded_at,
+                        $reading->recorded_at,
                     ]);
 
                 /*
@@ -141,11 +149,11 @@ class TemperatureController extends Controller
 
                 $threshold =
                     $greenhouse
-                        ->thresholds
-                        ->firstWhere(
-                            'variable',
-                            'temperature'
-                        );
+                    ->thresholds
+                    ->firstWhere(
+                        'variable',
+                        'temperature'
+                    );
 
                 $alert = null;
 
@@ -156,13 +164,13 @@ class TemperatureController extends Controller
 
                     $minimum =
                         $threshold->min_value !== null
-                            ? (float) $threshold->min_value
-                            : null;
+                        ? (float) $threshold->min_value
+                        : null;
 
                     $maximum =
                         $threshold->max_value !== null
-                            ? (float) $threshold->max_value
-                            : null;
+                        ? (float) $threshold->max_value
+                        : null;
 
                     /*
                     |--------------------------------------------------------------------------
@@ -177,55 +185,53 @@ class TemperatureController extends Controller
 
                         $alert =
                             $sensor
-                                ->alerts()
-                                ->create([
-                                    'reading_id' =>
-                                        $reading->id,
+                            ->alerts()
+                            ->create([
+                                'reading_id' =>
+                                $reading->id,
 
-                                    'type' =>
-                                        'high_temperature',
+                                'type' =>
+                                'high_temperature',
 
-                                    'severity' =>
-                                        'warning',
+                                'severity' =>
+                                'warning',
 
-                                    'message' =>
-                                        'La temperatura superó el límite máximo configurado.',
+                                'message' =>
+                                'La temperatura superó el límite máximo configurado.',
 
-                                    'status' =>
-                                        'active',
-                                ]);
+                                'status' =>
+                                'active',
+                            ]);
                     }
 
                     /*
                     |--------------------------------------------------------------------------
                     | Temperatura inferior al mínimo
                     |--------------------------------------------------------------------------
-                    */
-
-                    elseif (
+                    */ elseif (
                         $minimum !== null
                         && $temperature < $minimum
                     ) {
 
                         $alert =
                             $sensor
-                                ->alerts()
-                                ->create([
-                                    'reading_id' =>
-                                        $reading->id,
+                            ->alerts()
+                            ->create([
+                                'reading_id' =>
+                                $reading->id,
 
-                                    'type' =>
-                                        'low_temperature',
+                                'type' =>
+                                'low_temperature',
 
-                                    'severity' =>
-                                        'warning',
+                                'severity' =>
+                                'warning',
 
-                                    'message' =>
-                                        'La temperatura está por debajo del límite mínimo configurado.',
+                                'message' =>
+                                'La temperatura está por debajo del límite mínimo configurado.',
 
-                                    'status' =>
-                                        'active',
-                                ]);
+                                'status' =>
+                                'active',
+                            ]);
                     }
 
                     /*
@@ -236,9 +242,7 @@ class TemperatureController extends Controller
                     | Si el sensor vuelve a un rango normal,
                     | resolvemos sus alertas térmicas activas.
                     |
-                    */
-
-                    else {
+                    */ else {
 
                         Alert::query()
                             ->where(
@@ -258,10 +262,10 @@ class TemperatureController extends Controller
                             )
                             ->update([
                                 'status' =>
-                                    'resolved',
+                                'resolved',
 
                                 'resolved_at' =>
-                                    now(),
+                                now(),
                             ]);
                     }
                 }
@@ -276,60 +280,60 @@ class TemperatureController extends Controller
 
         return response()->json([
             'message' =>
-                'Lectura de temperatura registrada correctamente.',
+            'Lectura de temperatura registrada correctamente.',
 
             'data' => [
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 'temperature' =>
-                    round(
-                        (float) $result['reading']->value,
-                        1
-                    ),
+                round(
+                    (float) $result['reading']->value,
+                    1
+                ),
 
                 'unit' =>
-                    $sensor->unit,
+                $sensor->unit,
 
                 'recorded_at' =>
-                    $result['reading']
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $result['reading']
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'source' =>
-                    $result['reading']->source,
+                $result['reading']->source,
 
                 'threshold' =>
-                    $result['threshold']
+                $result['threshold']
                     ? [
                         'min' =>
-                            (float) $result['threshold']->min_value,
+                        (float) $result['threshold']->min_value,
 
                         'max' =>
-                            (float) $result['threshold']->max_value,
+                        (float) $result['threshold']->max_value,
 
                         'unit' =>
-                            $result['threshold']->unit,
+                        $result['threshold']->unit,
                     ]
                     : null,
 
                 'alert' =>
-                    $result['alert']
+                $result['alert']
                     ? [
                         'id' =>
-                            $result['alert']->id,
+                        $result['alert']->id,
 
                         'type' =>
-                            $result['alert']->type,
+                        $result['alert']->type,
 
                         'severity' =>
-                            $result['alert']->severity,
+                        $result['alert']->severity,
 
                         'message' =>
-                            $result['alert']->message,
+                        $result['alert']->message,
                     ]
                     : null,
             ],
@@ -358,9 +362,9 @@ class TemperatureController extends Controller
 
         $greenhouse =
             $sensor
-                ->device
-                ->zone
-                ->greenhouse;
+            ->device
+            ->zone
+            ->greenhouse;
 
         /*
         |--------------------------------------------------------------------------
@@ -379,11 +383,11 @@ class TemperatureController extends Controller
 
         $threshold =
             $greenhouse
-                ->thresholds
-                ->firstWhere(
-                    'variable',
-                    'temperature'
-                );
+            ->thresholds
+            ->firstWhere(
+                'variable',
+                'temperature'
+            );
 
         /*
         |--------------------------------------------------------------------------
@@ -396,37 +400,37 @@ class TemperatureController extends Controller
             return response()->json([
                 'data' => [
                     'sensor_id' =>
-                        $sensor->id,
+                    $sensor->id,
 
                     'sensor_name' =>
-                        $sensor->name,
+                    $sensor->name,
 
                     'temperature' =>
-                        null,
+                    null,
 
                     'unit' =>
-                        $sensor->unit,
+                    $sensor->unit,
 
                     'connection_status' =>
-                        'no_data',
+                    'no_data',
 
                     'connection_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'recorded_at' =>
-                        null,
+                    null,
 
                     'threshold' =>
-                        $threshold
+                    $threshold
                         ? [
                             'min' =>
-                                (float) $threshold->min_value,
+                            (float) $threshold->min_value,
 
                             'max' =>
-                                (float) $threshold->max_value,
+                            (float) $threshold->max_value,
 
                             'unit' =>
-                                $threshold->unit,
+                            $threshold->unit,
                         ]
                         : null,
                 ],
@@ -441,18 +445,18 @@ class TemperatureController extends Controller
 
         $isDisconnected =
             $latestReading
-                ->recorded_at
-                ->lt(
-                    now()->subMinutes(10)
-                );
+            ->recorded_at
+            ->lt(
+                now()->subMinutes(10)
+            );
 
         return response()->json([
             'data' => [
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -461,124 +465,142 @@ class TemperatureController extends Controller
                 */
 
                 'temperature' =>
-                    round(
-                        (float) $latestReading->value,
-                        1
-                    ),
+                round(
+                    (float) $latestReading->value,
+                    1
+                ),
 
                 'unit' =>
-                    '°C',
+                '°C',
 
                 'connection_status' =>
-                    $isDisconnected
-                        ? 'disconnected'
-                        : 'connected',
+                $isDisconnected
+                    ? 'disconnected'
+                    : 'connected',
 
                 'connection_label' =>
-                    $isDisconnected
-                        ? 'Sin conexión'
-                        : 'Conectado',
+                $isDisconnected
+                    ? 'Sin conexión'
+                    : 'Conectado',
 
                 'recorded_at' =>
-                    $latestReading
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $latestReading
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'minutes_since_last_reading' =>
-                    (int) $latestReading
-                        ->recorded_at
-                        ->diffInMinutes(
-                            now()
-                        ),
+                (int) $latestReading
+                    ->recorded_at
+                    ->diffInMinutes(
+                        now()
+                    ),
 
                 'threshold' =>
-                    $threshold
+                $threshold
                     ? [
                         'min' =>
-                            (float) $threshold->min_value,
+                        (float) $threshold->min_value,
 
                         'max' =>
-                            (float) $threshold->max_value,
+                        (float) $threshold->max_value,
 
                         'unit' =>
-                            $threshold->unit,
+                        $threshold->unit,
                     ]
                     : null,
             ],
         ]);
     }
     /**
- * Devuelve la temperatura actual de un invernadero.
- */
-public function currentByGreenhouse(
-    \App\Models\Greenhouse $greenhouse
-): JsonResponse {
+     * Devuelve la temperatura actual de un invernadero.
+     */
+    public function currentByGreenhouse(
+        \App\Models\Greenhouse $greenhouse
+    ): JsonResponse {
 
-    $user = auth('api')->user();
+        $user = auth('api')->user();
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Aislamiento por empresa
     |--------------------------------------------------------------------------
     */
 
-    if ($greenhouse->company_id !== $user->company_id) {
-        return response()->json([
-            'message' => 'No tienes permiso para consultar este invernadero.',
-        ], 403);
-    }
+        if ($greenhouse->company_id !== $user->company_id) {
+            return response()->json([
+                'message' => 'No tienes permiso para consultar este invernadero.',
+            ], 403);
+        }
 
-    /*
+        if ($greenhouse->plan_restricted) {
+            return response()->json([
+                'data' => [
+                    'sensor_id' => null,
+                    'sensor_name' => null,
+                    'temperature' => null,
+                    'unit' => '°C',
+                    'connection_status' => 'restricted',
+                    'connection_label' => 'Restringido',
+                    'recorded_at' => null,
+                    'minutes_since_last_reading' => null,
+                    'threshold' => null,
+                    'alert_status' => null,
+                    'restricted_message' =>
+                    'Monitoreo restringido por el plan actual.',
+                ],
+            ]);
+        }
+
+        /*
     |--------------------------------------------------------------------------
     | Buscar sensor de temperatura
     |--------------------------------------------------------------------------
     */
 
-    $sensor = Sensor::query()
-        ->where('sensor_type', 'temperature')
-        ->where('status', 'active')
-        ->whereHas('device.zone', function ($query) use ($greenhouse) {
+        $sensor = Sensor::query()
+            ->where('sensor_type', 'temperature')
+            ->where('status', 'active')
+            ->whereHas('device.zone', function ($query) use ($greenhouse) {
 
-            $query->where(
-                'greenhouse_id',
-                $greenhouse->id
-            );
+                $query->where(
+                    'greenhouse_id',
+                    $greenhouse->id
+                );
+            })
+            ->with([
+                'device.zone.greenhouse.thresholds',
+                'latestReading',
+            ])
+            ->first();
 
-        })
-        ->with([
-            'device.zone.greenhouse.thresholds',
-            'latestReading',
-        ])
-        ->first();
-
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Invernadero sin sensor de temperatura
     |--------------------------------------------------------------------------
     */
 
-    if (!$sensor) {
-        return response()->json([
-            'data' => [
-                'sensor_id' => null,
-                'sensor_name' => null,
-                'temperature' => null,
-                'unit' => '°C',
-                'connection_status' => 'no_sensor',
-                'connection_label' => 'Sin sensor',
-                'recorded_at' => null,
-                'minutes_since_last_reading' => null,
-                'threshold' => null,
-                'alert_status' => null,
-            ],
-        ]);
-    }
+        if (!$sensor) {
+            return response()->json([
+                'data' => [
+                    'sensor_id' => null,
+                    'sensor_name' => null,
+                    'temperature' => null,
+                    'unit' => '°C',
+                    'connection_status' => 'no_sensor',
+                    'connection_label' => 'Sin sensor',
+                    'recorded_at' => null,
+                    'minutes_since_last_reading' => null,
+                    'threshold' => null,
+                    'alert_status' => null,
+                ],
+            ]);
+        }
 
-    $latestReading =
-        $sensor->latestReading;
+        $latestReading =
+            $sensor->latestReading;
 
-    $threshold =
-        $greenhouse
+        $threshold =
+            $greenhouse
             ->thresholds()
             ->where(
                 'variable',
@@ -586,161 +608,159 @@ public function currentByGreenhouse(
             )
             ->first();
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Sensor sin lecturas
     |--------------------------------------------------------------------------
     */
 
-    if (!$latestReading) {
-        return response()->json([
-            'data' => [
-                'sensor_id' =>
+        if (!$latestReading) {
+            return response()->json([
+                'data' => [
+                    'sensor_id' =>
                     $sensor->id,
 
-                'sensor_name' =>
+                    'sensor_name' =>
                     $sensor->name,
 
-                'temperature' =>
+                    'temperature' =>
                     null,
 
-                'unit' =>
+                    'unit' =>
                     '°C',
 
-                'connection_status' =>
+                    'connection_status' =>
                     'no_data',
 
-                'connection_label' =>
+                    'connection_label' =>
                     'Sin datos',
 
-                'recorded_at' =>
+                    'recorded_at' =>
                     null,
 
-                'minutes_since_last_reading' =>
+                    'minutes_since_last_reading' =>
                     null,
 
-                'threshold' =>
+                    'threshold' =>
                     $threshold
-                    ? [
-                        'min' =>
+                        ? [
+                            'min' =>
                             (float) $threshold->min_value,
 
-                        'max' =>
+                            'max' =>
                             (float) $threshold->max_value,
 
-                        'unit' =>
+                            'unit' =>
                             $threshold->unit,
-                    ]
-                    : null,
+                        ]
+                        : null,
 
-                'alert_status' =>
+                    'alert_status' =>
                     null,
-            ],
-        ]);
-    }
+                ],
+            ]);
+        }
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Estado de conexión
     |--------------------------------------------------------------------------
     */
 
-    $isDisconnected =
-        $latestReading
+        $isDisconnected =
+            $latestReading
             ->recorded_at
             ->lt(
                 now()->subMinutes(10)
             );
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Estado respecto al umbral
     |--------------------------------------------------------------------------
     */
 
-    $temperature =
-        (float) $latestReading->value;
+        $temperature =
+            (float) $latestReading->value;
 
-    $alertStatus =
-        'normal';
+        $alertStatus =
+            'normal';
 
-    if ($threshold) {
+        if ($threshold) {
 
-        if (
-            $threshold->max_value !== null
-            && $temperature >
+            if (
+                $threshold->max_value !== null
+                && $temperature >
                 (float) $threshold->max_value
-        ) {
-            $alertStatus =
-                'high';
-        }
-
-        elseif (
-            $threshold->min_value !== null
-            && $temperature <
+            ) {
+                $alertStatus =
+                    'high';
+            } elseif (
+                $threshold->min_value !== null
+                && $temperature <
                 (float) $threshold->min_value
-        ) {
-            $alertStatus =
-                'low';
+            ) {
+                $alertStatus =
+                    'low';
+            }
         }
-    }
 
-    return response()->json([
-        'data' => [
-            'sensor_id' =>
+        return response()->json([
+            'data' => [
+                'sensor_id' =>
                 $sensor->id,
 
-            'sensor_name' =>
+                'sensor_name' =>
                 $sensor->name,
 
-            'temperature' =>
+                'temperature' =>
                 round(
                     $temperature,
                     1
                 ),
 
-            'unit' =>
+                'unit' =>
                 '°C',
 
-            'connection_status' =>
+                'connection_status' =>
                 $isDisconnected
                     ? 'disconnected'
                     : 'connected',
 
-            'connection_label' =>
+                'connection_label' =>
                 $isDisconnected
                     ? 'Sin conexión'
                     : 'Conectado',
 
-            'recorded_at' =>
+                'recorded_at' =>
                 $latestReading
                     ->recorded_at
                     ->toDateTimeString(),
 
-            'minutes_since_last_reading' =>
+                'minutes_since_last_reading' =>
                 (int) $latestReading
                     ->recorded_at
                     ->diffInMinutes(
                         now()
                     ),
 
-            'threshold' =>
+                'threshold' =>
                 $threshold
-                ? [
-                    'min' =>
+                    ? [
+                        'min' =>
                         (float) $threshold->min_value,
 
-                    'max' =>
+                        'max' =>
                         (float) $threshold->max_value,
 
-                    'unit' =>
+                        'unit' =>
                         $threshold->unit,
-                ]
-                : null,
+                    ]
+                    : null,
 
-            'alert_status' =>
+                'alert_status' =>
                 $alertStatus,
-        ],
-    ]);
-}
+            ],
+        ]);
+    }
 }

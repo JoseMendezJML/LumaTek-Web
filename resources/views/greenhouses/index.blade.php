@@ -618,6 +618,25 @@
 
     }
 
+    .greenhouse-status-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.plan-restricted-badge {
+    display: inline-flex;
+    padding: 5px 9px;
+    border-radius: 20px;
+    background: #fff3e8;
+    border: 1px solid #efcda9;
+    color: #9b561d;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
 </style>
 
 @endpush
@@ -864,6 +883,31 @@
 
 
             if (
+    data.connection_status ===
+    'restricted'
+) {
+
+    valueElement.textContent =
+        '-- °C';
+
+    connectionElement.textContent =
+        'Restringido';
+
+    connectionElement.className =
+        'connection-badge temperature-connection connection-no-data';
+
+    detailElement.textContent =
+        data.restricted_message
+        ?? 'Monitoreo restringido por el plan actual.';
+
+    alertElement.className =
+        'temperature-alert';
+
+    return;
+}
+
+
+            if (
                 data.connection_status ===
                 'no_sensor'
             ) {
@@ -1073,6 +1117,37 @@
 
             const data =
                 result.data;
+
+            if (
+    data.connection_status ===
+    'restricted'
+) {
+
+    valueElement.textContent =
+        '-- %';
+
+    connectionElement.textContent =
+        'Restringido';
+
+    connectionElement.className =
+        'connection-badge soil-connection connection-no-data';
+
+    detailElement.textContent =
+        data.restricted_message
+        ?? 'Monitoreo restringido por el plan actual.';
+
+    levelElement.textContent =
+        'Restringido';
+
+    levelElement.className =
+        'soil-level soil-level-neutral';
+
+    alertElement.classList.remove(
+        'show'
+    );
+
+    return;
+}
 
 
             if (
@@ -1450,6 +1525,37 @@
             const data =
                 result.data;
 
+            if (
+    data.connection_status ===
+    'restricted'
+) {
+
+    valueElement.textContent =
+        '-- %';
+
+    connectionElement.textContent =
+        'Restringido';
+
+    connectionElement.className =
+        'connection-badge ambient-connection connection-no-data';
+
+    detailElement.textContent =
+        data.restricted_message
+        ?? 'Monitoreo restringido por el plan actual.';
+
+    statusElement.textContent =
+        'Restringido';
+
+    statusElement.className =
+        'ambient-status ambient-status-neutral';
+
+    alertElement.classList.remove(
+        'show'
+    );
+
+    return;
+}
+
 
             /*
             | Sin sensor
@@ -1766,11 +1872,24 @@
                                 )}
                             </h3>
 
-                            <span class="greenhouse-status">
-                                ${greenhouse.status === 'active'
-                                    ? 'Activo'
-                                    : 'Inactivo'}
-                            </span>
+                            <div class="greenhouse-status-container">
+
+    <span class="greenhouse-status">
+        ${greenhouse.status === 'active'
+            ? 'Activo'
+            : 'Inactivo'}
+    </span>
+
+    ${greenhouse.plan_restricted
+        ? `
+            <span class="plan-restricted-badge">
+                Restringido por plan
+            </span>
+        `
+        : ''
+    }
+
+</div>
 
                         </div>
 

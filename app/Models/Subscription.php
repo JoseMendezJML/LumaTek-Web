@@ -41,4 +41,10 @@ class Subscription extends Model
             Plan::class
         );
     }
+
+    public function isExpired(): bool
+    {
+        return $this->ends_at !== null
+            && $this->ends_at->isPast();
+    }
 }

@@ -89,7 +89,7 @@ Route::get(
 
             return response()->json([
                 'message' =>
-                    'El correo electrónico ya estaba verificado.',
+                'El correo electrónico ya estaba verificado.',
             ]);
         }
 
@@ -99,7 +99,7 @@ Route::get(
 
         return response()->json([
             'message' =>
-                'Correo electrónico verificado correctamente.',
+            'Correo electrónico verificado correctamente.',
         ]);
     }
 )
@@ -116,7 +116,10 @@ Route::get(
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth:api')->group(function () {
+Route::middleware([
+    'auth:api',
+    'plan.access',
+])->group(function () {
 
 
     /*
@@ -155,9 +158,9 @@ Route::middleware('auth:api')->group(function () {
     );
 
     Route::patch(
-    '/greenhouses/{greenhouse}/status',
-    [GreenhouseController::class, 'changeStatus']
-)->name('greenhouses.status');
+        '/greenhouses/{greenhouse}/status',
+        [GreenhouseController::class, 'changeStatus']
+    )->name('greenhouses.status');
 
 
     /*
@@ -394,9 +397,9 @@ Route::middleware('auth:api')->group(function () {
     )->name('api.irrigation.start');
 
     Route::post(
-    '/greenhouses/{greenhouse}/irrigation/start',
-    [IrrigationController::class, 'startManualByGreenhouse']
-)->name('api.irrigation.greenhouse.start');
+        '/greenhouses/{greenhouse}/irrigation/start',
+        [IrrigationController::class, 'startManualByGreenhouse']
+    )->name('api.irrigation.greenhouse.start');
 
 
     Route::patch(
@@ -430,18 +433,18 @@ Route::middleware('auth:api')->group(function () {
 
 
     Route::put(
-    '/greenhouses/{greenhouse}/irrigation-setting',
-    [ZoneIrrigationSettingController::class, 'updateByGreenhouse']
-)->name('api.irrigation-settings.greenhouse.update');
+        '/greenhouses/{greenhouse}/irrigation-setting',
+        [ZoneIrrigationSettingController::class, 'updateByGreenhouse']
+    )->name('api.irrigation-settings.greenhouse.update');
 
     Route::get('/history', [HistoryController::class, 'index'])
-    ->name('api.history.index');
+        ->name('api.history.index');
 
     Route::get('/history/irrigations', [HistoryController::class, 'irrigations'])
-    ->name('api.history.irrigations');
+        ->name('api.history.irrigations');
 
 
-        /*
+    /*
     |--------------------------------------------------------------------------
     | Usuarios y empleados
     |--------------------------------------------------------------------------
@@ -470,7 +473,7 @@ Route::middleware('auth:api')->group(function () {
         [UserManagementController::class, 'changeStatus']
     )->name('api.users.status');
 
-        /*
+    /*
     |--------------------------------------------------------------------------
     | Configuración de empresa
     |--------------------------------------------------------------------------
@@ -494,14 +497,13 @@ Route::middleware('auth:api')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::get(
-    '/reports',
-    [ReportController::class, 'index']
-)->name('api.reports.index');
+    Route::get(
+        '/reports',
+        [ReportController::class, 'index']
+    )->name('api.reports.index');
 
-Route::get(
-    '/reports/pdf',
-    [ReportController::class, 'pdf']
-)->name('api.reports.pdf');
-
+    Route::get(
+        '/reports/pdf',
+        [ReportController::class, 'pdf']
+    )->name('api.reports.pdf');
 });

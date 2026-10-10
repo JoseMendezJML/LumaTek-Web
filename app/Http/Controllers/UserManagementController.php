@@ -25,6 +25,21 @@ class UserManagementController extends Controller
             ], 403);
         }
 
+        if (!($authenticatedUser instanceof User)) {
+            return response()->json([
+                'message' =>
+                'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $authenticatedUser->loadMissing(
+            'company'
+        );
+
+        $authenticatedUser
+            ->company
+            ?->syncUserPlanRestrictions();
+
         $users = User::query()
             ->where(
                 'company_id',
@@ -40,7 +55,7 @@ class UserManagementController extends Controller
                     'email' => $user->email,
                     'status' => $user->status,
                     'email_verified' =>
-                        $user->email_verified_at !== null,
+                    $user->email_verified_at !== null,
                     'role' => [
                         'id' => $user->role?->id,
                         'name' => $user->role?->name,
@@ -49,26 +64,29 @@ class UserManagementController extends Controller
                         ),
                     ],
                     'is_current_user' =>
-                        $user->id === $authenticatedUser->id,
+                    $user->id === $authenticatedUser->id,
                     'is_company_owner' =>
-    (bool) $user->is_company_owner,
+                    (bool) $user->is_company_owner,
 
-'can_manage' =>
-    $user->id !== $authenticatedUser->id
-    &&
-    in_array(
-        $user->role?->name,
-        ['company_admin', 'employee'],
-        true
-    )
-    &&
-    (
-        !$user->is_company_owner
-        ||
-        $authenticatedUser->is_company_owner
-    ),
+                    'plan_restricted' =>
+                    (bool) $user->plan_restricted,
+
+                    'can_manage' =>
+                    $user->id !== $authenticatedUser->id
+                        &&
+                        in_array(
+                            $user->role?->name,
+                            ['company_admin', 'employee'],
+                            true
+                        )
+                        &&
+                        (
+                            !$user->is_company_owner
+                            ||
+                            $authenticatedUser->is_company_owner
+                        ),
                     'created_at' =>
-                        $user->created_at?->toDateTimeString(),
+                    $user->created_at?->toDateTimeString(),
                 ];
             });
 
@@ -78,373 +96,28 @@ class UserManagementController extends Controller
     }
 
     /**
- * Registra un usuario para la empresa
- * del administrador autenticado.
- */
-public function store(Request $request): JsonResponse
-{
-    $authenticatedUser = auth('api')->user();
+     * Registra un usuario para la empresa
+     * del administrador autenticado.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $authenticatedUser = auth('api')->user();
 
-if (!($authenticatedUser instanceof User)) {
-    return response()->json([
-        'message' =>
-            'Usuario no autenticado.',
-    ], 401);
-}
-
-if (!$this->isCompanyAdmin($authenticatedUser)) {
-    return response()->json([
-        'message' =>
-            'No tienes permiso para crear usuarios.',
-    ], 403);
-}
-
-    $validated = $request->validate([
-        'name' => [
-            'required',
-            'string',
-            'min:3',
-            'max:120',
-        ],
-
-        'email' => [
-            'required',
-            'email',
-            'max:150',
-            'unique:users,email',
-        ],
-
-        'password' => [
-            'required',
-            'string',
-            'min:8',
-            'confirmed',
-        ],
-
-        'role' => [
-            'required',
-            Rule::in([
-                'company_admin',
-                'employee',
-            ]),
-        ],
-    ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Rol seleccionado
-    |--------------------------------------------------------------------------
-    */
-
-    $role = Role::query()
-        ->where(
-            'name',
-            $validated['role']
-        )
-        ->first();
-
-    if (!$role) {
-        return response()->json([
-            'message' =>
-                'El rol seleccionado no está configurado.',
-        ], 422);
-    }
-
-
-    $authenticatedUser->loadMissing(
-    'company.activeSubscription.plan'
-);
-
-$plan =
-    $authenticatedUser
-        ->company
-        ?->activeSubscription
-        ?->plan;
-
-if (!$plan) {
-    return response()->json([
-        'message' =>
-            'La empresa no tiene un plan activo configurado.',
-    ], 422);
-}
-
-$activeUsers =
-    User::query()
-        ->where(
-            'company_id',
-            $authenticatedUser->company_id
-        )
-        ->where(
-            'status',
-            'active'
-        )
-        ->count();
-
-if (
-    $activeUsers
-    >=
-    $plan->max_users
-) {
-    return response()->json([
-        'message' =>
-            'Has alcanzado el límite de usuarios activos de tu plan '
-            . $plan->name
-            . '.',
-    ], 422);
-
-
-}
-
-
-    if (
-    $validated['role'] === 'company_admin'
-) {
-
-    $activeAdditionalAdmins =
-        User::query()
-            ->where(
-                'company_id',
-                $authenticatedUser->company_id
-            )
-            ->where(
-                'status',
-                'active'
-            )
-            ->where(
-                'is_company_owner',
-                false
-            )
-            ->whereHas(
-                'role',
-                function ($query) {
-                    $query->where(
-                        'name',
-                        'company_admin'
-                    );
-                }
-            )
-            ->count();
-
-
-    if (
-        $activeAdditionalAdmins
-        >=
-        $plan->max_additional_admins
-    ) {
-        return response()->json([
-            'message' =>
-                'Has alcanzado el límite de administradores adicionales de tu plan '
-                . $plan->name
-                . '.',
-        ], 422);
-    }
-}
-
-    /*
-    |--------------------------------------------------------------------------
-    | Crear usuario
-    |--------------------------------------------------------------------------
-    */
-
-    $newUser = DB::transaction(
-        function () use (
-            $validated,
-            $authenticatedUser,
-            $role
-        ) {
-            return User::create([
-                'company_id' =>
-                    $authenticatedUser->company_id,
-
-                'role_id' =>
-                    $role->id,
-
-                'name' =>
-                    $validated['name'],
-
-                'email' =>
-                    strtolower(
-                        trim(
-                            $validated['email']
-                        )
-                    ),
-
-                'password' =>
-                    $validated['password'],
-
-                'status' =>
-                    'active',
-            ]);
+        if (!($authenticatedUser instanceof User)) {
+            return response()->json([
+                'message' =>
+                'Usuario no autenticado.',
+            ], 401);
         }
-    );
 
-    /*
-    |--------------------------------------------------------------------------
-    | Verificación de correo
-    |--------------------------------------------------------------------------
-    */
+        if (!$this->isCompanyAdmin($authenticatedUser)) {
+            return response()->json([
+                'message' =>
+                'No tienes permiso para crear usuarios.',
+            ], 403);
+        }
 
-    $newUser->sendEmailVerificationNotification();
-
-    $newUser->load('role');
-
-    $roleLabel =
-        $this->roleLabel(
-            $newUser->role?->name
-        );
-
-    return response()->json([
-        'message' =>
-            $roleLabel
-            . ' registrado correctamente.',
-
-        'data' => [
-            'id' =>
-                $newUser->id,
-
-            'name' =>
-                $newUser->name,
-
-            'email' =>
-                $newUser->email,
-
-            'status' =>
-                $newUser->status,
-
-            'role' => [
-                'id' =>
-                    $newUser->role?->id,
-
-                'name' =>
-                    $newUser->role?->name,
-
-                'label' =>
-                    $roleLabel,
-            ],
-        ],
-    ], 201);
-}
-
-    /**
- * Actualiza los datos y el rol de un usuario
- * perteneciente a la misma empresa.
- */
-public function update(
-    Request $request,
-    User $user
-): JsonResponse {
-
-    $authenticatedUser =
-    auth('api')->user();
-
-
-if (!($authenticatedUser instanceof User)) {
-
-    return response()->json([
-        'message' =>
-            'Usuario no autenticado.',
-    ], 401);
-}
-
-
-if (
-    !$this->isCompanyAdmin(
-        $authenticatedUser
-    )
-) {
-
-    return response()->json([
-        'message' =>
-            'No tienes permiso para modificar usuarios.',
-    ], 403);
-}
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Seguridad multiempresa
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $user->company_id
-        !==
-        $authenticatedUser->company_id
-    ) {
-
-        return response()->json([
-            'message' =>
-                'No tienes permiso para modificar este usuario.',
-        ], 403);
-    }
-
-
-    $user->load('role');
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | No modificar la propia cuenta desde este módulo
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $user->id
-        ===
-        $authenticatedUser->id
-    ) {
-
-        return response()->json([
-            'message' =>
-                'Tu propia cuenta no puede modificarse desde este módulo.',
-        ], 422);
-    }
-
-    if (
-    $user->is_company_owner
-    &&
-    !$authenticatedUser->is_company_owner
-) {
-    return response()->json([
-        'message' =>
-            'El administrador principal no puede ser modificado por otro administrador.',
-    ], 403);
-}
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Solo roles administrables
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        !in_array(
-            $user->role?->name,
-            [
-                'company_admin',
-                'employee',
-            ],
-            true
-        )
-    ) {
-
-        return response()->json([
-            'message' =>
-                'Este usuario no puede administrarse desde este módulo.',
-        ], 422);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Validación
-    |--------------------------------------------------------------------------
-    */
-
-    $validated =
-        $request->validate([
-
+        $validated = $request->validate([
             'name' => [
                 'required',
                 'string',
@@ -456,18 +129,18 @@ if (
                 'required',
                 'email',
                 'max:150',
+                'unique:users,email',
+            ],
 
-                Rule::unique(
-                    'users',
-                    'email'
-                )->ignore(
-                    $user->id
-                ),
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
             ],
 
             'role' => [
                 'required',
-
                 Rule::in([
                     'company_admin',
                     'employee',
@@ -475,451 +148,45 @@ if (
             ],
         ]);
 
-
-    /*
+        /*
     |--------------------------------------------------------------------------
-    | Obtener nuevo rol
+    | Rol seleccionado
     |--------------------------------------------------------------------------
     */
 
-    $newRole =
-        Role::query()
+        $role = Role::query()
             ->where(
                 'name',
                 $validated['role']
             )
             ->first();
 
-
-    if (!$newRole) {
-
-        return response()->json([
-            'message' =>
-                'El rol seleccionado no está configurado.',
-        ], 422);
-    }
-
-    $authenticatedUser->loadMissing(
-    'company.activeSubscription.plan'
-);
-
-$plan =
-    $authenticatedUser
-        ->company
-        ?->activeSubscription
-        ?->plan;
-
-if (!$plan) {
-    return response()->json([
-        'message' =>
-            'La empresa no tiene un plan activo configurado.',
-    ], 422);
-}
-
-
-if (
-    $user->role?->name !== 'company_admin'
-    &&
-    $validated['role'] === 'company_admin'
-    &&
-    $user->status === 'active'
-) {
-
-    $activeAdditionalAdmins =
-        User::query()
-            ->where(
-                'company_id',
-                $authenticatedUser->company_id
-            )
-            ->where(
-                'status',
-                'active'
-            )
-            ->where(
-                'is_company_owner',
-                false
-            )
-            ->whereHas(
-                'role',
-                function ($query) {
-                    $query->where(
-                        'name',
-                        'company_admin'
-                    );
-                }
-            )
-            ->count();
-
-
-    if (
-        $activeAdditionalAdmins
-        >=
-        $plan->max_additional_admins
-    ) {
-        return response()->json([
-            'message' =>
-                'Has alcanzado el límite de administradores adicionales de tu plan '
-                . $plan->name
-                . '.',
-        ], 422);
-    }
-}
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Protección del último administrador
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $user->role?->name === 'company_admin'
-        &&
-        $validated['role'] === 'employee'
-    ) {
-
-        $otherActiveAdmins =
-            User::query()
-                ->where(
-                    'company_id',
-                    $authenticatedUser->company_id
-                )
-                ->where(
-                    'status',
-                    'active'
-                )
-                ->where(
-                    'id',
-                    '!=',
-                    $user->id
-                )
-                ->whereHas(
-                    'role',
-                    function ($query) {
-
-                        $query->where(
-                            'name',
-                            'company_admin'
-                        );
-                    }
-                )
-                ->count();
-
-
-        if ($otherActiveAdmins < 1) {
-
+        if (!$role) {
             return response()->json([
                 'message' =>
-                    'La empresa debe conservar al menos un administrador activo.',
+                'El rol seleccionado no está configurado.',
             ], 422);
         }
-    }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Detectar cambio de correo
-    |--------------------------------------------------------------------------
-    */
-
-    $emailChanged =
-        strtolower(
-            trim(
-                $validated['email']
-            )
-        )
-        !==
-        strtolower(
-            $user->email
+        $authenticatedUser->loadMissing(
+            'company'
         );
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Actualizar usuario
-    |--------------------------------------------------------------------------
-    */
-
-    $user->update([
-
-        'name' =>
-            $validated['name'],
-
-        'email' =>
-            strtolower(
-                trim(
-                    $validated['email']
-                )
-            ),
-
-        'role_id' =>
-            $newRole->id,
-
-        'email_verified_at' =>
-            $emailChanged
-                ? null
-                : $user->email_verified_at,
-    ]);
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Verificación de correo
-    |--------------------------------------------------------------------------
-    */
-
-    if ($emailChanged) {
-
-        $user
-            ->sendEmailVerificationNotification();
-    }
-
-
-    $user->load('role');
-
-
-    return response()->json([
-
-        'message' =>
-            'Usuario actualizado correctamente.',
-
-        'data' => [
-
-            'id' =>
-                $user->id,
-
-            'name' =>
-                $user->name,
-
-            'email' =>
-                $user->email,
-
-            'status' =>
-                $user->status,
-
-            'email_verified' =>
-                $user->email_verified_at !== null,
-
-            'role' => [
-
-                'id' =>
-                    $user->role?->id,
-
-                'name' =>
-                    $user->role?->name,
-
-                'label' =>
-                    $this->roleLabel(
-                        $user->role?->name
-                    ),
-            ],
-        ],
-    ]);
-}
-
-    /**
- * Activa o desactiva un usuario de la empresa.
- */
-public function changeStatus(
-    Request $request,
-    User $user
-): JsonResponse {
-
-    $authenticatedUser =
-        auth('api')->user();
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Permiso
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        !$this->isCompanyAdmin(
+        $plan =
             $authenticatedUser
-        )
-    ) {
+            ->company
+            ?->effectivePlan();
 
-        return response()->json([
-            'message' =>
-                'No tienes permiso para cambiar el estado de usuarios.',
-        ], 403);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Seguridad multiempresa
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $user->company_id
-        !==
-        $authenticatedUser->company_id
-    ) {
-
-        return response()->json([
-            'message' =>
-                'No tienes permiso para modificar este usuario.',
-        ], 403);
-    }
-
-
-    $user->load('role');
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | No permitir modificar la propia cuenta
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $user->id
-        ===
-        $authenticatedUser->id
-    ) {
-
-        return response()->json([
-            'message' =>
-                'No puedes cambiar el estado de tu propia cuenta desde este módulo.',
-        ], 422);
-    }
-
-    if (
-    $user->is_company_owner
-    &&
-    !$authenticatedUser->is_company_owner
-) {
-    return response()->json([
-        'message' =>
-            'El administrador principal no puede ser desactivado por otro administrador.',
-    ], 403);
-}
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Solo roles administrables
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        !in_array(
-            $user->role?->name,
-            [
-                'company_admin',
-                'employee',
-            ],
-            true
-        )
-    ) {
-
-        return response()->json([
-            'message' =>
-                'Este usuario no puede administrarse desde este módulo.',
-        ], 422);
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Validación
-    |--------------------------------------------------------------------------
-    */
-
-    $validated =
-        $request->validate([
-
-            'status' => [
-                'required',
-
-                Rule::in([
-                    'active',
-                    'inactive',
-                ]),
-            ],
-        ]);
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Protección de administradores
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $user->role?->name
-        === 'company_admin'
-        &&
-        $validated['status']
-        === 'inactive'
-    ) {
-
-        $otherActiveAdmins =
-            User::query()
-                ->where(
-                    'company_id',
-                    $authenticatedUser->company_id
-                )
-                ->where(
-                    'status',
-                    'active'
-                )
-                ->where(
-                    'id',
-                    '!=',
-                    $user->id
-                )
-                ->whereHas(
-                    'role',
-                    function ($query) {
-
-                        $query->where(
-                            'name',
-                            'company_admin'
-                        );
-                    }
-                )
-                ->count();
-
-
-        if ($otherActiveAdmins < 1) {
-
+        if (!$plan) {
             return response()->json([
                 'message' =>
-                    'La empresa debe conservar al menos un administrador activo.',
+                'La empresa no tiene un plan activo configurado.',
             ], 422);
         }
-    }
 
-    if ($validated['status'] === 'active') {
-
-    /** @var User $authenticatedUser */
-
-    $authenticatedUser->loadMissing(
-        'company.activeSubscription.plan'
-    );
-
-    $plan =
-        $authenticatedUser
-            ->company
-            ?->activeSubscription
-            ?->plan;
-
-
-    if (!$plan) {
-        return response()->json([
-            'message' =>
-                'La empresa no tiene un plan activo configurado.',
-        ], 422);
-    }
-
-
-    $activeUsers =
-        User::query()
+        $activeUsers =
+            User::query()
             ->where(
                 'company_id',
                 $authenticatedUser->company_id
@@ -930,29 +197,26 @@ public function changeStatus(
             )
             ->count();
 
-
-    if (
-        $activeUsers
-        >=
-        $plan->max_users
-    ) {
-        return response()->json([
-            'message' =>
+        if (
+            $activeUsers
+            >=
+            $plan->max_users
+        ) {
+            return response()->json([
+                'message' =>
                 'Has alcanzado el límite de usuarios activos de tu plan '
-                . $plan->name
-                . '.',
-        ], 422);
-    }
+                    . $plan->name
+                    . '.',
+            ], 422);
+        }
 
 
-    if (
-        $user->role?->name === 'company_admin'
-        &&
-        !$user->is_company_owner
-    ) {
+        if (
+            $validated['role'] === 'company_admin'
+        ) {
 
-        $activeAdditionalAdmins =
-            User::query()
+            $activeAdditionalAdmins =
+                User::query()
                 ->where(
                     'company_id',
                     $authenticatedUser->company_id
@@ -977,66 +241,815 @@ public function changeStatus(
                 ->count();
 
 
+            if (
+                $activeAdditionalAdmins
+                >=
+                $plan->max_additional_admins
+            ) {
+                return response()->json([
+                    'message' =>
+                    'Has alcanzado el límite de administradores adicionales de tu plan '
+                        . $plan->name
+                        . '.',
+                ], 422);
+            }
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Crear usuario
+    |--------------------------------------------------------------------------
+    */
+
+        $newUser = DB::transaction(
+            function () use (
+                $validated,
+                $authenticatedUser,
+                $role
+            ) {
+                return User::create([
+                    'company_id' =>
+                    $authenticatedUser->company_id,
+
+                    'role_id' =>
+                    $role->id,
+
+                    'name' =>
+                    $validated['name'],
+
+                    'email' =>
+                    strtolower(
+                        trim(
+                            $validated['email']
+                        )
+                    ),
+
+                    'password' =>
+                    $validated['password'],
+
+                    'status' =>
+                    'active',
+                ]);
+            }
+        );
+
+        /*
+    |--------------------------------------------------------------------------
+    | Verificación de correo
+    |--------------------------------------------------------------------------
+    */
+
+        $newUser->sendEmailVerificationNotification();
+
+        $newUser->load('role');
+
+        $roleLabel =
+            $this->roleLabel(
+                $newUser->role?->name
+            );
+
+        return response()->json([
+            'message' =>
+            $roleLabel
+                . ' registrado correctamente.',
+
+            'data' => [
+                'id' =>
+                $newUser->id,
+
+                'name' =>
+                $newUser->name,
+
+                'email' =>
+                $newUser->email,
+
+                'status' =>
+                $newUser->status,
+
+                'role' => [
+                    'id' =>
+                    $newUser->role?->id,
+
+                    'name' =>
+                    $newUser->role?->name,
+
+                    'label' =>
+                    $roleLabel,
+                ],
+            ],
+        ], 201);
+    }
+
+    /**
+     * Actualiza los datos y el rol de un usuario
+     * perteneciente a la misma empresa.
+     */
+    public function update(
+        Request $request,
+        User $user
+    ): JsonResponse {
+
+        $authenticatedUser =
+            auth('api')->user();
+
+
+        if (!($authenticatedUser instanceof User)) {
+
+            return response()->json([
+                'message' =>
+                'Usuario no autenticado.',
+            ], 401);
+        }
+
+
         if (
-            $activeAdditionalAdmins
-            >=
-            $plan->max_additional_admins
+            !$this->isCompanyAdmin(
+                $authenticatedUser
+            )
+        ) {
+
+            return response()->json([
+                'message' =>
+                'No tienes permiso para modificar usuarios.',
+            ], 403);
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Seguridad multiempresa
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $user->company_id
+            !==
+            $authenticatedUser->company_id
+        ) {
+
+            return response()->json([
+                'message' =>
+                'No tienes permiso para modificar este usuario.',
+            ], 403);
+        }
+
+
+        $user->load('role');
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | No modificar la propia cuenta desde este módulo
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $user->id
+            ===
+            $authenticatedUser->id
+        ) {
+
+            return response()->json([
+                'message' =>
+                'Tu propia cuenta no puede modificarse desde este módulo.',
+            ], 422);
+        }
+
+        if (
+            $user->is_company_owner
+            &&
+            !$authenticatedUser->is_company_owner
         ) {
             return response()->json([
                 'message' =>
-                    'Has alcanzado el límite de administradores adicionales de tu plan '
-                    . $plan->name
-                    . '.',
+                'El administrador principal no puede ser modificado por otro administrador.',
+            ], 403);
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Solo roles administrables
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            !in_array(
+                $user->role?->name,
+                [
+                    'company_admin',
+                    'employee',
+                ],
+                true
+            )
+        ) {
+
+            return response()->json([
+                'message' =>
+                'Este usuario no puede administrarse desde este módulo.',
             ], 422);
         }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Validación
+    |--------------------------------------------------------------------------
+    */
+
+        $validated =
+            $request->validate([
+
+                'name' => [
+                    'required',
+                    'string',
+                    'min:3',
+                    'max:120',
+                ],
+
+                'email' => [
+                    'required',
+                    'email',
+                    'max:150',
+
+                    Rule::unique(
+                        'users',
+                        'email'
+                    )->ignore(
+                        $user->id
+                    ),
+                ],
+
+                'role' => [
+                    'required',
+
+                    Rule::in([
+                        'company_admin',
+                        'employee',
+                    ]),
+                ],
+            ]);
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Obtener nuevo rol
+    |--------------------------------------------------------------------------
+    */
+
+        $newRole =
+            Role::query()
+            ->where(
+                'name',
+                $validated['role']
+            )
+            ->first();
+
+
+        if (!$newRole) {
+
+            return response()->json([
+                'message' =>
+                'El rol seleccionado no está configurado.',
+            ], 422);
+        }
+
+        $authenticatedUser->loadMissing(
+            'company'
+        );
+
+        $plan =
+            $authenticatedUser
+            ->company
+            ?->effectivePlan();
+
+        if (!$plan) {
+            return response()->json([
+                'message' =>
+                'La empresa no tiene un plan activo configurado.',
+            ], 422);
+        }
+
+
+        if (
+            $user->role?->name !== 'company_admin'
+            &&
+            $validated['role'] === 'company_admin'
+            &&
+            $user->status === 'active'
+        ) {
+
+            $activeAdditionalAdmins =
+                User::query()
+                ->where(
+                    'company_id',
+                    $authenticatedUser->company_id
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->where(
+                    'is_company_owner',
+                    false
+                )
+                ->whereHas(
+                    'role',
+                    function ($query) {
+                        $query->where(
+                            'name',
+                            'company_admin'
+                        );
+                    }
+                )
+                ->count();
+
+
+            if (
+                $activeAdditionalAdmins
+                >=
+                $plan->max_additional_admins
+            ) {
+                return response()->json([
+                    'message' =>
+                    'Has alcanzado el límite de administradores adicionales de tu plan '
+                        . $plan->name
+                        . '.',
+                ], 422);
+            }
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Protección del último administrador
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $user->role?->name === 'company_admin'
+            &&
+            $validated['role'] === 'employee'
+        ) {
+
+            $otherActiveAdmins =
+                User::query()
+                ->where(
+                    'company_id',
+                    $authenticatedUser->company_id
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->where(
+                    'id',
+                    '!=',
+                    $user->id
+                )
+                ->whereHas(
+                    'role',
+                    function ($query) {
+
+                        $query->where(
+                            'name',
+                            'company_admin'
+                        );
+                    }
+                )
+                ->count();
+
+
+            if ($otherActiveAdmins < 1) {
+
+                return response()->json([
+                    'message' =>
+                    'La empresa debe conservar al menos un administrador activo.',
+                ], 422);
+            }
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Detectar cambio de correo
+    |--------------------------------------------------------------------------
+    */
+
+        $emailChanged =
+            strtolower(
+                trim(
+                    $validated['email']
+                )
+            )
+            !==
+            strtolower(
+                $user->email
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Actualizar usuario
+    |--------------------------------------------------------------------------
+    */
+
+        $user->update([
+
+            'name' =>
+            $validated['name'],
+
+            'email' =>
+            strtolower(
+                trim(
+                    $validated['email']
+                )
+            ),
+
+            'role_id' =>
+            $newRole->id,
+
+            'email_verified_at' =>
+            $emailChanged
+                ? null
+                : $user->email_verified_at,
+        ]);
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Verificación de correo
+    |--------------------------------------------------------------------------
+    */
+
+        if ($emailChanged) {
+
+            $user
+                ->sendEmailVerificationNotification();
+        }
+
+
+        $user->load('role');
+
+
+        return response()->json([
+
+            'message' =>
+            'Usuario actualizado correctamente.',
+
+            'data' => [
+
+                'id' =>
+                $user->id,
+
+                'name' =>
+                $user->name,
+
+                'email' =>
+                $user->email,
+
+                'status' =>
+                $user->status,
+
+                'email_verified' =>
+                $user->email_verified_at !== null,
+
+                'role' => [
+
+                    'id' =>
+                    $user->role?->id,
+
+                    'name' =>
+                    $user->role?->name,
+
+                    'label' =>
+                    $this->roleLabel(
+                        $user->role?->name
+                    ),
+                ],
+            ],
+        ]);
     }
-}
+
+    /**
+     * Activa o desactiva un usuario de la empresa.
+     */
+    public function changeStatus(
+        Request $request,
+        User $user
+    ): JsonResponse {
+
+        $authenticatedUser =
+            auth('api')->user();
 
 
-    /*
+        /*
+    |--------------------------------------------------------------------------
+    | Permiso
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            !$this->isCompanyAdmin(
+                $authenticatedUser
+            )
+        ) {
+
+            return response()->json([
+                'message' =>
+                'No tienes permiso para cambiar el estado de usuarios.',
+            ], 403);
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Seguridad multiempresa
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $user->company_id
+            !==
+            $authenticatedUser->company_id
+        ) {
+
+            return response()->json([
+                'message' =>
+                'No tienes permiso para modificar este usuario.',
+            ], 403);
+        }
+
+
+        $user->load('role');
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | No permitir modificar la propia cuenta
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $user->id
+            ===
+            $authenticatedUser->id
+        ) {
+
+            return response()->json([
+                'message' =>
+                'No puedes cambiar el estado de tu propia cuenta desde este módulo.',
+            ], 422);
+        }
+
+        if (
+            $user->is_company_owner
+            &&
+            !$authenticatedUser->is_company_owner
+        ) {
+            return response()->json([
+                'message' =>
+                'El administrador principal no puede ser desactivado por otro administrador.',
+            ], 403);
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Solo roles administrables
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            !in_array(
+                $user->role?->name,
+                [
+                    'company_admin',
+                    'employee',
+                ],
+                true
+            )
+        ) {
+
+            return response()->json([
+                'message' =>
+                'Este usuario no puede administrarse desde este módulo.',
+            ], 422);
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Validación
+    |--------------------------------------------------------------------------
+    */
+
+        $validated =
+            $request->validate([
+
+                'status' => [
+                    'required',
+
+                    Rule::in([
+                        'active',
+                        'inactive',
+                    ]),
+                ],
+            ]);
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Protección de administradores
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $user->role?->name
+            === 'company_admin'
+            &&
+            $validated['status']
+            === 'inactive'
+        ) {
+
+            $otherActiveAdmins =
+                User::query()
+                ->where(
+                    'company_id',
+                    $authenticatedUser->company_id
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->where(
+                    'id',
+                    '!=',
+                    $user->id
+                )
+                ->whereHas(
+                    'role',
+                    function ($query) {
+
+                        $query->where(
+                            'name',
+                            'company_admin'
+                        );
+                    }
+                )
+                ->count();
+
+
+            if ($otherActiveAdmins < 1) {
+
+                return response()->json([
+                    'message' =>
+                    'La empresa debe conservar al menos un administrador activo.',
+                ], 422);
+            }
+        }
+
+        if ($validated['status'] === 'active') {
+
+            /** @var User $authenticatedUser */
+
+            $authenticatedUser->loadMissing(
+                'company'
+            );
+
+            $plan =
+                $authenticatedUser
+                ->company
+                ?->effectivePlan();
+
+
+            if (!$plan) {
+                return response()->json([
+                    'message' =>
+                    'La empresa no tiene un plan activo configurado.',
+                ], 422);
+            }
+
+
+            $activeUsers =
+                User::query()
+                ->where(
+                    'company_id',
+                    $authenticatedUser->company_id
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->count();
+
+
+            if (
+                $activeUsers
+                >=
+                $plan->max_users
+            ) {
+                return response()->json([
+                    'message' =>
+                    'Has alcanzado el límite de usuarios activos de tu plan '
+                        . $plan->name
+                        . '.',
+                ], 422);
+            }
+
+
+            if (
+                $user->role?->name === 'company_admin'
+                &&
+                !$user->is_company_owner
+            ) {
+
+                $activeAdditionalAdmins =
+                    User::query()
+                    ->where(
+                        'company_id',
+                        $authenticatedUser->company_id
+                    )
+                    ->where(
+                        'status',
+                        'active'
+                    )
+                    ->where(
+                        'is_company_owner',
+                        false
+                    )
+                    ->whereHas(
+                        'role',
+                        function ($query) {
+                            $query->where(
+                                'name',
+                                'company_admin'
+                            );
+                        }
+                    )
+                    ->count();
+
+
+                if (
+                    $activeAdditionalAdmins
+                    >=
+                    $plan->max_additional_admins
+                ) {
+                    return response()->json([
+                        'message' =>
+                        'Has alcanzado el límite de administradores adicionales de tu plan '
+                            . $plan->name
+                            . '.',
+                    ], 422);
+                }
+            }
+        }
+
+
+        /*
     |--------------------------------------------------------------------------
     | Actualizar estado
     |--------------------------------------------------------------------------
     */
 
-    $user->update([
-        'status' =>
+        $user->update([
+            'status' =>
             $validated['status'],
-    ]);
+        ]);
 
 
-    $roleLabel =
-        $this->roleLabel(
-            $user->role?->name
-        );
+        $roleLabel =
+            $this->roleLabel(
+                $user->role?->name
+            );
 
 
-    return response()->json([
+        return response()->json([
 
-        'message' =>
+            'message' =>
             $validated['status'] === 'active'
                 ? $roleLabel . ' activado correctamente.'
                 : $roleLabel . ' desactivado correctamente.',
 
-        'data' => [
+            'data' => [
 
-            'id' =>
+                'id' =>
                 $user->id,
 
-            'status' =>
+                'status' =>
                 $user->status,
 
-            'role' => [
+                'role' => [
 
-                'name' =>
+                    'name' =>
                     $user->role?->name,
 
-                'label' =>
+                    'label' =>
                     $roleLabel,
+                ],
             ],
-        ],
-    ]);
-}
+        ]);
+    }
 
     /**
      * Determina si el usuario autenticado
@@ -1064,16 +1077,16 @@ public function changeStatus(
     ): string {
         return match ($role) {
             'company_admin' =>
-                'Administrador',
+            'Administrador',
 
             'employee' =>
-                'Empleado',
+            'Empleado',
 
             'superadmin' =>
-                'Superadministrador',
+            'Superadministrador',
 
             default =>
-                'Sin rol',
+            'Sin rol',
         };
     }
 }

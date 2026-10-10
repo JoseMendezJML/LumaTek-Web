@@ -38,8 +38,10 @@ Route::get('/reset-password/{token}', function (
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
-
+Route::middleware([
+    'auth',
+    'plan.access',
+])->group(function () {
     Route::view('/greenhouses', 'greenhouses.index')
         ->name('greenhouses.web.index');
 
@@ -69,7 +71,6 @@ Route::middleware('auth')->group(function () {
 
         Route::view('/settings', 'settings.index')
             ->name('settings.index');
-
     });
 
 
@@ -77,5 +78,4 @@ Route::middleware('auth')->group(function () {
         '/logout',
         [AuthController::class, 'webLogout']
     )->name('web.logout');
-
 });

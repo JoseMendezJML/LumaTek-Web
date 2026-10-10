@@ -44,6 +44,18 @@ class GreenhouseController extends Controller
     {
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncGreenhousePlanRestrictions();
+
         $greenhouses = Greenhouse::query()
             ->where('company_id', $user->company_id)
             ->with('thresholds')
@@ -65,47 +77,46 @@ class GreenhouseController extends Controller
 
         /** @var \App\Models\User $user */
 
-$user->loadMissing(
-    'company.activeSubscription.plan'
-);
+        $user->loadMissing(
+            'company'
+        );
 
-$plan =
-    $user
-        ->company
-        ?->activeSubscription
-        ?->plan;
+        $plan =
+            $user
+            ->company
+            ?->effectivePlan();
 
-if (!$plan) {
-    return response()->json([
-        'message' =>
-            'La empresa no tiene un plan activo configurado.',
-    ], 422);
-}
+        if (!$plan) {
+            return response()->json([
+                'message' =>
+                'La empresa no tiene un plan activo configurado.',
+            ], 422);
+        }
 
-$activeGreenhouses =
-    Greenhouse::query()
-        ->where(
-            'company_id',
-            $user->company_id
-        )
-        ->where(
-            'status',
-            'active'
-        )
-        ->count();
+        $activeGreenhouses =
+            Greenhouse::query()
+            ->where(
+                'company_id',
+                $user->company_id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->count();
 
-if (
-    $activeGreenhouses
-    >=
-    $plan->max_greenhouses
-) {
-    return response()->json([
-        'message' =>
-            'Has alcanzado el límite de invernaderos activos de tu plan '
-            . $plan->name
-            . '.',
-    ], 422);
-}
+        if (
+            $activeGreenhouses
+            >=
+            $plan->max_greenhouses
+        ) {
+            return response()->json([
+                'message' =>
+                'Has alcanzado el límite de invernaderos activos de tu plan '
+                    . $plan->name
+                    . '.',
+            ], 422);
+        }
 
         $greenhouse = DB::transaction(function () use ($request, $user) {
 
@@ -196,69 +207,68 @@ if (
     }
 
     /**
- * Activa o desactiva un invernadero.
- *
- * No se elimina físicamente para conservar
- * zonas, sensores, mediciones e historial.
- */
-public function changeStatus(
-    Request $request,
-    Greenhouse $greenhouse
-): JsonResponse {
+     * Activa o desactiva un invernadero.
+     *
+     * No se elimina físicamente para conservar
+     * zonas, sensores, mediciones e historial.
+     */
+    public function changeStatus(
+        Request $request,
+        Greenhouse $greenhouse
+    ): JsonResponse {
 
-    $user = auth('api')->user();
+        $user = auth('api')->user();
 
-    if (!($user instanceof \App\Models\User)) {
-        return response()->json([
-            'message' => 'Usuario no autenticado.',
-        ], 401);
-    }
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
 
-    if ($greenhouse->company_id !== $user->company_id) {
-        return response()->json([
-            'message' =>
+        if ($greenhouse->company_id !== $user->company_id) {
+            return response()->json([
+                'message' =>
                 'No tienes permiso para modificar este invernadero.',
-        ], 403);
-    }
+            ], 403);
+        }
 
-    $validated = $request->validate([
-        'status' => [
-            'required',
-            'in:active,inactive',
-        ],
-    ]);
+        $validated = $request->validate([
+            'status' => [
+                'required',
+                'in:active,inactive',
+            ],
+        ]);
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Validar límite del plan al reactivar
     |--------------------------------------------------------------------------
     */
 
-    if (
-        $validated['status'] === 'active'
-        &&
-        $greenhouse->status !== 'active'
-    ) {
+        if (
+            $validated['status'] === 'active'
+            &&
+            $greenhouse->status !== 'active'
+        ) {
 
-        $user->loadMissing(
-            'company.activeSubscription.plan'
-        );
+            $user->loadMissing(
+                'company'
+            );
 
-        $plan =
-            $user
+            $plan =
+                $user
                 ->company
-                ?->activeSubscription
-                ?->plan;
+                ?->effectivePlan();
 
-        if (!$plan) {
-            return response()->json([
-                'message' =>
+            if (!$plan) {
+                return response()->json([
+                    'message' =>
                     'La empresa no tiene un plan activo configurado.',
-            ], 422);
-        }
+                ], 422);
+            }
 
-        $activeGreenhouses =
-            Greenhouse::query()
+            $activeGreenhouses =
+                Greenhouse::query()
                 ->where(
                     'company_id',
                     $user->company_id
@@ -269,33 +279,33 @@ public function changeStatus(
                 )
                 ->count();
 
-        if (
-            $activeGreenhouses
-            >=
-            $plan->max_greenhouses
-        ) {
-            return response()->json([
-                'message' =>
+            if (
+                $activeGreenhouses
+                >=
+                $plan->max_greenhouses
+            ) {
+                return response()->json([
+                    'message' =>
                     'Has alcanzado el límite de invernaderos activos de tu plan '
-                    . $plan->name
-                    . '.',
-            ], 422);
+                        . $plan->name
+                        . '.',
+                ], 422);
+            }
         }
-    }
 
-    $greenhouse->update([
-        'status' =>
+        $greenhouse->update([
+            'status' =>
             $validated['status'],
-    ]);
+        ]);
 
-    return response()->json([
-        'message' =>
+        return response()->json([
+            'message' =>
             $greenhouse->status === 'active'
                 ? 'Invernadero activado correctamente.'
                 : 'Invernadero desactivado correctamente.',
 
-        'data' =>
+            'data' =>
             $greenhouse,
-    ]);
-}
+        ]);
+    }
 }

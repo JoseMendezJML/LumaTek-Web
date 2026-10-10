@@ -957,6 +957,14 @@
 
     }
 
+    .plan-restricted-user {
+    display: block;
+    margin-top: 6px;
+    color: #9b561d;
+    font-size: 9px;
+    font-weight: 700;
+}
+
 </style>
 
 @endpush
@@ -1616,13 +1624,23 @@ const summaryActive =
 
                     <td>
 
-                        <span
-                            class="badge ${statusClass}"
-                        >
-                            ${statusLabel}
-                        </span>
+    <span
+        class="badge ${statusClass}"
+    >
+        ${statusLabel}
+    </span>
 
-                    </td>
+    ${
+        user.plan_restricted
+            ? `
+                <small class="plan-restricted-user">
+                    Restringido por plan
+                </small>
+            `
+            : ''
+    }
+
+</td>
 
 
                     <td>

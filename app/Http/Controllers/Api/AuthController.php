@@ -41,33 +41,33 @@ class AuthController extends Controller
             ]);
 
             $user = User::create([
-    'company_id' => $company->id,
-    'role_id' => $role->id,
-    'is_company_owner' => true,
-    'name' => $request->name,
-    'email' => $request->email,
-    'password' => $request->password,
-    'status' => 'active',
-]);
+                'company_id' => $company->id,
+                'role_id' => $role->id,
+                'is_company_owner' => true,
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => $request->password,
+                'status' => 'active',
+            ]);
 
 
-$freePlan = Plan::where(
-    'slug',
-    'free'
-)->firstOrFail();
+            $freePlan = Plan::where(
+                'slug',
+                'free'
+            )->firstOrFail();
 
 
-Subscription::create([
-    'company_id' => $company->id,
-    'plan_id' => $freePlan->id,
-    'status' => 'active',
-    'starts_at' => now(),
-    'ends_at' => null,
-    'auto_renew' => false,
-]);
+            Subscription::create([
+                'company_id' => $company->id,
+                'plan_id' => $freePlan->id,
+                'status' => 'active',
+                'starts_at' => now(),
+                'ends_at' => null,
+                'auto_renew' => false,
+            ]);
 
 
-return $user;
+            return $user;
         });
 
         $user->sendEmailVerificationNotification();
@@ -131,6 +131,24 @@ return $user;
             ], 403);
         }
 
+        $user->loadMissing(
+            'company'
+        );
+
+        $user
+            ->company
+            ?->syncUserPlanRestrictions();
+
+        $user->refresh();
+
+        if ($user->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Tu cuenta está restringida por el plan actual de la empresa. '
+                    . 'Contacta al propietario o renueva el plan Pro.',
+            ], 403);
+        }
+
         if (!$user->hasVerifiedEmail()) {
             return response()->json([
                 'message' => 'Debes verificar tu correo electrónico antes de iniciar sesión.',
@@ -157,248 +175,267 @@ return $user;
     }
 
     /**
- * Inicio de sesión para la aplicación web.
- *
- * Crea una sesión Laravel para proteger las rutas web
- * y también devuelve el JWT utilizado por las peticiones API.
- */
-public function webLogin(
-    LoginRequest $request
-): JsonResponse {
+     * Inicio de sesión para la aplicación web.
+     *
+     * Crea una sesión Laravel para proteger las rutas web
+     * y también devuelve el JWT utilizado por las peticiones API.
+     */
+    public function webLogin(
+        LoginRequest $request
+    ): JsonResponse {
 
-    $key = $this->loginThrottleKey(
-        $request->email,
-        $request->ip()
-    );
+        $key = $this->loginThrottleKey(
+            $request->email,
+            $request->ip()
+        );
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Bloqueo por demasiados intentos
     |--------------------------------------------------------------------------
     */
 
-    if (
-        RateLimiter::tooManyAttempts(
-            $key,
-            self::MAX_LOGIN_ATTEMPTS
-        )
-    ) {
+        if (
+            RateLimiter::tooManyAttempts(
+                $key,
+                self::MAX_LOGIN_ATTEMPTS
+            )
+        ) {
 
-        $seconds =
-            RateLimiter::availableIn(
-                $key
-            );
+            $seconds =
+                RateLimiter::availableIn(
+                    $key
+                );
 
 
-        return response()->json([
-            'message' =>
+            return response()->json([
+                'message' =>
                 'Demasiados intentos fallidos. Intenta nuevamente más tarde.',
 
-            'retry_after_seconds' =>
+                'retry_after_seconds' =>
                 $seconds,
-        ], 429);
-    }
+            ], 429);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Buscar usuario
     |--------------------------------------------------------------------------
     */
 
-    $user =
-        User::where(
-            'email',
-            $request->email
-        )->first();
+        $user =
+            User::where(
+                'email',
+                $request->email
+            )->first();
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Validar credenciales
     |--------------------------------------------------------------------------
     */
 
-    if (
-        !$user
-        ||
-        !Hash::check(
-            $request->password,
-            $user->password
-        )
-    ) {
+        if (
+            !$user
+            ||
+            !Hash::check(
+                $request->password,
+                $user->password
+            )
+        ) {
 
-        RateLimiter::hit(
-            $key,
-            self::LOCKOUT_SECONDS
-        );
-
-
-        $remaining =
-            RateLimiter::remaining(
+            RateLimiter::hit(
                 $key,
-                self::MAX_LOGIN_ATTEMPTS
+                self::LOCKOUT_SECONDS
             );
 
 
-        return response()->json([
-            'message' =>
+            $remaining =
+                RateLimiter::remaining(
+                    $key,
+                    self::MAX_LOGIN_ATTEMPTS
+                );
+
+
+            return response()->json([
+                'message' =>
                 'Correo o contraseña incorrectos.',
 
-            'attempts_remaining' =>
+                'attempts_remaining' =>
                 $remaining,
-        ], 401);
-    }
+            ], 401);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Cuenta activa
     |--------------------------------------------------------------------------
     */
 
-    if ($user->status !== 'active') {
+        if ($user->status !== 'active') {
 
-        return response()->json([
-            'message' =>
+            return response()->json([
+                'message' =>
                 'La cuenta se encuentra inactiva.',
-        ], 403);
-    }
+            ], 403);
+        }
+
+        $user->loadMissing(
+            'company'
+        );
+
+        $user
+            ->company
+            ?->syncUserPlanRestrictions();
+
+        $user->refresh();
+
+        if ($user->plan_restricted) {
+
+            return response()->json([
+                'message' =>
+                'Tu cuenta está restringida por el plan actual de la empresa. '
+                    . 'Contacta al propietario o renueva el plan Pro.',
+            ], 403);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Correo verificado
     |--------------------------------------------------------------------------
     */
 
-    if (!$user->hasVerifiedEmail()) {
+        if (!$user->hasVerifiedEmail()) {
 
-        return response()->json([
-            'message' =>
+            return response()->json([
+                'message' =>
                 'Debes verificar tu correo electrónico antes de iniciar sesión.',
-        ], 403);
-    }
+            ], 403);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Inicio de sesión web
     |--------------------------------------------------------------------------
     */
 
-    Auth::guard('web')->login(
-        $user,
-        $request->boolean('remember')
-    );
+        Auth::guard('web')->login(
+            $user,
+            $request->boolean('remember')
+        );
 
 
-    $request
-        ->session()
-        ->regenerate();
+        $request
+            ->session()
+            ->regenerate();
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Limpiar intentos fallidos
     |--------------------------------------------------------------------------
     */
 
-    RateLimiter::clear(
-        $key
-    );
+        RateLimiter::clear(
+            $key
+        );
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | JWT para las peticiones API actuales
     |--------------------------------------------------------------------------
     */
 
-    $token =
-        JWTAuth::fromUser(
-            $user
+        $token =
+            JWTAuth::fromUser(
+                $user
+            );
+
+
+        $user->loadMissing(
+            'role'
         );
 
 
-    $user->loadMissing(
-        'role'
-    );
-
-
-    return response()->json([
-        'message' =>
+        return response()->json([
+            'message' =>
             'Inicio de sesión correcto.',
 
-        'access_token' =>
+            'access_token' =>
             $token,
 
-        'token_type' =>
+            'token_type' =>
             'Bearer',
 
-        'expires_in' =>
+            'expires_in' =>
             (int) config('jwt.ttl') * 60,
 
-        'user' => [
-            'id' =>
+            'user' => [
+                'id' =>
                 $user->id,
 
-            'name' =>
+                'name' =>
                 $user->name,
 
-            'email' =>
+                'email' =>
                 $user->email,
 
-            'company_id' =>
+                'company_id' =>
                 $user->company_id,
 
-            'role' =>
+                'role' =>
                 $user->role?->name,
-        ],
-    ]);
-}
-
-public function webLogout(
-    Request $request
-): JsonResponse {
-
-    Auth::guard('web')->logout();
-
-    $request
-        ->session()
-        ->invalidate();
-
-    $request
-        ->session()
-        ->regenerateToken();
-
-    return response()->json([
-        'message' =>
-            'Sesión cerrada correctamente.',
-    ]);
-}
-
-    public function forgotPassword(
-    ForgotPasswordRequest $request
-): JsonResponse {
-
-    $email = strtolower(trim($request->email));
-
-    $status = Password::sendResetLink([
-        'email' => $email,
-    ]);
-
-    if ($status === Password::RESET_THROTTLED) {
-        return response()->json([
-            'message' => 'Espera antes de solicitar otro enlace de recuperación.',
-        ], 429);
+            ],
+        ]);
     }
 
-    return response()->json([
-        'message' => 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
-    ]);
-}
+    public function webLogout(
+        Request $request
+    ): JsonResponse {
+
+        Auth::guard('web')->logout();
+
+        $request
+            ->session()
+            ->invalidate();
+
+        $request
+            ->session()
+            ->regenerateToken();
+
+        return response()->json([
+            'message' =>
+            'Sesión cerrada correctamente.',
+        ]);
+    }
+
+    public function forgotPassword(
+        ForgotPasswordRequest $request
+    ): JsonResponse {
+
+        $email = strtolower(trim($request->email));
+
+        $status = Password::sendResetLink([
+            'email' => $email,
+        ]);
+
+        if ($status === Password::RESET_THROTTLED) {
+            return response()->json([
+                'message' => 'Espera antes de solicitar otro enlace de recuperación.',
+            ], 429);
+        }
+
+        return response()->json([
+            'message' => 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
+        ]);
+    }
 
     public function resetPassword(
         ResetPasswordRequest $request

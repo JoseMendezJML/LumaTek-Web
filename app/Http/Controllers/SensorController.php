@@ -30,16 +30,16 @@ class SensorController extends Controller
 
         if (
             $device
-                ->zone
-                ->greenhouse
-                ->company_id
+            ->zone
+            ->greenhouse
+            ->company_id
             !==
             $user->company_id
         ) {
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para consultar este dispositivo.',
+                'No tienes permiso para consultar este dispositivo.',
             ], 403);
         }
 
@@ -59,7 +59,7 @@ class SensorController extends Controller
 
         return response()->json([
             'data' =>
-                $sensors,
+            $sensors,
         ]);
     }
 
@@ -75,62 +75,61 @@ class SensorController extends Controller
         $user = auth('api')->user();
 
         if (!($user instanceof \App\Models\User)) {
-    return response()->json([
-        'message' =>
-            'Usuario no autenticado.',
-    ], 401);
-}
+            return response()->json([
+                'message' =>
+                'Usuario no autenticado.',
+            ], 401);
+        }
 
-$user->loadMissing(
-    'company.activeSubscription.plan'
-);
+        $user->loadMissing(
+            'company'
+        );
 
-$plan =
-    $user
-        ->company
-        ?->activeSubscription
-        ?->plan;
+        $plan =
+            $user
+            ->company
+            ?->effectivePlan();
 
-if (!$plan) {
-    return response()->json([
-        'message' =>
-            'La empresa no tiene un plan activo configurado.',
-    ], 422);
-}
+        if (!$plan) {
+            return response()->json([
+                'message' =>
+                'La empresa no tiene un plan activo configurado.',
+            ], 422);
+        }
 
         $device->load(
             'zone.greenhouse'
         );
 
         $activeSensors =
-    \App\Models\Sensor::query()
-        ->whereHas(
-            'device',
-            function ($query) use ($device) {
-                $query->where(
-                    'zone_id',
-                    $device->zone_id
-                );
-            }
-        )
-        ->where(
-            'status',
-            'active'
-        )
-        ->count();
+            \App\Models\Sensor::query()
+            ->whereHas(
+                'device',
+                function ($query) use ($device) {
+                    $query->where(
+                        'zone_id',
+                        $device->zone_id
+                    );
+                }
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->count();
 
-if (
-    $activeSensors
-    >=
-    $plan->max_sensors_per_zone
-) {
-    return response()->json([
-        'message' =>
-            'Has alcanzado el límite de sensores activos por zona de tu plan '
-            . $plan->name
-            . '.',
-    ], 422);
-}
+        if (
+            $activeSensors
+            >=
+            $plan->max_sensors_per_zone
+        ) {
+            return response()->json([
+                'message' =>
+                'Has alcanzado el límite de sensores activos por zona de tu plan '
+                    . $plan->name
+                    . '.',
+            ], 422);
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -140,16 +139,30 @@ if (
 
         if (
             $device
-                ->zone
-                ->greenhouse
-                ->company_id
+            ->zone
+            ->greenhouse
+            ->company_id
             !==
             $user->company_id
         ) {
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para modificar este dispositivo.',
+                'No tienes permiso para modificar este dispositivo.',
+            ], 403);
+        }
+
+        if (
+            $device
+            ->zone
+            ->greenhouse
+            ->plan_restricted
+        ) {
+
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para administrar sus sensores.',
             ], 403);
         }
 
@@ -163,7 +176,7 @@ if (
 
             return response()->json([
                 'message' =>
-                    'No puedes agregar sensores a un dispositivo inactivo.',
+                'No puedes agregar sensores a un dispositivo inactivo.',
             ], 422);
         }
 
@@ -171,7 +184,7 @@ if (
 
             return response()->json([
                 'message' =>
-                    'No puedes agregar sensores a una zona inactiva.',
+                'No puedes agregar sensores a una zona inactiva.',
             ], 422);
         }
 
@@ -219,25 +232,25 @@ if (
             ],
         ], [
             'name.required' =>
-                'El nombre del sensor es obligatorio.',
+            'El nombre del sensor es obligatorio.',
 
             'sensor_code.required' =>
-                'El código del sensor es obligatorio.',
+            'El código del sensor es obligatorio.',
 
             'sensor_code.unique' =>
-                'Ya existe un sensor registrado con ese código.',
+            'Ya existe un sensor registrado con ese código.',
 
             'sensor_type.required' =>
-                'El tipo de sensor es obligatorio.',
+            'El tipo de sensor es obligatorio.',
 
             'sensor_type.in' =>
-                'El tipo de sensor seleccionado no es válido.',
+            'El tipo de sensor seleccionado no es válido.',
 
             'position_x.between' =>
-                'La posición X debe estar entre 0 y 100.',
+            'La posición X debe estar entre 0 y 100.',
 
             'position_y.between' =>
-                'La posición Y debe estar entre 0 y 100.',
+            'La posición Y debe estar entre 0 y 100.',
         ]);
 
         /*
@@ -260,49 +273,49 @@ if (
             ->sensors()
             ->create([
                 'name' =>
-                    trim(
-                        $validated['name']
-                    ),
+                trim(
+                    $validated['name']
+                ),
 
                 'sensor_code' =>
-                    strtoupper(
-                        trim(
-                            $validated['sensor_code']
-                        )
-                    ),
+                strtoupper(
+                    trim(
+                        $validated['sensor_code']
+                    )
+                ),
 
                 'sensor_type' =>
-                    $validated['sensor_type'],
+                $validated['sensor_type'],
 
                 'unit' =>
-                    $unit,
+                $unit,
 
                 'model' =>
-                    isset($validated['model'])
+                isset($validated['model'])
                     && $validated['model'] !== ''
-                        ? trim(
-                            $validated['model']
-                        )
-                        : null,
+                    ? trim(
+                        $validated['model']
+                    )
+                    : null,
 
                 'position_x' =>
-                    $validated['position_x']
+                $validated['position_x']
                     ?? null,
 
                 'position_y' =>
-                    $validated['position_y']
+                $validated['position_y']
                     ?? null,
 
                 'status' =>
-                    'active',
+                'active',
             ]);
 
         return response()->json([
             'message' =>
-                'Sensor registrado correctamente.',
+            'Sensor registrado correctamente.',
 
             'data' =>
-                $sensor,
+            $sensor,
         ], 201);
     }
 
@@ -329,17 +342,17 @@ if (
 
         if (
             $sensor
-                ->device
-                ->zone
-                ->greenhouse
-                ->company_id
+            ->device
+            ->zone
+            ->greenhouse
+            ->company_id
             !==
             $user->company_id
         ) {
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para modificar este sensor.',
+                'No tienes permiso para modificar este sensor.',
             ], 403);
         }
 
@@ -392,25 +405,25 @@ if (
             ],
         ], [
             'name.required' =>
-                'El nombre del sensor es obligatorio.',
+            'El nombre del sensor es obligatorio.',
 
             'sensor_code.required' =>
-                'El código del sensor es obligatorio.',
+            'El código del sensor es obligatorio.',
 
             'sensor_code.unique' =>
-                'Ya existe otro sensor registrado con ese código.',
+            'Ya existe otro sensor registrado con ese código.',
 
             'sensor_type.required' =>
-                'El tipo de sensor es obligatorio.',
+            'El tipo de sensor es obligatorio.',
 
             'sensor_type.in' =>
-                'El tipo de sensor seleccionado no es válido.',
+            'El tipo de sensor seleccionado no es válido.',
 
             'position_x.between' =>
-                'La posición X debe estar entre 0 y 100.',
+            'La posición X debe estar entre 0 y 100.',
 
             'position_y.between' =>
-                'La posición Y debe estar entre 0 y 100.',
+            'La posición Y debe estar entre 0 y 100.',
         ]);
 
         /*
@@ -431,50 +444,50 @@ if (
 
         $sensor->update([
             'name' =>
-                trim(
-                    $validated['name']
-                ),
+            trim(
+                $validated['name']
+            ),
 
             'sensor_code' =>
-                strtoupper(
-                    trim(
-                        $validated['sensor_code']
-                    )
-                ),
+            strtoupper(
+                trim(
+                    $validated['sensor_code']
+                )
+            ),
 
             'sensor_type' =>
-                $validated['sensor_type'],
+            $validated['sensor_type'],
 
             'unit' =>
-                $unit,
+            $unit,
 
             'model' =>
-                isset($validated['model'])
+            isset($validated['model'])
                 && $validated['model'] !== ''
-                    ? trim(
-                        $validated['model']
-                    )
-                    : null,
+                ? trim(
+                    $validated['model']
+                )
+                : null,
 
             'position_x' =>
-                $validated['position_x']
+            $validated['position_x']
                 ?? null,
 
             'position_y' =>
-                $validated['position_y']
+            $validated['position_y']
                 ?? null,
 
             'status' =>
-                $validated['status']
+            $validated['status']
                 ?? $sensor->status,
         ]);
 
         return response()->json([
             'message' =>
-                'Sensor actualizado correctamente.',
+            'Sensor actualizado correctamente.',
 
             'data' =>
-                $sensor->fresh(),
+            $sensor->fresh(),
         ]);
     }
 
@@ -504,17 +517,17 @@ if (
 
         if (
             $sensor
-                ->device
-                ->zone
-                ->greenhouse
-                ->company_id
+            ->device
+            ->zone
+            ->greenhouse
+            ->company_id
             !==
             $user->company_id
         ) {
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para modificar este sensor.',
+                'No tienes permiso para modificar este sensor.',
             ], 403);
         }
 
@@ -526,67 +539,83 @@ if (
         ]);
 
         if (
-    $validated['status'] === 'active'
-    &&
-    $sensor->status !== 'active'
-) {
+            $validated['status'] === 'active'
+            &&
+            $sensor->status !== 'active'
+        ) {
 
-    if (!($user instanceof \App\Models\User)) {
-        return response()->json([
-            'message' =>
-                'Usuario no autenticado.',
-        ], 401);
-    }
+            if (!($user instanceof \App\Models\User)) {
+                return response()->json([
+                    'message' =>
+                    'Usuario no autenticado.',
+                ], 401);
+            }
 
-    $user->loadMissing(
-        'company.activeSubscription.plan'
-    );
+            $user->loadMissing(
+                'company'
+            );
 
-    $plan =
-        $user
-            ->company
-            ?->activeSubscription
-            ?->plan;
+            $plan =
+                $user
+                ->company
+                ?->effectivePlan();
 
-    if (!$plan) {
-        return response()->json([
-            'message' =>
-                'La empresa no tiene un plan activo configurado.',
-        ], 422);
-    }
+            if (!$plan) {
+                return response()->json([
+                    'message' =>
+                    'La empresa no tiene un plan activo configurado.',
+                ], 422);
+            }
 
-    $activeSensors =
-        Sensor::query()
-            ->whereHas(
-                'device',
-                function ($query) use ($sensor) {
-                    $query->where(
-                        'zone_id',
-                        $sensor
-                            ->device
-                            ->zone_id
-                    );
-                }
-            )
-            ->where(
-                'status',
-                'active'
-            )
-            ->count();
+            if (
+                $validated['status'] === 'active'
+                &&
+                $sensor
+                ->device
+                ->zone
+                ->greenhouse
+                ->plan_restricted
+            ) {
 
-    if (
-        $activeSensors
-        >=
-        $plan->max_sensors_per_zone
-    ) {
-        return response()->json([
-            'message' =>
-                'Has alcanzado el límite de sensores activos por zona de tu plan '
-                . $plan->name
-                . '.',
-        ], 422);
-    }
-}
+                return response()->json([
+                    'message' =>
+                    'Este invernadero está restringido por el plan actual. '
+                        . 'Renueva Pro para activar sus sensores.',
+                ], 403);
+            }
+
+            $activeSensors =
+                Sensor::query()
+                ->whereHas(
+                    'device',
+                    function ($query) use ($sensor) {
+                        $query->where(
+                            'zone_id',
+                            $sensor
+                                ->device
+                                ->zone_id
+                        );
+                    }
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->count();
+
+            if (
+                $activeSensors
+                >=
+                $plan->max_sensors_per_zone
+            ) {
+                return response()->json([
+                    'message' =>
+                    'Has alcanzado el límite de sensores activos por zona de tu plan '
+                        . $plan->name
+                        . '.',
+                ], 422);
+            }
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -601,7 +630,7 @@ if (
 
             return response()->json([
                 'message' =>
-                    'No puedes activar el sensor mientras su dispositivo esté inactivo.',
+                'No puedes activar el sensor mientras su dispositivo esté inactivo.',
             ], 422);
         }
 
@@ -618,23 +647,23 @@ if (
 
             return response()->json([
                 'message' =>
-                    'No puedes activar el sensor mientras su zona esté inactiva.',
+                'No puedes activar el sensor mientras su zona esté inactiva.',
             ], 422);
         }
 
         $sensor->update([
             'status' =>
-                $validated['status'],
+            $validated['status'],
         ]);
 
         return response()->json([
             'message' =>
-                $sensor->status === 'active'
-                    ? 'Sensor activado correctamente.'
-                    : 'Sensor desactivado correctamente.',
+            $sensor->status === 'active'
+                ? 'Sensor activado correctamente.'
+                : 'Sensor desactivado correctamente.',
 
             'data' =>
-                $sensor,
+            $sensor,
         ]);
     }
 
@@ -649,16 +678,16 @@ if (
         return match ($sensorType) {
 
             'temperature' =>
-                '°C',
+            '°C',
 
             'soil_humidity' =>
-                '%',
+            '%',
 
             'ambient_humidity' =>
-                '%',
+            '%',
 
             default =>
-                '',
+            '',
         };
     }
 }

@@ -45,13 +45,21 @@ class AmbientHumidityController extends Controller
 
         $greenhouse =
             $sensor
-                ->device
-                ->zone
-                ->greenhouse;
+            ->device
+            ->zone
+            ->greenhouse;
 
         if ($greenhouse->company_id !== $user->company_id) {
             return response()->json([
                 'message' => 'No tienes permiso para registrar lecturas en este sensor.',
+            ], 403);
+        }
+
+        if ($greenhouse->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
             ], 403);
         }
 
@@ -80,22 +88,22 @@ class AmbientHumidityController extends Controller
             ],
         ], [
             'value.required' =>
-                'La humedad ambiental es obligatoria.',
+            'La humedad ambiental es obligatoria.',
 
             'value.numeric' =>
-                'La humedad ambiental debe ser un valor numérico.',
+            'La humedad ambiental debe ser un valor numérico.',
 
             'value.between' =>
-                'La humedad ambiental debe estar entre 0 y 100 %.',
+            'La humedad ambiental debe estar entre 0 y 100 %.',
 
             'recorded_at.date' =>
-                'La fecha de la lectura no es válida.',
+            'La fecha de la lectura no es válida.',
 
             'recorded_at.before_or_equal' =>
-                'La fecha de la lectura no puede ser futura.',
+            'La fecha de la lectura no puede ser futura.',
 
             'source.in' =>
-                'La fuente debe ser simulation o iot.',
+            'La fuente debe ser simulation o iot.',
         ]);
 
         /*
@@ -120,14 +128,14 @@ class AmbientHumidityController extends Controller
                 $reading =
                     $sensor->readings()->create([
                         'value' =>
-                            $validated['value'],
+                        $validated['value'],
 
                         'recorded_at' =>
-                            $validated['recorded_at']
+                        $validated['recorded_at']
                             ?? now(),
 
                         'source' =>
-                            $validated['source']
+                        $validated['source']
                             ?? 'simulation',
                     ]);
 
@@ -141,7 +149,7 @@ class AmbientHumidityController extends Controller
                     ->device
                     ->update([
                         'last_connection_at' =>
-                            $reading->recorded_at,
+                        $reading->recorded_at,
                     ]);
 
                 /*
@@ -152,11 +160,11 @@ class AmbientHumidityController extends Controller
 
                 $threshold =
                     $greenhouse
-                        ->thresholds
-                        ->firstWhere(
-                            'variable',
-                            'ambient_humidity'
-                        );
+                    ->thresholds
+                    ->firstWhere(
+                        'variable',
+                        'ambient_humidity'
+                    );
 
                 $humidity =
                     (float) $reading->value;
@@ -171,8 +179,8 @@ class AmbientHumidityController extends Controller
 
                     $maximum =
                         $threshold->max_value !== null
-                            ? (float) $threshold->max_value
-                            : null;
+                        ? (float) $threshold->max_value
+                        : null;
 
                     /*
                     |--------------------------------------------------------------------------
@@ -195,41 +203,41 @@ class AmbientHumidityController extends Controller
 
                         $alert =
                             Alert::query()
-                                ->where(
-                                    'sensor_id',
-                                    $sensor->id
-                                )
-                                ->where(
-                                    'type',
-                                    'high_ambient_humidity'
-                                )
-                                ->where(
-                                    'status',
-                                    'active'
-                                )
-                                ->first();
+                            ->where(
+                                'sensor_id',
+                                $sensor->id
+                            )
+                            ->where(
+                                'type',
+                                'high_ambient_humidity'
+                            )
+                            ->where(
+                                'status',
+                                'active'
+                            )
+                            ->first();
 
                         if (!$alert) {
 
                             $alert =
                                 $sensor
-                                    ->alerts()
-                                    ->create([
-                                        'reading_id' =>
-                                            $reading->id,
+                                ->alerts()
+                                ->create([
+                                    'reading_id' =>
+                                    $reading->id,
 
-                                        'type' =>
-                                            'high_ambient_humidity',
+                                    'type' =>
+                                    'high_ambient_humidity',
 
-                                        'severity' =>
-                                            'warning',
+                                    'severity' =>
+                                    'warning',
 
-                                        'message' =>
-                                            'La humedad ambiental superó el umbral máximo configurado.',
+                                    'message' =>
+                                    'La humedad ambiental superó el umbral máximo configurado.',
 
-                                        'status' =>
-                                            'active',
-                                    ]);
+                                    'status' =>
+                                    'active',
+                                ]);
                         }
                     }
 
@@ -237,9 +245,7 @@ class AmbientHumidityController extends Controller
                     |--------------------------------------------------------------------------
                     | Valor dentro del rango permitido
                     |--------------------------------------------------------------------------
-                    */
-
-                    else {
+                    */ else {
 
                         $status =
                             'normal';
@@ -252,30 +258,30 @@ class AmbientHumidityController extends Controller
 
                 return [
                     'reading' =>
-                        $reading,
+                    $reading,
 
                     'threshold' =>
-                        $threshold,
+                    $threshold,
 
                     'status' =>
-                        $status,
+                    $status,
 
                     'alert' =>
-                        $alert,
+                    $alert,
                 ];
             }
         );
 
         return response()->json([
             'message' =>
-                'Lectura de humedad ambiental registrada correctamente.',
+            'Lectura de humedad ambiental registrada correctamente.',
 
             'data' => [
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 /*
                 |--------------------------------------------------------------------------
@@ -284,58 +290,58 @@ class AmbientHumidityController extends Controller
                 */
 
                 'humidity' =>
-                    round(
-                        (float) $result['reading']->value,
-                        1
-                    ),
+                round(
+                    (float) $result['reading']->value,
+                    1
+                ),
 
                 'unit' =>
-                    '%',
+                '%',
 
                 'status' =>
-                    $result['status'],
+                $result['status'],
 
                 'status_label' =>
-                    $result['status'] === 'high'
-                        ? 'Alta'
-                        : 'Normal',
+                $result['status'] === 'high'
+                    ? 'Alta'
+                    : 'Normal',
 
                 'recorded_at' =>
-                    $result['reading']
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $result['reading']
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'source' =>
-                    $result['reading']->source,
+                $result['reading']->source,
 
                 'threshold' =>
-                    $result['threshold']
+                $result['threshold']
                     ? [
                         'min' =>
-                            (float) $result['threshold']->min_value,
+                        (float) $result['threshold']->min_value,
 
                         'max' =>
-                            (float) $result['threshold']->max_value,
+                        (float) $result['threshold']->max_value,
 
                         'unit' =>
-                            $result['threshold']->unit,
+                        $result['threshold']->unit,
                     ]
                     : null,
 
                 'alert' =>
-                    $result['alert']
+                $result['alert']
                     ? [
                         'id' =>
-                            $result['alert']->id,
+                        $result['alert']->id,
 
                         'type' =>
-                            $result['alert']->type,
+                        $result['alert']->type,
 
                         'severity' =>
-                            $result['alert']->severity,
+                        $result['alert']->severity,
 
                         'message' =>
-                            $result['alert']->message,
+                        $result['alert']->message,
                     ]
                     : null,
             ],
@@ -364,9 +370,9 @@ class AmbientHumidityController extends Controller
 
         $greenhouse =
             $sensor
-                ->device
-                ->zone
-                ->greenhouse;
+            ->device
+            ->zone
+            ->greenhouse;
 
         /*
         |--------------------------------------------------------------------------
@@ -385,11 +391,11 @@ class AmbientHumidityController extends Controller
 
         $threshold =
             $greenhouse
-                ->thresholds
-                ->firstWhere(
-                    'variable',
-                    'ambient_humidity'
-                );
+            ->thresholds
+            ->firstWhere(
+                'variable',
+                'ambient_humidity'
+            );
 
         /*
         |--------------------------------------------------------------------------
@@ -402,46 +408,46 @@ class AmbientHumidityController extends Controller
             return response()->json([
                 'data' => [
                     'sensor_id' =>
-                        $sensor->id,
+                    $sensor->id,
 
                     'sensor_name' =>
-                        $sensor->name,
+                    $sensor->name,
 
                     'humidity' =>
-                        null,
+                    null,
 
                     'unit' =>
-                        '%',
+                    '%',
 
                     'status' =>
-                        null,
+                    null,
 
                     'status_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'connection_status' =>
-                        'no_data',
+                    'no_data',
 
                     'connection_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'recorded_at' =>
-                        null,
+                    null,
 
                     'minutes_since_last_reading' =>
-                        null,
+                    null,
 
                     'threshold' =>
-                        $threshold
+                    $threshold
                         ? [
                             'min' =>
-                                (float) $threshold->min_value,
+                            (float) $threshold->min_value,
 
                             'max' =>
-                                (float) $threshold->max_value,
+                            (float) $threshold->max_value,
 
                             'unit' =>
-                                $threshold->unit,
+                            $threshold->unit,
                         ]
                         : null,
                 ],
@@ -456,10 +462,10 @@ class AmbientHumidityController extends Controller
 
         $isDisconnected =
             $latestReading
-                ->recorded_at
-                ->lt(
-                    now()->subMinutes(10)
-                );
+            ->recorded_at
+            ->lt(
+                now()->subMinutes(10)
+            );
 
         $humidity =
             (float) $latestReading->value;
@@ -473,61 +479,61 @@ class AmbientHumidityController extends Controller
         return response()->json([
             'data' => [
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 'humidity' =>
-                    round(
-                        $humidity,
-                        1
-                    ),
+                round(
+                    $humidity,
+                    1
+                ),
 
                 'unit' =>
-                    '%',
+                '%',
 
                 'status' =>
-                    $status,
+                $status,
 
                 'status_label' =>
-                    $status === 'high'
-                        ? 'Alta'
-                        : 'Normal',
+                $status === 'high'
+                    ? 'Alta'
+                    : 'Normal',
 
                 'connection_status' =>
-                    $isDisconnected
-                        ? 'disconnected'
-                        : 'connected',
+                $isDisconnected
+                    ? 'disconnected'
+                    : 'connected',
 
                 'connection_label' =>
-                    $isDisconnected
-                        ? 'Sin conexión'
-                        : 'Conectado',
+                $isDisconnected
+                    ? 'Sin conexión'
+                    : 'Conectado',
 
                 'recorded_at' =>
-                    $latestReading
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $latestReading
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'minutes_since_last_reading' =>
-                    (int) $latestReading
-                        ->recorded_at
-                        ->diffInMinutes(
-                            now()
-                        ),
+                (int) $latestReading
+                    ->recorded_at
+                    ->diffInMinutes(
+                        now()
+                    ),
 
                 'threshold' =>
-                    $threshold
+                $threshold
                     ? [
                         'min' =>
-                            (float) $threshold->min_value,
+                        (float) $threshold->min_value,
 
                         'max' =>
-                            (float) $threshold->max_value,
+                        (float) $threshold->max_value,
 
                         'unit' =>
-                            $threshold->unit,
+                        $threshold->unit,
                     ]
                     : null,
             ],
@@ -555,6 +561,50 @@ class AmbientHumidityController extends Controller
             ], 403);
         }
 
+        if ($greenhouse->plan_restricted) {
+
+            return response()->json([
+                'data' => [
+
+                    'sensor_id' =>
+                    null,
+
+                    'sensor_name' =>
+                    null,
+
+                    'humidity' =>
+                    null,
+
+                    'unit' =>
+                    '%',
+
+                    'status' =>
+                    null,
+
+                    'status_label' =>
+                    'Restringido',
+
+                    'connection_status' =>
+                    'restricted',
+
+                    'connection_label' =>
+                    'Restringido',
+
+                    'recorded_at' =>
+                    null,
+
+                    'minutes_since_last_reading' =>
+                    null,
+
+                    'threshold' =>
+                    null,
+
+                    'restricted_message' =>
+                    'Monitoreo restringido por el plan actual.',
+                ],
+            ]);
+        }
+
         /*
         |--------------------------------------------------------------------------
         | Buscar sensor de humedad ambiental
@@ -578,7 +628,6 @@ class AmbientHumidityController extends Controller
                         'greenhouse_id',
                         $greenhouse->id
                     );
-
                 }
             )
             ->with([
@@ -597,49 +646,49 @@ class AmbientHumidityController extends Controller
             return response()->json([
                 'data' => [
                     'sensor_id' =>
-                        null,
+                    null,
 
                     'sensor_name' =>
-                        null,
+                    null,
 
                     'humidity' =>
-                        null,
+                    null,
 
                     'unit' =>
-                        '%',
+                    '%',
 
                     'status' =>
-                        null,
+                    null,
 
                     'status_label' =>
-                        'Sin sensor',
+                    'Sin sensor',
 
                     'connection_status' =>
-                        'no_sensor',
+                    'no_sensor',
 
                     'connection_label' =>
-                        'Sin sensor',
+                    'Sin sensor',
 
                     'recorded_at' =>
-                        null,
+                    null,
 
                     'minutes_since_last_reading' =>
-                        null,
+                    null,
 
                     'threshold' =>
-                        null,
+                    null,
                 ],
             ]);
         }
 
         $threshold =
             $greenhouse
-                ->thresholds()
-                ->where(
-                    'variable',
-                    'ambient_humidity'
-                )
-                ->first();
+            ->thresholds()
+            ->where(
+                'variable',
+                'ambient_humidity'
+            )
+            ->first();
 
         $latestReading =
             $sensor->latestReading;
@@ -655,46 +704,46 @@ class AmbientHumidityController extends Controller
             return response()->json([
                 'data' => [
                     'sensor_id' =>
-                        $sensor->id,
+                    $sensor->id,
 
                     'sensor_name' =>
-                        $sensor->name,
+                    $sensor->name,
 
                     'humidity' =>
-                        null,
+                    null,
 
                     'unit' =>
-                        '%',
+                    '%',
 
                     'status' =>
-                        null,
+                    null,
 
                     'status_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'connection_status' =>
-                        'no_data',
+                    'no_data',
 
                     'connection_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'recorded_at' =>
-                        null,
+                    null,
 
                     'minutes_since_last_reading' =>
-                        null,
+                    null,
 
                     'threshold' =>
-                        $threshold
+                    $threshold
                         ? [
                             'min' =>
-                                (float) $threshold->min_value,
+                            (float) $threshold->min_value,
 
                             'max' =>
-                                (float) $threshold->max_value,
+                            (float) $threshold->max_value,
 
                             'unit' =>
-                                $threshold->unit,
+                            $threshold->unit,
                         ]
                         : null,
                 ],
@@ -718,69 +767,69 @@ class AmbientHumidityController extends Controller
 
         $isDisconnected =
             $latestReading
-                ->recorded_at
-                ->lt(
-                    now()->subMinutes(10)
-                );
+            ->recorded_at
+            ->lt(
+                now()->subMinutes(10)
+            );
 
         return response()->json([
             'data' => [
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 'humidity' =>
-                    round(
-                        $humidity,
-                        1
-                    ),
+                round(
+                    $humidity,
+                    1
+                ),
 
                 'unit' =>
-                    '%',
+                '%',
 
                 'status' =>
-                    $status,
+                $status,
 
                 'status_label' =>
-                    $status === 'high'
-                        ? 'Alta'
-                        : 'Normal',
+                $status === 'high'
+                    ? 'Alta'
+                    : 'Normal',
 
                 'connection_status' =>
-                    $isDisconnected
-                        ? 'disconnected'
-                        : 'connected',
+                $isDisconnected
+                    ? 'disconnected'
+                    : 'connected',
 
                 'connection_label' =>
-                    $isDisconnected
-                        ? 'Sin conexión'
-                        : 'Conectado',
+                $isDisconnected
+                    ? 'Sin conexión'
+                    : 'Conectado',
 
                 'recorded_at' =>
-                    $latestReading
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $latestReading
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'minutes_since_last_reading' =>
-                    (int) $latestReading
-                        ->recorded_at
-                        ->diffInMinutes(
-                            now()
-                        ),
+                (int) $latestReading
+                    ->recorded_at
+                    ->diffInMinutes(
+                        now()
+                    ),
 
                 'threshold' =>
-                    $threshold
+                $threshold
                     ? [
                         'min' =>
-                            (float) $threshold->min_value,
+                        (float) $threshold->min_value,
 
                         'max' =>
-                            (float) $threshold->max_value,
+                        (float) $threshold->max_value,
 
                         'unit' =>
-                            $threshold->unit,
+                        $threshold->unit,
                     ]
                     : null,
             ],
@@ -801,8 +850,8 @@ class AmbientHumidityController extends Controller
 
         $maximum =
             $threshold->max_value !== null
-                ? (float) $threshold->max_value
-                : null;
+            ? (float) $threshold->max_value
+            : null;
 
         if (
             $maximum !== null
@@ -836,10 +885,10 @@ class AmbientHumidityController extends Controller
             )
             ->update([
                 'status' =>
-                    'resolved',
+                'resolved',
 
                 'resolved_at' =>
-                    now(),
+                now(),
             ]);
     }
 }

@@ -18,6 +18,19 @@ class DashboardController extends Controller
     {
         $user = auth('api')->user();
 
+
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncGreenhousePlanRestrictions();
+
         $companyId = $user->company_id;
 
         /*
@@ -30,6 +43,7 @@ class DashboardController extends Controller
             'greenhouses' => Greenhouse::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
+                ->where('plan_restricted', false)
                 ->count(),
 
             'zones' => Zone::query()
@@ -37,10 +51,15 @@ class DashboardController extends Controller
                 ->whereHas(
                     'greenhouse',
                     function ($query) use ($companyId) {
-                        $query->where(
-                            'company_id',
-                            $companyId
-                        );
+                        $query
+                            ->where(
+                                'company_id',
+                                $companyId
+                            )
+                            ->where(
+                                'plan_restricted',
+                                false
+                            );
                     }
                 )
                 ->count(),
@@ -50,10 +69,15 @@ class DashboardController extends Controller
                 ->whereHas(
                     'zone.greenhouse',
                     function ($query) use ($companyId) {
-                        $query->where(
-                            'company_id',
-                            $companyId
-                        );
+                        $query
+                            ->where(
+                                'company_id',
+                                $companyId
+                            )
+                            ->where(
+                                'plan_restricted',
+                                false
+                            );
                     }
                 )
                 ->count(),
@@ -63,10 +87,15 @@ class DashboardController extends Controller
                 ->whereHas(
                     'device.zone.greenhouse',
                     function ($query) use ($companyId) {
-                        $query->where(
-                            'company_id',
-                            $companyId
-                        );
+                        $query
+                            ->where(
+                                'company_id',
+                                $companyId
+                            )
+                            ->where(
+                                'plan_restricted',
+                                false
+                            );
                     }
                 )
                 ->count(),
@@ -76,10 +105,15 @@ class DashboardController extends Controller
                 ->whereHas(
                     'sensor.device.zone.greenhouse',
                     function ($query) use ($companyId) {
-                        $query->where(
-                            'company_id',
-                            $companyId
-                        );
+                        $query
+                            ->where(
+                                'company_id',
+                                $companyId
+                            )
+                            ->where(
+                                'plan_restricted',
+                                false
+                            );
                     }
                 )
                 ->count(),
@@ -91,10 +125,10 @@ class DashboardController extends Controller
         | Invernaderos
         |--------------------------------------------------------------------------
         */
-
         $greenhouses = Greenhouse::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
+            ->where('plan_restricted', false)
             ->with([
                 'thresholds',
                 'zones' => function ($query) {
@@ -191,40 +225,40 @@ class DashboardController extends Controller
 
                     'metrics' => [
                         'temperature' =>
-                            $this->buildMetric(
-                                $sensors,
-                                'temperature',
-                                $temperatureThreshold
-                            ),
+                        $this->buildMetric(
+                            $sensors,
+                            'temperature',
+                            $temperatureThreshold
+                        ),
 
                         'soil_humidity' =>
-                            $this->buildMetric(
-                                $sensors,
-                                'soil_humidity',
-                                $soilThreshold
-                            ),
+                        $this->buildMetric(
+                            $sensors,
+                            'soil_humidity',
+                            $soilThreshold
+                        ),
 
                         'ambient_humidity' =>
-                            $this->buildMetric(
-                                $sensors,
-                                'ambient_humidity',
-                                $ambientThreshold
-                            ),
+                        $this->buildMetric(
+                            $sensors,
+                            'ambient_humidity',
+                            $ambientThreshold
+                        ),
                     ],
 
                     'active_alerts' =>
-                        Alert::query()
-                            ->where('status', 'active')
-                            ->whereHas(
-                                'sensor.device.zone',
-                                function ($query) use ($greenhouse) {
-                                    $query->where(
-                                        'greenhouse_id',
-                                        $greenhouse->id
-                                    );
-                                }
-                            )
-                            ->count(),
+                    Alert::query()
+                        ->where('status', 'active')
+                        ->whereHas(
+                            'sensor.device.zone',
+                            function ($query) use ($greenhouse) {
+                                $query->where(
+                                    'greenhouse_id',
+                                    $greenhouse->id
+                                );
+                            }
+                        )
+                        ->count(),
                 ];
             }
         );
@@ -240,10 +274,15 @@ class DashboardController extends Controller
             ->whereHas(
                 'sensor.device.zone.greenhouse',
                 function ($query) use ($companyId) {
-                    $query->where(
-                        'company_id',
-                        $companyId
-                    );
+                    $query
+                        ->where(
+                            'company_id',
+                            $companyId
+                        )
+                        ->where(
+                            'plan_restricted',
+                            false
+                        );
                 }
             )
             ->with([
@@ -268,53 +307,53 @@ class DashboardController extends Controller
                         'status' => $alert->status,
 
                         'created_at' =>
-                            $alert->created_at
-                                ?->toDateTimeString(),
+                        $alert->created_at
+                            ?->toDateTimeString(),
 
                         'reading' => $alert->reading
                             ? [
                                 'value' =>
-                                    (float) $alert
-                                        ->reading
-                                        ->value,
+                                (float) $alert
+                                    ->reading
+                                    ->value,
 
                                 'recorded_at' =>
-                                    $alert
-                                        ->reading
-                                        ->recorded_at
-                                        ?->toDateTimeString(),
+                                $alert
+                                    ->reading
+                                    ->recorded_at
+                                    ?->toDateTimeString(),
                             ]
                             : null,
 
                         'sensor' => [
                             'name' =>
-                                $alert
-                                    ->sensor
-                                    ?->name,
+                            $alert
+                                ->sensor
+                                ?->name,
 
                             'unit' =>
-                                $alert
-                                    ->sensor
-                                    ?->unit,
+                            $alert
+                                ->sensor
+                                ?->unit,
                         ],
 
                         'zone' => [
                             'name' =>
-                                $alert
-                                    ->sensor
-                                    ?->device
-                                    ?->zone
-                                    ?->name,
+                            $alert
+                                ->sensor
+                                ?->device
+                                ?->zone
+                                ?->name,
                         ],
 
                         'greenhouse' => [
                             'name' =>
-                                $alert
-                                    ->sensor
-                                    ?->device
-                                    ?->zone
-                                    ?->greenhouse
-                                    ?->name,
+                            $alert
+                                ->sensor
+                                ?->device
+                                ?->zone
+                                ?->greenhouse
+                                ?->name,
                         ],
                     ];
                 }
@@ -330,13 +369,13 @@ class DashboardController extends Controller
         return response()->json([
             'data' => [
                 'summary' =>
-                    $summary,
+                $summary,
 
                 'greenhouses' =>
-                    $greenhouseData,
+                $greenhouseData,
 
                 'recent_alerts' =>
-                    $recentAlerts,
+                $recentAlerts,
             ],
         ]);
     }
@@ -387,33 +426,33 @@ class DashboardController extends Controller
 
             return [
                 'value' =>
-                    null,
+                null,
 
                 'unit' =>
-                    $sensorType === 'temperature'
-                        ? '°C'
-                        : '%',
+                $sensorType === 'temperature'
+                    ? '°C'
+                    : '%',
 
                 'status' =>
-                    'no_data',
+                'no_data',
 
                 'status_label' =>
-                    'Sin datos',
+                'Sin datos',
 
                 'connection_status' =>
-                    'no_data',
+                'no_data',
 
                 'connection_label' =>
-                    'Sin datos',
+                'Sin datos',
 
                 'sensor_id' =>
-                    null,
+                null,
 
                 'sensor_name' =>
-                    null,
+                null,
 
                 'recorded_at' =>
-                    null,
+                null,
             ];
         }
 
@@ -455,43 +494,43 @@ class DashboardController extends Controller
 
         return [
             'value' =>
-                round(
-                    $value,
-                    1
-                ),
+            round(
+                $value,
+                1
+            ),
 
             'unit' =>
-                $sensor->unit,
+            $sensor->unit,
 
             'status' =>
-                $status,
+            $status,
 
             'status_label' =>
-                $this->statusLabel(
-                    $sensorType,
-                    $status
-                ),
+            $this->statusLabel(
+                $sensorType,
+                $status
+            ),
 
             'connection_status' =>
-                $isDisconnected
-                    ? 'disconnected'
-                    : 'connected',
+            $isDisconnected
+                ? 'disconnected'
+                : 'connected',
 
             'connection_label' =>
-                $isDisconnected
-                    ? 'Sin conexión'
-                    : 'Conectado',
+            $isDisconnected
+                ? 'Sin conexión'
+                : 'Conectado',
 
             'sensor_id' =>
-                $sensor->id,
+            $sensor->id,
 
             'sensor_name' =>
-                $sensor->name,
+            $sensor->name,
 
             'recorded_at' =>
-                $reading
-                    ->recorded_at
-                    ->toDateTimeString(),
+            $reading
+                ->recorded_at
+                ->toDateTimeString(),
         ];
     }
 
@@ -512,14 +551,14 @@ class DashboardController extends Controller
 
         $minimum =
             $threshold->min_value !== null
-                ? (float) $threshold->min_value
-                : null;
+            ? (float) $threshold->min_value
+            : null;
 
 
         $maximum =
             $threshold->max_value !== null
-                ? (float) $threshold->max_value
-                : null;
+            ? (float) $threshold->max_value
+            : null;
 
 
         /*
@@ -615,13 +654,13 @@ class DashboardController extends Controller
             return match ($status) {
 
                 'low' =>
-                    'Baja',
+                'Baja',
 
                 'high' =>
-                    'Alta',
+                'Alta',
 
                 default =>
-                    'Normal',
+                'Normal',
             };
         }
 
@@ -631,13 +670,13 @@ class DashboardController extends Controller
             return match ($status) {
 
                 'low' =>
-                    'Baja',
+                'Baja',
 
                 'high' =>
-                    'Alta',
+                'Alta',
 
                 default =>
-                    'Media',
+                'Media',
             };
         }
 
