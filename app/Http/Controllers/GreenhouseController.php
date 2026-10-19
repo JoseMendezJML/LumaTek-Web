@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreGreenhouseRequest;
 use App\Models\Greenhouse;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -75,7 +76,18 @@ class GreenhouseController extends Controller
     ): JsonResponse {
         $user = auth('api')->user();
 
-        /** @var \App\Models\User $user */
+        if (!($user instanceof User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        if (!$this->isCompanyAdmin($user)) {
+            return response()->json([
+                'message' =>
+                'No tienes permiso para crear invernaderos.',
+            ], 403);
+        }
 
         $user->loadMissing(
             'company'
@@ -183,9 +195,23 @@ class GreenhouseController extends Controller
     ): JsonResponse {
         $user = auth('api')->user();
 
+        if (!($user instanceof User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        if (!$this->isCompanyAdmin($user)) {
+            return response()->json([
+                'message' =>
+                'No tienes permiso para editar invernaderos.',
+            ], 403);
+        }
+
         if ($greenhouse->company_id !== $user->company_id) {
             return response()->json([
-                'message' => 'No tienes permiso para modificar este invernadero.',
+                'message' =>
+                'No tienes permiso para modificar este invernadero.',
             ], 403);
         }
 
@@ -219,10 +245,17 @@ class GreenhouseController extends Controller
 
         $user = auth('api')->user();
 
-        if (!($user instanceof \App\Models\User)) {
+        if (!($user instanceof User)) {
             return response()->json([
                 'message' => 'Usuario no autenticado.',
             ], 401);
+        }
+
+        if (!$this->isCompanyAdmin($user)) {
+            return response()->json([
+                'message' =>
+                'No tienes permiso para activar o desactivar invernaderos.',
+            ], 403);
         }
 
         if ($greenhouse->company_id !== $user->company_id) {
@@ -307,5 +340,26 @@ class GreenhouseController extends Controller
             'data' =>
             $greenhouse,
         ]);
+    }
+
+    /**
+     * Determina si el usuario autenticado
+     * es administrador de empresa.
+     */
+    private function isCompanyAdmin(
+        ?User $user
+    ): bool {
+        if (!$user) {
+            return false;
+        }
+
+        $user->loadMissing(
+            'role'
+        );
+
+        return
+            $user->status === 'active'
+            && $user->role?->name ===
+            'company_admin';
     }
 }

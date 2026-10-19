@@ -137,7 +137,9 @@ Route::middleware([
     Route::post(
         '/greenhouses',
         [GreenhouseController::class, 'store']
-    )->name('greenhouses.store');
+    )
+        ->middleware('company.admin')
+        ->name('greenhouses.store');
 
 
     Route::get(
@@ -149,18 +151,23 @@ Route::middleware([
     Route::put(
         '/greenhouses/{greenhouse}',
         [GreenhouseController::class, 'update']
-    )->name('greenhouses.update');
+    )
+        ->middleware('company.admin')
+        ->name('greenhouses.update');
 
 
     Route::patch(
         '/greenhouses/{greenhouse}',
         [GreenhouseController::class, 'update']
-    );
+    )
+        ->middleware('company.admin');
 
     Route::patch(
         '/greenhouses/{greenhouse}/status',
         [GreenhouseController::class, 'changeStatus']
-    )->name('greenhouses.status');
+    )
+        ->middleware('company.admin')
+        ->name('greenhouses.status');
 
 
     /*
