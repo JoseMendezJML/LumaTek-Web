@@ -926,6 +926,17 @@
         color: #6b746e;
     }
 
+    .status-restricted {
+    background: #fff4e5;
+    color: #9a5b13;
+}
+
+.zone-card.restricted,
+.sensor-card.restricted {
+    border-color: #e8c98f;
+    background: #fffdf8;
+}
+
     .description {
         margin: 10px 0 15px;
         min-height: 30px;
@@ -1590,6 +1601,10 @@
             card.classList.add('inactive');
         }
 
+        if (zone.plan_restricted) {
+            card.classList.add('restricted');
+        }
+
 
         const x =
             zone.position_x !== null
@@ -1615,16 +1630,24 @@
                     class="
                         status-badge
                         ${
-                            zone.status === 'active'
-                                ? 'status-active'
-                                : 'status-inactive'
+                            zone.plan_restricted
+                                ? 'status-restricted'
+                                : (
+                                zone.status === 'active'
+                                    ? 'status-active'
+                                    : 'status-inactive'
+                                )
                         }
                     "
                 >
                     ${
-                        zone.status === 'active'
-                            ? 'Activa'
-                            : 'Inactiva'
+                        zone.plan_restricted
+                            ? 'Restringida por plan'
+                            : (
+                                zone.status === 'active'
+                                ? 'Activa'
+                                : 'Inactiva'
+                            )
                     }
                 </span>
 
@@ -2737,6 +2760,10 @@
             card.classList.add('inactive');
         }
 
+        if (sensor.plan_restricted) {
+            card.classList.add('restricted');
+        }
+
 
         const typeLabels = {
 
@@ -2766,52 +2793,81 @@
                 : 'Sin definir';
 
 
-        let latestReadingHtml =
-            `
-                <div class="latest-reading">
+        let latestReadingHtml = `
+    <div class="latest-reading">
 
-                    <span class="latest-reading-label">
-                        Última lectura
-                    </span>
+        <span class="latest-reading-label">
+            ${
+                sensor.plan_restricted
+                    ? 'Monitoreo restringido'
+                    : 'Última lectura'
+            }
+        </span>
 
-                    <strong>
-                        Sin lecturas
-                    </strong>
+        <strong>
+            ${
+                sensor.plan_restricted
+                    ? 'Sin lecturas registradas'
+                    : 'Sin lecturas'
+            }
+        </strong>
 
-                </div>
-            `;
-
-
-        if (sensor.latest_reading) {
-
-            const reading =
-                sensor.latest_reading;
-
-
-            latestReadingHtml =
+        ${
+            sensor.plan_restricted
+                ? `
+                    <small>
+                        El monitoreo actual está restringido por el plan.
+                    </small>
                 `
-                    <div class="latest-reading">
-
-                        <span class="latest-reading-label">
-                            Última lectura
-                        </span>
-
-                        <strong>
-                            ${Number(
-                                reading.value
-                            ).toFixed(1)}
-                            ${escapeHtml(sensor.unit)}
-                        </strong>
-
-                        <small>
-                            ${escapeHtml(
-                                reading.recorded_at
-                            )}
-                        </small>
-
-                    </div>
-                `;
+                : ''
         }
+
+    </div>
+`;
+
+
+if (sensor.latest_reading) {
+
+    const reading =
+        sensor.latest_reading;
+
+    latestReadingHtml = `
+        <div class="latest-reading">
+
+            <span class="latest-reading-label">
+                ${
+                    sensor.plan_restricted
+                        ? 'Última lectura registrada'
+                        : 'Última lectura'
+                }
+            </span>
+
+            <strong>
+                ${Number(
+                    reading.value
+                ).toFixed(1)}
+                ${escapeHtml(sensor.unit)}
+            </strong>
+
+            <small>
+                ${escapeHtml(
+                    reading.recorded_at
+                )}
+            </small>
+
+            ${
+                sensor.plan_restricted
+                    ? `
+                        <small>
+                            El monitoreo actual está restringido por el plan.
+                        </small>
+                    `
+                    : ''
+            }
+
+        </div>
+    `;
+}
 
 
         card.innerHTML = `
@@ -2835,16 +2891,24 @@
                     class="
                         status-badge
                         ${
-                            sensor.status === 'active'
-                                ? 'status-active'
-                                : 'status-inactive'
+                            sensor.plan_restricted
+                                ? 'status-restricted'
+                                : (
+                                    sensor.status === 'active'
+                                        ? 'status-active'
+                                        : 'status-inactive'
+                                )
                         }
                     "
                 >
                     ${
-                        sensor.status === 'active'
-                            ? 'Activo'
-                            : 'Inactivo'
+                        sensor.plan_restricted
+                            ? 'Restringido por plan'
+                            : (
+                                sensor.status === 'active'
+                                    ? 'Activo'
+                                    : 'Inactivo'
+                            )
                     }
                 </span>
 

@@ -31,7 +31,7 @@ class DeviceController extends Controller
         if ($zone->greenhouse->company_id !== $user->company_id) {
             return response()->json([
                 'message' =>
-                    'No tienes permiso para consultar esta zona.',
+                'No tienes permiso para consultar esta zona.',
             ], 403);
         }
 
@@ -45,7 +45,7 @@ class DeviceController extends Controller
 
         return response()->json([
             'data' =>
-                $devices,
+            $devices,
         ]);
     }
 
@@ -60,6 +60,20 @@ class DeviceController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $zone->refresh();
+
         $zone->load(
             'greenhouse'
         );
@@ -73,7 +87,23 @@ class DeviceController extends Controller
         if ($zone->greenhouse->company_id !== $user->company_id) {
             return response()->json([
                 'message' =>
-                    'No tienes permiso para modificar esta zona.',
+                'No tienes permiso para modificar esta zona.',
+            ], 403);
+        }
+
+        if ($zone->greenhouse->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para administrar sus dispositivos.',
+            ], 403);
+        }
+
+        if ($zone->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para agregar dispositivos.',
             ], 403);
         }
 
@@ -86,7 +116,7 @@ class DeviceController extends Controller
         if ($zone->status !== 'active') {
             return response()->json([
                 'message' =>
-                    'No puedes agregar dispositivos a una zona inactiva.',
+                'No puedes agregar dispositivos a una zona inactiva.',
             ], 422);
         }
 
@@ -122,22 +152,22 @@ class DeviceController extends Controller
             ],
         ], [
             'name.required' =>
-                'El nombre del dispositivo es obligatorio.',
+            'El nombre del dispositivo es obligatorio.',
 
             'device_code.required' =>
-                'El código del dispositivo es obligatorio.',
+            'El código del dispositivo es obligatorio.',
 
             'device_code.unique' =>
-                'Ya existe un dispositivo registrado con ese código.',
+            'Ya existe un dispositivo registrado con ese código.',
 
             'device_type.required' =>
-                'El tipo de dispositivo es obligatorio.',
+            'El tipo de dispositivo es obligatorio.',
 
             'connection_type.required' =>
-                'El tipo de conexión es obligatorio.',
+            'El tipo de conexión es obligatorio.',
 
             'connection_type.in' =>
-                'El tipo de conexión debe ser WiFi, Ethernet, LoRa o Simulación.',
+            'El tipo de conexión debe ser WiFi, Ethernet, LoRa o Simulación.',
         ]);
 
         /*
@@ -150,38 +180,38 @@ class DeviceController extends Controller
             ->devices()
             ->create([
                 'name' =>
-                    trim(
-                        $validated['name']
-                    ),
+                trim(
+                    $validated['name']
+                ),
 
                 'device_code' =>
-                    strtoupper(
-                        trim(
-                            $validated['device_code']
-                        )
-                    ),
+                strtoupper(
+                    trim(
+                        $validated['device_code']
+                    )
+                ),
 
                 'device_type' =>
-                    trim(
-                        $validated['device_type']
-                    ),
+                trim(
+                    $validated['device_type']
+                ),
 
                 'connection_type' =>
-                    $validated['connection_type'],
+                $validated['connection_type'],
 
                 'status' =>
-                    'active',
+                'active',
 
                 'last_connection_at' =>
-                    null,
+                null,
             ]);
 
         return response()->json([
             'message' =>
-                'Dispositivo registrado correctamente.',
+            'Dispositivo registrado correctamente.',
 
             'data' =>
-                $device,
+            $device,
         ], 201);
     }
 
@@ -208,16 +238,16 @@ class DeviceController extends Controller
 
         if (
             $device
-                ->zone
-                ->greenhouse
-                ->company_id
+            ->zone
+            ->greenhouse
+            ->company_id
             !==
             $user->company_id
         ) {
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para modificar este dispositivo.',
+                'No tienes permiso para modificar este dispositivo.',
             ], 403);
         }
 
@@ -252,28 +282,24 @@ class DeviceController extends Controller
                 'in:wifi,ethernet,lora,simulation',
             ],
 
-            'status' => [
-                'nullable',
-                'in:active,inactive',
-            ],
         ], [
             'name.required' =>
-                'El nombre del dispositivo es obligatorio.',
+            'El nombre del dispositivo es obligatorio.',
 
             'device_code.required' =>
-                'El código del dispositivo es obligatorio.',
+            'El código del dispositivo es obligatorio.',
 
             'device_code.unique' =>
-                'Ya existe otro dispositivo con ese código.',
+            'Ya existe otro dispositivo con ese código.',
 
             'device_type.required' =>
-                'El tipo de dispositivo es obligatorio.',
+            'El tipo de dispositivo es obligatorio.',
 
             'connection_type.required' =>
-                'El tipo de conexión es obligatorio.',
+            'El tipo de conexión es obligatorio.',
 
             'connection_type.in' =>
-                'El tipo de conexión debe ser WiFi, Ethernet, LoRa o Simulación.',
+            'El tipo de conexión debe ser WiFi, Ethernet, LoRa o Simulación.',
         ]);
 
         /*
@@ -284,36 +310,33 @@ class DeviceController extends Controller
 
         $device->update([
             'name' =>
-                trim(
-                    $validated['name']
-                ),
+            trim(
+                $validated['name']
+            ),
 
             'device_code' =>
-                strtoupper(
-                    trim(
-                        $validated['device_code']
-                    )
-                ),
+            strtoupper(
+                trim(
+                    $validated['device_code']
+                )
+            ),
 
             'device_type' =>
-                trim(
-                    $validated['device_type']
-                ),
+            trim(
+                $validated['device_type']
+            ),
 
             'connection_type' =>
-                $validated['connection_type'],
+            $validated['connection_type'],
 
-            'status' =>
-                $validated['status']
-                ?? $device->status,
         ]);
 
         return response()->json([
             'message' =>
-                'Dispositivo actualizado correctamente.',
+            'Dispositivo actualizado correctamente.',
 
             'data' =>
-                $device->fresh(),
+            $device->fresh(),
         ]);
     }
 
@@ -331,6 +354,20 @@ class DeviceController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $device->refresh();
+
         $device->load(
             'zone.greenhouse'
         );
@@ -343,16 +380,16 @@ class DeviceController extends Controller
 
         if (
             $device
-                ->zone
-                ->greenhouse
-                ->company_id
+            ->zone
+            ->greenhouse
+            ->company_id
             !==
             $user->company_id
         ) {
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para modificar este dispositivo.',
+                'No tienes permiso para modificar este dispositivo.',
             ], 403);
         }
 
@@ -363,19 +400,43 @@ class DeviceController extends Controller
             ],
         ]);
 
+        if (
+            $validated['status'] === 'active'
+            &&
+            $device->zone->greenhouse->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para activar sus dispositivos.',
+            ], 403);
+        }
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $device->zone->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para activar sus dispositivos.',
+            ], 403);
+        }
+
         $device->update([
             'status' =>
-                $validated['status'],
+            $validated['status'],
         ]);
 
         return response()->json([
             'message' =>
-                $device->status === 'active'
-                    ? 'Dispositivo activado correctamente.'
-                    : 'Dispositivo desactivado correctamente.',
+            $device->status === 'active'
+                ? 'Dispositivo activado correctamente.'
+                : 'Dispositivo desactivado correctamente.',
 
             'data' =>
-                $device,
+            $device,
         ]);
     }
 }

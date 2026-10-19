@@ -20,12 +20,14 @@ class Greenhouse extends Model
         'planting_date',
         'nominal_flow',
         'status',
+        'plan_restricted',
     ];
 
     protected $casts = [
         'area' => 'decimal:2',
         'nominal_flow' => 'decimal:2',
         'planting_date' => 'date',
+        'plan_restricted' => 'boolean',
     ];
 
     /**

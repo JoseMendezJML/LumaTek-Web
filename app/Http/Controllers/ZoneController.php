@@ -6,6 +6,7 @@ use App\Models\Greenhouse;
 use App\Models\Zone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Models\User;
 
 class ZoneController extends Controller
 {
@@ -18,11 +19,23 @@ class ZoneController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
         if ($greenhouse->company_id !== $user->company_id) {
             return response()->json([
                 'message' => 'No tienes permiso para consultar este invernadero.',
             ], 403);
         }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
 
         $zones = $greenhouse
             ->zones()
@@ -48,9 +61,71 @@ class ZoneController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof User)) {
+            return response()->json([
+                'message' =>
+                'Usuario no autenticado.',
+            ], 401);
+        }
+
         if ($greenhouse->company_id !== $user->company_id) {
             return response()->json([
-                'message' => 'No tienes permiso para modificar este invernadero.',
+                'message' =>
+                'No tienes permiso para modificar este invernadero.',
+            ], 403);
+        }
+
+        $user->loadMissing(
+            'company'
+        );
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $greenhouse->refresh();
+
+        $plan =
+            $user
+            ->company
+            ?->effectivePlan();
+
+        if (!$plan) {
+            return response()->json([
+                'message' =>
+                'La empresa no tiene un plan activo configurado.',
+            ], 422);
+        }
+
+        $activeZones =
+            $greenhouse
+            ->zones()
+            ->where(
+                'status',
+                'active'
+            )
+            ->count();
+
+        if (
+            $activeZones
+            >=
+            $plan->max_zones_per_greenhouse
+        ) {
+            return response()->json([
+                'message' =>
+                'Has alcanzado el límite de zonas activas por invernadero de tu plan '
+                    . $plan->name
+                    . '.',
+            ], 422);
+        }
+
+
+
+        if ($greenhouse->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para administrar sus zonas.',
             ], 403);
         }
 
@@ -80,19 +155,19 @@ class ZoneController extends Controller
             ],
         ], [
             'name.required' =>
-                'El nombre de la zona es obligatorio.',
+            'El nombre de la zona es obligatorio.',
 
             'name.max' =>
-                'El nombre de la zona no puede superar 120 caracteres.',
+            'El nombre de la zona no puede superar 120 caracteres.',
 
             'description.max' =>
-                'La descripción no puede superar 500 caracteres.',
+            'La descripción no puede superar 500 caracteres.',
 
             'position_x.between' =>
-                'La posición X debe estar entre 0 y 100.',
+            'La posición X debe estar entre 0 y 100.',
 
             'position_y.between' =>
-                'La posición Y debe estar entre 0 y 100.',
+            'La posición Y debe estar entre 0 y 100.',
         ]);
 
         /*
@@ -116,7 +191,7 @@ class ZoneController extends Controller
         if ($exists) {
             return response()->json([
                 'message' =>
-                    'Ya existe una zona con ese nombre en este invernadero.',
+                'Ya existe una zona con ese nombre en este invernadero.',
             ], 422);
         }
 
@@ -124,30 +199,30 @@ class ZoneController extends Controller
             ->zones()
             ->create([
                 'name' =>
-                    trim($validated['name']),
+                trim($validated['name']),
 
                 'description' =>
-                    $validated['description']
+                $validated['description']
                     ?? null,
 
                 'position_x' =>
-                    $validated['position_x']
+                $validated['position_x']
                     ?? null,
 
                 'position_y' =>
-                    $validated['position_y']
+                $validated['position_y']
                     ?? null,
 
                 'status' =>
-                    'active',
+                'active',
             ]);
 
         return response()->json([
             'message' =>
-                'Zona creada correctamente.',
+            'Zona creada correctamente.',
 
             'data' =>
-                $zone,
+            $zone,
         ], 201);
     }
 
@@ -197,10 +272,7 @@ class ZoneController extends Controller
                 'between:0,100',
             ],
 
-            'status' => [
-                'nullable',
-                'in:active,inactive',
-            ],
+
         ]);
 
         $exists = Zone::query()
@@ -226,37 +298,34 @@ class ZoneController extends Controller
         if ($exists) {
             return response()->json([
                 'message' =>
-                    'Ya existe otra zona con ese nombre en el invernadero.',
+                'Ya existe otra zona con ese nombre en el invernadero.',
             ], 422);
         }
 
         $zone->update([
             'name' =>
-                trim($validated['name']),
+            trim($validated['name']),
 
             'description' =>
-                $validated['description']
+            $validated['description']
                 ?? null,
 
             'position_x' =>
-                $validated['position_x']
+            $validated['position_x']
                 ?? null,
 
             'position_y' =>
-                $validated['position_y']
+            $validated['position_y']
                 ?? null,
 
-            'status' =>
-                $validated['status']
-                ?? $zone->status,
         ]);
 
         return response()->json([
             'message' =>
-                'Zona actualizada correctamente.',
+            'Zona actualizada correctamente.',
 
             'data' =>
-                $zone->fresh(),
+            $zone->fresh(),
         ]);
     }
 
@@ -274,15 +343,34 @@ class ZoneController extends Controller
 
         $user = auth('api')->user();
 
-        $zone->load(
-            'greenhouse'
-        );
+        if (!($user instanceof User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $zone->load('greenhouse');
 
         if ($zone->greenhouse->company_id !== $user->company_id) {
             return response()->json([
                 'message' => 'No tienes permiso para modificar esta zona.',
             ], 403);
         }
+
+        $user->loadMissing('company');
+
+        /*
+    |--------------------------------------------------------------------------
+    | Sincronizar restricciones del plan
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $zone->refresh();
+        $zone->load('greenhouse');
 
         $validated = $request->validate([
             'status' => [
@@ -291,19 +379,119 @@ class ZoneController extends Controller
             ],
         ]);
 
+        /*
+    |--------------------------------------------------------------------------
+    | No permitir activación dentro de un invernadero restringido
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $zone->greenhouse->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para activar sus zonas.',
+            ], 403);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | No permitir mantener/activar una zona restringida por el plan
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $zone->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para volver a utilizarla.',
+            ], 403);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Validar límite antes de activar
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $zone->status !== 'active'
+        ) {
+
+            $plan = $user
+                ->company
+                ?->effectivePlan();
+
+            if (!$plan) {
+                return response()->json([
+                    'message' =>
+                    'La empresa no tiene un plan activo configurado.',
+                ], 422);
+            }
+
+            $activeZones = Zone::query()
+                ->where(
+                    'greenhouse_id',
+                    $zone->greenhouse_id
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->count();
+
+            if (
+                $activeZones
+                >=
+                $plan->max_zones_per_greenhouse
+            ) {
+                return response()->json([
+                    'message' =>
+                    'Has alcanzado el límite de zonas activas por invernadero de tu plan '
+                        . $plan->name
+                        . '.',
+                ], 422);
+            }
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Cambiar estado
+    |--------------------------------------------------------------------------
+    */
+
         $zone->update([
-            'status' =>
-                $validated['status'],
+            'status' => $validated['status'],
         ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Recalcular restricciones después del cambio
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $zone->refresh();
 
         return response()->json([
             'message' =>
-                $zone->status === 'active'
-                    ? 'Zona activada correctamente.'
-                    : 'Zona desactivada correctamente.',
+            $zone->status === 'active'
+                ? 'Zona activada correctamente.'
+                : 'Zona desactivada correctamente.',
 
-            'data' =>
-                $zone,
+            'data' => $zone,
         ]);
     }
 }

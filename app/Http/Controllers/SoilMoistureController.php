@@ -23,6 +23,20 @@ class SoilMoistureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
+
 
         /*
         |--------------------------------------------------------------------------
@@ -34,7 +48,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'El sensor seleccionado no es de humedad del suelo.',
+                'El sensor seleccionado no es de humedad del suelo.',
             ], 422);
         }
 
@@ -52,13 +66,13 @@ class SoilMoistureController extends Controller
 
         $zone =
             $sensor
-                ->device
-                ->zone;
+            ->device
+            ->zone;
 
 
         $greenhouse =
             $zone
-                ->greenhouse;
+            ->greenhouse;
 
 
         /*
@@ -74,7 +88,34 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para registrar lecturas en este sensor.',
+                'No tienes permiso para registrar lecturas en este sensor.',
+            ], 403);
+        }
+
+        if ($greenhouse->plan_restricted) {
+
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
+            ], 403);
+        }
+
+        if ($zone->plan_restricted) {
+
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
+            ], 403);
+        }
+
+        if ($sensor->plan_restricted) {
+
+            return response()->json([
+                'message' =>
+                'Este sensor está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
             ], 403);
         }
 
@@ -89,7 +130,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'El sensor de humedad está inactivo.',
+                'El sensor de humedad está inactivo.',
             ], 422);
         }
 
@@ -98,7 +139,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'El dispositivo asociado al sensor está inactivo.',
+                'El dispositivo asociado al sensor está inactivo.',
             ], 422);
         }
 
@@ -107,7 +148,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'La zona asociada al sensor está inactiva.',
+                'La zona asociada al sensor está inactiva.',
             ], 422);
         }
 
@@ -162,19 +203,19 @@ class SoilMoistureController extends Controller
 
                 $reading =
                     $sensor
-                        ->readings()
-                        ->create([
-                            'value' =>
-                                $validated['value'],
+                    ->readings()
+                    ->create([
+                        'value' =>
+                        $validated['value'],
 
-                            'recorded_at' =>
-                                $validated['recorded_at']
-                                ?? now(),
+                        'recorded_at' =>
+                        $validated['recorded_at']
+                            ?? now(),
 
-                            'source' =>
-                                $validated['source']
-                                ?? 'simulation',
-                        ]);
+                        'source' =>
+                        $validated['source']
+                            ?? 'simulation',
+                    ]);
 
 
                 /*
@@ -187,7 +228,7 @@ class SoilMoistureController extends Controller
                     ->device
                     ->update([
                         'last_connection_at' =>
-                            $reading->recorded_at,
+                        $reading->recorded_at,
                     ]);
 
 
@@ -199,11 +240,11 @@ class SoilMoistureController extends Controller
 
                 $threshold =
                     $greenhouse
-                        ->thresholds
-                        ->firstWhere(
-                            'variable',
-                            'soil_humidity'
-                        );
+                    ->thresholds
+                    ->firstWhere(
+                        'variable',
+                        'soil_humidity'
+                    );
 
 
                 $humidity =
@@ -232,14 +273,14 @@ class SoilMoistureController extends Controller
 
                     $minimum =
                         $threshold->min_value !== null
-                            ? (float) $threshold->min_value
-                            : null;
+                        ? (float) $threshold->min_value
+                        : null;
 
 
                     $maximum =
                         $threshold->max_value !== null
-                            ? (float) $threshold->max_value
-                            : null;
+                        ? (float) $threshold->max_value
+                        : null;
 
 
                     /*
@@ -266,42 +307,42 @@ class SoilMoistureController extends Controller
 
                         $alert =
                             Alert::query()
-                                ->where(
-                                    'sensor_id',
-                                    $sensor->id
-                                )
-                                ->where(
-                                    'type',
-                                    'low_soil_humidity'
-                                )
-                                ->where(
-                                    'status',
-                                    'active'
-                                )
-                                ->first();
+                            ->where(
+                                'sensor_id',
+                                $sensor->id
+                            )
+                            ->where(
+                                'type',
+                                'low_soil_humidity'
+                            )
+                            ->where(
+                                'status',
+                                'active'
+                            )
+                            ->first();
 
 
                         if (!$alert) {
 
                             $alert =
                                 $sensor
-                                    ->alerts()
-                                    ->create([
-                                        'reading_id' =>
-                                            $reading->id,
+                                ->alerts()
+                                ->create([
+                                    'reading_id' =>
+                                    $reading->id,
 
-                                        'type' =>
-                                            'low_soil_humidity',
+                                    'type' =>
+                                    'low_soil_humidity',
 
-                                        'severity' =>
-                                            'warning',
+                                    'severity' =>
+                                    'warning',
 
-                                        'message' =>
-                                            'La humedad del suelo está por debajo del umbral mínimo configurado.',
+                                    'message' =>
+                                    'La humedad del suelo está por debajo del umbral mínimo configurado.',
 
-                                        'status' =>
-                                            'active',
-                                    ]);
+                                    'status' =>
+                                    'active',
+                                ]);
                         }
 
 
@@ -325,9 +366,7 @@ class SoilMoistureController extends Controller
                     |--------------------------------------------------------------------------
                     | HUMEDAD ALTA
                     |--------------------------------------------------------------------------
-                    */
-
-                    elseif (
+                    */ elseif (
                         $maximum !== null
                         &&
                         $humidity > $maximum
@@ -347,9 +386,7 @@ class SoilMoistureController extends Controller
                     |--------------------------------------------------------------------------
                     | HUMEDAD MEDIA
                     |--------------------------------------------------------------------------
-                    */
-
-                    else {
+                    */ else {
 
                         $level =
                             'medium';
@@ -364,19 +401,19 @@ class SoilMoistureController extends Controller
 
                 return [
                     'reading' =>
-                        $reading,
+                    $reading,
 
                     'threshold' =>
-                        $threshold,
+                    $threshold,
 
                     'level' =>
-                        $level,
+                    $level,
 
                     'alert' =>
-                        $alert,
+                    $alert,
 
                     'automatic_irrigation' =>
-                        $automaticIrrigation,
+                    $automaticIrrigation,
                 ];
             }
         );
@@ -390,15 +427,15 @@ class SoilMoistureController extends Controller
 
         return response()->json([
             'message' =>
-                'Lectura de humedad del suelo registrada correctamente.',
+            'Lectura de humedad del suelo registrada correctamente.',
 
             'data' => [
 
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
 
                 /*
@@ -408,13 +445,13 @@ class SoilMoistureController extends Controller
                 */
 
                 'humidity' =>
-                    round(
-                        (float) $result['reading']->value,
-                        1
-                    ),
+                round(
+                    (float) $result['reading']->value,
+                    1
+                ),
 
                 'unit' =>
-                    '%',
+                '%',
 
 
                 /*
@@ -424,12 +461,12 @@ class SoilMoistureController extends Controller
                 */
 
                 'level' =>
-                    $result['level'],
+                $result['level'],
 
                 'level_label' =>
-                    $this->levelLabel(
-                        $result['level']
-                    ),
+                $this->levelLabel(
+                    $result['level']
+                ),
 
 
                 /*
@@ -439,12 +476,12 @@ class SoilMoistureController extends Controller
                 */
 
                 'recorded_at' =>
-                    $result['reading']
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $result['reading']
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'source' =>
-                    $result['reading']->source,
+                $result['reading']->source,
 
 
                 /*
@@ -454,20 +491,20 @@ class SoilMoistureController extends Controller
                 */
 
                 'threshold' =>
-                    $result['threshold']
+                $result['threshold']
                     ? [
                         'min' =>
-                            $result['threshold']->min_value !== null
-                                ? (float) $result['threshold']->min_value
-                                : null,
+                        $result['threshold']->min_value !== null
+                            ? (float) $result['threshold']->min_value
+                            : null,
 
                         'max' =>
-                            $result['threshold']->max_value !== null
-                                ? (float) $result['threshold']->max_value
-                                : null,
+                        $result['threshold']->max_value !== null
+                            ? (float) $result['threshold']->max_value
+                            : null,
 
                         'unit' =>
-                            $result['threshold']->unit,
+                        $result['threshold']->unit,
                     ]
                     : null,
 
@@ -479,19 +516,19 @@ class SoilMoistureController extends Controller
                 */
 
                 'alert' =>
-                    $result['alert']
+                $result['alert']
                     ? [
                         'id' =>
-                            $result['alert']->id,
+                        $result['alert']->id,
 
                         'type' =>
-                            $result['alert']->type,
+                        $result['alert']->type,
 
                         'severity' =>
-                            $result['alert']->severity,
+                        $result['alert']->severity,
 
                         'message' =>
-                            $result['alert']->message,
+                        $result['alert']->message,
                     ]
                     : null,
 
@@ -503,41 +540,41 @@ class SoilMoistureController extends Controller
                 */
 
                 'automatic_irrigation' =>
-                    $result['automatic_irrigation']
+                $result['automatic_irrigation']
                     ? [
                         'started' =>
-                            true,
+                        true,
 
                         'id' =>
-                            $result['automatic_irrigation']->id,
+                        $result['automatic_irrigation']->id,
 
                         'status' =>
-                            $result['automatic_irrigation']->status,
+                        $result['automatic_irrigation']->status,
 
                         'mode' =>
-                            $result['automatic_irrigation']->mode,
+                        $result['automatic_irrigation']->mode,
 
                         'duration_minutes' =>
-                            $result['automatic_irrigation']->duration_minutes,
+                        $result['automatic_irrigation']->duration_minutes,
 
                         'water_liters' =>
-                            $result['automatic_irrigation']->water_liters !== null
-                                ? (float) $result['automatic_irrigation']->water_liters
-                                : null,
+                        $result['automatic_irrigation']->water_liters !== null
+                            ? (float) $result['automatic_irrigation']->water_liters
+                            : null,
 
                         'soil_humidity_before' =>
-                            $result['automatic_irrigation']->soil_humidity_before !== null
-                                ? (float) $result['automatic_irrigation']->soil_humidity_before
-                                : null,
+                        $result['automatic_irrigation']->soil_humidity_before !== null
+                            ? (float) $result['automatic_irrigation']->soil_humidity_before
+                            : null,
 
                         'started_at' =>
-                            $result['automatic_irrigation']
-                                ->started_at
-                                ?->toDateTimeString(),
+                        $result['automatic_irrigation']
+                            ->started_at
+                            ?->toDateTimeString(),
                     ]
                     : [
                         'started' =>
-                            false,
+                        false,
                     ],
             ],
         ], 201);
@@ -560,6 +597,28 @@ class SoilMoistureController extends Controller
         $recordedAt
     ): ?IrrigationEvent {
 
+
+        $zone = \App\Models\Zone::query()
+            ->with('greenhouse')
+            ->find($zoneId);
+
+        if (!$zone) {
+            return null;
+        }
+
+        if (
+            $zone->status !== 'active'
+            ||
+            $zone->plan_restricted
+            ||
+            !$zone->greenhouse
+            ||
+            $zone->greenhouse->status !== 'active'
+            ||
+            $zone->greenhouse->plan_restricted
+        ) {
+            return null;
+        }
         /*
         |--------------------------------------------------------------------------
         | Configuración
@@ -568,12 +627,12 @@ class SoilMoistureController extends Controller
 
         $setting =
             ZoneIrrigationSetting::query()
-                ->where(
-                    'zone_id',
-                    $zoneId
-                )
-                ->lockForUpdate()
-                ->first();
+            ->where(
+                'zone_id',
+                $zoneId
+            )
+            ->lockForUpdate()
+            ->first();
 
 
         /*
@@ -603,15 +662,15 @@ class SoilMoistureController extends Controller
 
         $activeIrrigation =
             IrrigationEvent::query()
-                ->where(
-                    'zone_id',
-                    $zoneId
-                )
-                ->where(
-                    'status',
-                    'started'
-                )
-                ->exists();
+            ->where(
+                'zone_id',
+                $zoneId
+            )
+            ->where(
+                'status',
+                'started'
+            )
+            ->exists();
 
 
         if ($activeIrrigation) {
@@ -628,29 +687,29 @@ class SoilMoistureController extends Controller
 
         $lastAutomaticIrrigation =
             IrrigationEvent::query()
-                ->where(
-                    'zone_id',
-                    $zoneId
-                )
-                ->where(
-                    'mode',
-                    'automatic'
-                )
-                ->orderByDesc(
-                    'started_at'
-                )
-                ->first();
+            ->where(
+                'zone_id',
+                $zoneId
+            )
+            ->where(
+                'mode',
+                'automatic'
+            )
+            ->orderByDesc(
+                'started_at'
+            )
+            ->first();
 
 
         if ($lastAutomaticIrrigation) {
 
             $nextAllowedAt =
                 $lastAutomaticIrrigation
-                    ->started_at
-                    ->copy()
-                    ->addMinutes(
-                        $setting->cooldown_minutes
-                    );
+                ->started_at
+                ->copy()
+                ->addMinutes(
+                    $setting->cooldown_minutes
+                );
 
 
             if (now()->lt($nextAllowedAt)) {
@@ -668,49 +727,49 @@ class SoilMoistureController extends Controller
 
         return IrrigationEvent::create([
             'zone_id' =>
-                $zoneId,
+            $zoneId,
 
             /*
             | No fue activado manualmente por un usuario.
             */
             'user_id' =>
-                null,
+            null,
 
             /*
             | Lectura que provocó el riego.
             */
             'trigger_reading_id' =>
-                $readingId,
+            $readingId,
 
             'mode' =>
-                'automatic',
+            'automatic',
 
             'status' =>
-                'started',
+            'started',
 
             /*
             | En automático representa la duración programada.
             */
             'duration_minutes' =>
-                $setting->duration_minutes,
+            $setting->duration_minutes,
 
             'water_liters' =>
-                $setting->water_liters,
+            $setting->water_liters,
 
             'soil_humidity_before' =>
-                $humidity,
+            $humidity,
 
             'soil_humidity_after' =>
-                null,
+            null,
 
             'started_at' =>
-                $recordedAt ?? now(),
+            $recordedAt ?? now(),
 
             'ended_at' =>
-                null,
+            null,
 
             'notes' =>
-                'Riego automático iniciado por humedad del suelo por debajo del mínimo configurado.',
+            'Riego automático iniciado por humedad del suelo por debajo del mínimo configurado.',
         ]);
     }
 
@@ -724,6 +783,20 @@ class SoilMoistureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
+
 
         if (
             $sensor->sensor_type
@@ -732,7 +805,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'El sensor seleccionado no es de humedad del suelo.',
+                'El sensor seleccionado no es de humedad del suelo.',
             ], 422);
         }
 
@@ -745,9 +818,9 @@ class SoilMoistureController extends Controller
 
         $greenhouse =
             $sensor
-                ->device
-                ->zone
-                ->greenhouse;
+            ->device
+            ->zone
+            ->greenhouse;
 
 
         /*
@@ -763,8 +836,58 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para consultar este sensor.',
+                'No tienes permiso para consultar este sensor.',
             ], 403);
+        }
+
+        if (
+            $greenhouse->plan_restricted
+            ||
+            $sensor->device->zone->plan_restricted
+            ||
+            $sensor->plan_restricted
+        ) {
+
+            return response()->json([
+                'data' => [
+
+                    'sensor_id' =>
+                    $sensor->id,
+
+                    'sensor_name' =>
+                    $sensor->name,
+
+                    'humidity' =>
+                    null,
+
+                    'unit' =>
+                    '%',
+
+                    'level' =>
+                    null,
+
+                    'level_label' =>
+                    'Restringido',
+
+                    'connection_status' =>
+                    'restricted',
+
+                    'connection_label' =>
+                    'Restringido',
+
+                    'recorded_at' =>
+                    null,
+
+                    'minutes_since_last_reading' =>
+                    null,
+
+                    'threshold' =>
+                    null,
+
+                    'restricted_message' =>
+                    'Monitoreo restringido por el plan actual.',
+                ],
+            ]);
         }
 
 
@@ -774,11 +897,11 @@ class SoilMoistureController extends Controller
 
         $threshold =
             $greenhouse
-                ->thresholds
-                ->firstWhere(
-                    'variable',
-                    'soil_humidity'
-                );
+            ->thresholds
+            ->firstWhere(
+                'variable',
+                'soil_humidity'
+            );
 
 
         /*
@@ -793,39 +916,39 @@ class SoilMoistureController extends Controller
                 'data' => [
 
                     'sensor_id' =>
-                        $sensor->id,
+                    $sensor->id,
 
                     'sensor_name' =>
-                        $sensor->name,
+                    $sensor->name,
 
                     'humidity' =>
-                        null,
+                    null,
 
                     'unit' =>
-                        '%',
+                    '%',
 
                     'level' =>
-                        null,
+                    null,
 
                     'level_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'connection_status' =>
-                        'no_data',
+                    'no_data',
 
                     'connection_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'recorded_at' =>
-                        null,
+                    null,
 
                     'minutes_since_last_reading' =>
-                        null,
+                    null,
 
                     'threshold' =>
-                        $this->formatThreshold(
-                            $threshold
-                        ),
+                    $this->formatThreshold(
+                        $threshold
+                    ),
                 ],
             ]);
         }
@@ -839,10 +962,10 @@ class SoilMoistureController extends Controller
 
         $isDisconnected =
             $latestReading
-                ->recorded_at
-                ->lt(
-                    now()->subMinutes(10)
-                );
+            ->recorded_at
+            ->lt(
+                now()->subMinutes(10)
+            );
 
 
         $humidity =
@@ -860,54 +983,54 @@ class SoilMoistureController extends Controller
             'data' => [
 
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 'humidity' =>
-                    round(
-                        $humidity,
-                        1
-                    ),
+                round(
+                    $humidity,
+                    1
+                ),
 
                 'unit' =>
-                    '%',
+                '%',
 
                 'level' =>
-                    $level,
+                $level,
 
                 'level_label' =>
-                    $this->levelLabel(
-                        $level
-                    ),
+                $this->levelLabel(
+                    $level
+                ),
 
                 'connection_status' =>
-                    $isDisconnected
-                        ? 'disconnected'
-                        : 'connected',
+                $isDisconnected
+                    ? 'disconnected'
+                    : 'connected',
 
                 'connection_label' =>
-                    $isDisconnected
-                        ? 'Sin conexión'
-                        : 'Conectado',
+                $isDisconnected
+                    ? 'Sin conexión'
+                    : 'Conectado',
 
                 'recorded_at' =>
-                    $latestReading
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $latestReading
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'minutes_since_last_reading' =>
-                    (int) $latestReading
-                        ->recorded_at
-                        ->diffInMinutes(
-                            now()
-                        ),
+                (int) $latestReading
+                    ->recorded_at
+                    ->diffInMinutes(
+                        now()
+                    ),
 
                 'threshold' =>
-                    $this->formatThreshold(
-                        $threshold
-                    ),
+                $this->formatThreshold(
+                    $threshold
+                ),
             ],
         ]);
     }
@@ -930,7 +1053,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'El sensor seleccionado no es de humedad del suelo.',
+                'El sensor seleccionado no es de humedad del suelo.',
             ], 422);
         }
 
@@ -942,9 +1065,9 @@ class SoilMoistureController extends Controller
 
         $greenhouse =
             $sensor
-                ->device
-                ->zone
-                ->greenhouse;
+            ->device
+            ->zone
+            ->greenhouse;
 
 
         /*
@@ -960,7 +1083,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para consultar este sensor.',
+                'No tienes permiso para consultar este sensor.',
             ], 403);
         }
 
@@ -973,61 +1096,61 @@ class SoilMoistureController extends Controller
 
         $readings =
             $sensor
-                ->readings()
-                ->where(
-                    'recorded_at',
-                    '>=',
-                    now()->subHours(24)
-                )
-                ->orderBy(
-                    'recorded_at'
-                )
-                ->get()
-                ->map(
-                    function ($reading) {
+            ->readings()
+            ->where(
+                'recorded_at',
+                '>=',
+                now()->subHours(24)
+            )
+            ->orderBy(
+                'recorded_at'
+            )
+            ->get()
+            ->map(
+                function ($reading) {
 
-                        return [
-                            'id' =>
-                                $reading->id,
+                    return [
+                        'id' =>
+                        $reading->id,
 
-                            'humidity' =>
-                                round(
-                                    (float) $reading->value,
-                                    1
-                                ),
+                        'humidity' =>
+                        round(
+                            (float) $reading->value,
+                            1
+                        ),
 
-                            'unit' =>
-                                '%',
+                        'unit' =>
+                        '%',
 
-                            'recorded_at' =>
-                                $reading
-                                    ->recorded_at
-                                    ->toDateTimeString(),
+                        'recorded_at' =>
+                        $reading
+                            ->recorded_at
+                            ->toDateTimeString(),
 
-                            'source' =>
-                                $reading->source,
-                        ];
-                    }
-                );
+                        'source' =>
+                        $reading->source,
+                    ];
+                }
+            );
 
 
         return response()->json([
             'data' => [
 
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 'period_hours' =>
-                    24,
+                24,
 
                 'total_readings' =>
-                    $readings->count(),
+                $readings->count(),
 
                 'readings' =>
-                    $readings,
+                $readings,
             ],
         ]);
     }
@@ -1042,6 +1165,12 @@ class SoilMoistureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1056,8 +1185,60 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para consultar este invernadero.',
+                'No tienes permiso para consultar este invernadero.',
             ], 403);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $greenhouse->refresh();
+
+        if ($greenhouse->plan_restricted) {
+
+            return response()->json([
+                'data' => [
+
+                    'sensor_id' =>
+                    null,
+
+                    'sensor_name' =>
+                    null,
+
+                    'humidity' =>
+                    null,
+
+                    'unit' =>
+                    '%',
+
+                    'level' =>
+                    null,
+
+                    'level_label' =>
+                    'Restringido',
+
+                    'connection_status' =>
+                    'restricted',
+
+                    'connection_label' =>
+                    'Restringido',
+
+                    'recorded_at' =>
+                    null,
+
+                    'minutes_since_last_reading' =>
+                    null,
+
+                    'threshold' =>
+                    null,
+
+                    'restricted_message' =>
+                    'Monitoreo restringido por el plan actual.',
+                ],
+            ]);
         }
 
 
@@ -1069,28 +1250,51 @@ class SoilMoistureController extends Controller
 
         $sensor =
             Sensor::query()
-                ->where(
-                    'sensor_type',
-                    'soil_humidity'
-                )
-                ->where(
-                    'status',
-                    'active'
-                )
-                ->whereHas(
-                    'device.zone',
-                    function ($query) use ($greenhouse) {
+            ->where(
+                'sensor_type',
+                'soil_humidity'
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->where(
+                'plan_restricted',
+                false
+            )
+            ->whereHas(
+                'device',
+                function ($query) {
 
-                        $query->where(
+                    $query->where(
+                        'status',
+                        'active'
+                    );
+                }
+            )
+            ->whereHas(
+                'device.zone',
+                function ($query) use ($greenhouse) {
+
+                    $query
+                        ->where(
                             'greenhouse_id',
                             $greenhouse->id
+                        )
+                        ->where(
+                            'status',
+                            'active'
+                        )
+                        ->where(
+                            'plan_restricted',
+                            false
                         );
-                    }
-                )
-                ->with([
-                    'latestReading',
-                ])
-                ->first();
+                }
+            )
+            ->with([
+                'latestReading',
+            ])
+            ->first();
 
 
         /*
@@ -1105,37 +1309,37 @@ class SoilMoistureController extends Controller
                 'data' => [
 
                     'sensor_id' =>
-                        null,
+                    null,
 
                     'sensor_name' =>
-                        null,
+                    null,
 
                     'humidity' =>
-                        null,
+                    null,
 
                     'unit' =>
-                        '%',
+                    '%',
 
                     'level' =>
-                        null,
+                    null,
 
                     'level_label' =>
-                        'Sin sensor',
+                    'Sin sensor',
 
                     'connection_status' =>
-                        'no_sensor',
+                    'no_sensor',
 
                     'connection_label' =>
-                        'Sin sensor',
+                    'Sin sensor',
 
                     'recorded_at' =>
-                        null,
+                    null,
 
                     'minutes_since_last_reading' =>
-                        null,
+                    null,
 
                     'threshold' =>
-                        null,
+                    null,
                 ],
             ]);
         }
@@ -1143,12 +1347,12 @@ class SoilMoistureController extends Controller
 
         $threshold =
             $greenhouse
-                ->thresholds()
-                ->where(
-                    'variable',
-                    'soil_humidity'
-                )
-                ->first();
+            ->thresholds()
+            ->where(
+                'variable',
+                'soil_humidity'
+            )
+            ->first();
 
 
         $latestReading =
@@ -1167,42 +1371,44 @@ class SoilMoistureController extends Controller
                 'data' => [
 
                     'sensor_id' =>
-                        $sensor->id,
+                    $sensor->id,
 
                     'sensor_name' =>
-                        $sensor->name,
+                    $sensor->name,
 
                     'humidity' =>
-                        null,
+                    null,
 
                     'unit' =>
-                        '%',
+                    '%',
 
                     'level' =>
-                        null,
+                    null,
 
                     'level_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'connection_status' =>
-                        'no_data',
+                    'no_data',
 
                     'connection_label' =>
-                        'Sin datos',
+                    'Sin datos',
 
                     'recorded_at' =>
-                        null,
+                    null,
 
                     'minutes_since_last_reading' =>
-                        null,
+                    null,
 
                     'threshold' =>
-                        $this->formatThreshold(
-                            $threshold
-                        ),
+                    $this->formatThreshold(
+                        $threshold
+                    ),
                 ],
             ]);
         }
+
+
 
 
         /*
@@ -1213,10 +1419,10 @@ class SoilMoistureController extends Controller
 
         $isDisconnected =
             $latestReading
-                ->recorded_at
-                ->lt(
-                    now()->subMinutes(10)
-                );
+            ->recorded_at
+            ->lt(
+                now()->subMinutes(10)
+            );
 
 
         $humidity =
@@ -1234,54 +1440,54 @@ class SoilMoistureController extends Controller
             'data' => [
 
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 'humidity' =>
-                    round(
-                        $humidity,
-                        1
-                    ),
+                round(
+                    $humidity,
+                    1
+                ),
 
                 'unit' =>
-                    '%',
+                '%',
 
                 'level' =>
-                    $level,
+                $level,
 
                 'level_label' =>
-                    $this->levelLabel(
-                        $level
-                    ),
+                $this->levelLabel(
+                    $level
+                ),
 
                 'connection_status' =>
-                    $isDisconnected
-                        ? 'disconnected'
-                        : 'connected',
+                $isDisconnected
+                    ? 'disconnected'
+                    : 'connected',
 
                 'connection_label' =>
-                    $isDisconnected
-                        ? 'Sin conexión'
-                        : 'Conectado',
+                $isDisconnected
+                    ? 'Sin conexión'
+                    : 'Conectado',
 
                 'recorded_at' =>
-                    $latestReading
-                        ->recorded_at
-                        ->toDateTimeString(),
+                $latestReading
+                    ->recorded_at
+                    ->toDateTimeString(),
 
                 'minutes_since_last_reading' =>
-                    (int) $latestReading
-                        ->recorded_at
-                        ->diffInMinutes(
-                            now()
-                        ),
+                (int) $latestReading
+                    ->recorded_at
+                    ->diffInMinutes(
+                        now()
+                    ),
 
                 'threshold' =>
-                    $this->formatThreshold(
-                        $threshold
-                    ),
+                $this->formatThreshold(
+                    $threshold
+                ),
             ],
         ]);
     }
@@ -1310,7 +1516,7 @@ class SoilMoistureController extends Controller
 
             return response()->json([
                 'message' =>
-                    'No tienes permiso para consultar este invernadero.',
+                'No tienes permiso para consultar este invernadero.',
             ], 403);
         }
 
@@ -1323,25 +1529,25 @@ class SoilMoistureController extends Controller
 
         $sensor =
             Sensor::query()
-                ->where(
-                    'sensor_type',
-                    'soil_humidity'
-                )
-                ->where(
-                    'status',
-                    'active'
-                )
-                ->whereHas(
-                    'device.zone',
-                    function ($query) use ($greenhouse) {
+            ->where(
+                'sensor_type',
+                'soil_humidity'
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->whereHas(
+                'device.zone',
+                function ($query) use ($greenhouse) {
 
-                        $query->where(
-                            'greenhouse_id',
-                            $greenhouse->id
-                        );
-                    }
-                )
-                ->first();
+                    $query->where(
+                        'greenhouse_id',
+                        $greenhouse->id
+                    );
+                }
+            )
+            ->first();
 
 
         if (!$sensor) {
@@ -1350,19 +1556,19 @@ class SoilMoistureController extends Controller
                 'data' => [
 
                     'sensor_id' =>
-                        null,
+                    null,
 
                     'sensor_name' =>
-                        null,
+                    null,
 
                     'period_hours' =>
-                        24,
+                    24,
 
                     'total_readings' =>
-                        0,
+                    0,
 
                     'readings' =>
-                        [],
+                    [],
                 ],
             ]);
         }
@@ -1376,61 +1582,61 @@ class SoilMoistureController extends Controller
 
         $readings =
             $sensor
-                ->readings()
-                ->where(
-                    'recorded_at',
-                    '>=',
-                    now()->subHours(24)
-                )
-                ->orderBy(
-                    'recorded_at'
-                )
-                ->get()
-                ->map(
-                    function ($reading) {
+            ->readings()
+            ->where(
+                'recorded_at',
+                '>=',
+                now()->subHours(24)
+            )
+            ->orderBy(
+                'recorded_at'
+            )
+            ->get()
+            ->map(
+                function ($reading) {
 
-                        return [
-                            'id' =>
-                                $reading->id,
+                    return [
+                        'id' =>
+                        $reading->id,
 
-                            'humidity' =>
-                                round(
-                                    (float) $reading->value,
-                                    1
-                                ),
+                        'humidity' =>
+                        round(
+                            (float) $reading->value,
+                            1
+                        ),
 
-                            'unit' =>
-                                '%',
+                        'unit' =>
+                        '%',
 
-                            'recorded_at' =>
-                                $reading
-                                    ->recorded_at
-                                    ->toDateTimeString(),
+                        'recorded_at' =>
+                        $reading
+                            ->recorded_at
+                            ->toDateTimeString(),
 
-                            'source' =>
-                                $reading->source,
-                        ];
-                    }
-                );
+                        'source' =>
+                        $reading->source,
+                    ];
+                }
+            );
 
 
         return response()->json([
             'data' => [
 
                 'sensor_id' =>
-                    $sensor->id,
+                $sensor->id,
 
                 'sensor_name' =>
-                    $sensor->name,
+                $sensor->name,
 
                 'period_hours' =>
-                    24,
+                24,
 
                 'total_readings' =>
-                    $readings->count(),
+                $readings->count(),
 
                 'readings' =>
-                    $readings,
+                $readings,
             ],
         ]);
     }
@@ -1459,14 +1665,14 @@ class SoilMoistureController extends Controller
 
         $minimum =
             $threshold->min_value !== null
-                ? (float) $threshold->min_value
-                : null;
+            ? (float) $threshold->min_value
+            : null;
 
 
         $maximum =
             $threshold->max_value !== null
-                ? (float) $threshold->max_value
-                : null;
+            ? (float) $threshold->max_value
+            : null;
 
 
         if (
@@ -1503,13 +1709,13 @@ class SoilMoistureController extends Controller
         return match ($level) {
 
             'low' =>
-                'Bajo',
+            'Bajo',
 
             'high' =>
-                'Alto',
+            'Alto',
 
             default =>
-                'Medio',
+            'Medio',
         };
     }
 
@@ -1536,10 +1742,10 @@ class SoilMoistureController extends Controller
             )
             ->update([
                 'status' =>
-                    'resolved',
+                'resolved',
 
                 'resolved_at' =>
-                    now(),
+                now(),
             ]);
     }
 
@@ -1559,17 +1765,17 @@ class SoilMoistureController extends Controller
 
         return [
             'min' =>
-                $threshold->min_value !== null
-                    ? (float) $threshold->min_value
-                    : null,
+            $threshold->min_value !== null
+                ? (float) $threshold->min_value
+                : null,
 
             'max' =>
-                $threshold->max_value !== null
-                    ? (float) $threshold->max_value
-                    : null,
+            $threshold->max_value !== null
+                ? (float) $threshold->max_value
+                : null,
 
             'unit' =>
-                $threshold->unit,
+            $threshold->unit,
         ];
     }
 }

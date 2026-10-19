@@ -17,6 +17,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
         'company_id',
         'role_id',
         'is_company_owner',
+        'plan_restricted',
         'name',
         'email',
         'password',
@@ -34,6 +35,7 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_company_owner' => 'boolean',
+            'plan_restricted' => 'boolean',
         ];
     }
 
