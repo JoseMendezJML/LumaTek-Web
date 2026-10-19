@@ -18,6 +18,20 @@ class SensorController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $device->refresh();
+
         $device->load(
             'zone.greenhouse'
         );
@@ -81,9 +95,34 @@ class SensorController extends Controller
             ], 401);
         }
 
+        $device->load(
+            'zone.greenhouse'
+        );
+
+        if (
+            $device
+            ->zone
+            ->greenhouse
+            ->company_id
+            !==
+            $user->company_id
+        ) {
+
+            return response()->json([
+                'message' =>
+                'No tienes permiso para modificar este dispositivo.',
+            ], 403);
+        }
+
         $user->loadMissing(
             'company'
         );
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $device->refresh();
 
         $plan =
             $user
@@ -137,20 +176,6 @@ class SensorController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $device
-            ->zone
-            ->greenhouse
-            ->company_id
-            !==
-            $user->company_id
-        ) {
-
-            return response()->json([
-                'message' =>
-                'No tienes permiso para modificar este dispositivo.',
-            ], 403);
-        }
 
         if (
             $device
@@ -163,6 +188,14 @@ class SensorController extends Controller
                 'message' =>
                 'Este invernadero está restringido por el plan actual. '
                     . 'Renueva Pro para administrar sus sensores.',
+            ], 403);
+        }
+
+        if ($device->zone->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para agregar sensores.',
             ], 403);
         }
 
@@ -399,10 +432,6 @@ class SensorController extends Controller
                 'between:0,100',
             ],
 
-            'status' => [
-                'nullable',
-                'in:active,inactive',
-            ],
         ], [
             'name.required' =>
             'El nombre del sensor es obligatorio.',
@@ -477,9 +506,6 @@ class SensorController extends Controller
             $validated['position_y']
                 ?? null,
 
-            'status' =>
-            $validated['status']
-                ?? $sensor->status,
         ]);
 
         return response()->json([
@@ -505,15 +531,21 @@ class SensorController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
         $sensor->load(
             'device.zone.greenhouse'
         );
 
         /*
-        |--------------------------------------------------------------------------
-        | Aislamiento por empresa
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Aislamiento por empresa
+    |--------------------------------------------------------------------------
+    */
 
         if (
             $sensor
@@ -524,12 +556,29 @@ class SensorController extends Controller
             !==
             $user->company_id
         ) {
-
             return response()->json([
                 'message' =>
                 'No tienes permiso para modificar este sensor.',
             ], 403);
         }
+
+        $user->loadMissing('company');
+
+        /*
+    |--------------------------------------------------------------------------
+    | Sincronizar restricciones actuales del plan
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
+
+        $sensor->load(
+            'device.zone.greenhouse'
+        );
 
         $validated = $request->validate([
             'status' => [
@@ -538,25 +587,77 @@ class SensorController extends Controller
             ],
         ]);
 
+        /*
+    |--------------------------------------------------------------------------
+    | No activar dentro de un invernadero restringido
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $sensor
+            ->device
+            ->zone
+            ->greenhouse
+            ->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para activar sus sensores.',
+            ], 403);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | No activar dentro de una zona restringida
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $sensor->device->zone->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para activar sus sensores.',
+            ], 403);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | No activar un sensor restringido por el plan
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $sensor->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Este sensor está restringido por el plan actual. '
+                    . 'Renueva Pro para volver a utilizarlo.',
+            ], 403);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Validar límite antes de activar
+    |--------------------------------------------------------------------------
+    */
+
         if (
             $validated['status'] === 'active'
             &&
             $sensor->status !== 'active'
         ) {
 
-            if (!($user instanceof \App\Models\User)) {
-                return response()->json([
-                    'message' =>
-                    'Usuario no autenticado.',
-                ], 401);
-            }
-
-            $user->loadMissing(
-                'company'
-            );
-
-            $plan =
-                $user
+            $plan = $user
                 ->company
                 ?->effectivePlan();
 
@@ -567,25 +668,7 @@ class SensorController extends Controller
                 ], 422);
             }
 
-            if (
-                $validated['status'] === 'active'
-                &&
-                $sensor
-                ->device
-                ->zone
-                ->greenhouse
-                ->plan_restricted
-            ) {
-
-                return response()->json([
-                    'message' =>
-                    'Este invernadero está restringido por el plan actual. '
-                        . 'Renueva Pro para activar sus sensores.',
-                ], 403);
-            }
-
-            $activeSensors =
-                Sensor::query()
+            $activeSensors = Sensor::query()
                 ->whereHas(
                     'device',
                     function ($query) use ($sensor) {
@@ -618,16 +701,16 @@ class SensorController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | No activar sensor si el dispositivo está inactivo
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | No activar sensor si el dispositivo está inactivo
+    |--------------------------------------------------------------------------
+    */
 
         if (
             $validated['status'] === 'active'
-            && $sensor->device->status !== 'active'
+            &&
+            $sensor->device->status !== 'active'
         ) {
-
             return response()->json([
                 'message' =>
                 'No puedes activar el sensor mientras su dispositivo esté inactivo.',
@@ -635,26 +718,43 @@ class SensorController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | No activar sensor si la zona está inactiva
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | No activar sensor si la zona está inactiva
+    |--------------------------------------------------------------------------
+    */
 
         if (
             $validated['status'] === 'active'
-            && $sensor->device->zone->status !== 'active'
+            &&
+            $sensor->device->zone->status !== 'active'
         ) {
-
             return response()->json([
                 'message' =>
                 'No puedes activar el sensor mientras su zona esté inactiva.',
             ], 422);
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | Cambiar estado
+    |--------------------------------------------------------------------------
+    */
+
         $sensor->update([
-            'status' =>
-            $validated['status'],
+            'status' => $validated['status'],
         ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Recalcular restricciones después del cambio
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
 
         return response()->json([
             'message' =>
@@ -662,11 +762,9 @@ class SensorController extends Controller
                 ? 'Sensor activado correctamente.'
                 : 'Sensor desactivado correctamente.',
 
-            'data' =>
-            $sensor,
+            'data' => $sensor,
         ]);
     }
-
 
     /**
      * Obtiene la unidad correspondiente al tipo de sensor.

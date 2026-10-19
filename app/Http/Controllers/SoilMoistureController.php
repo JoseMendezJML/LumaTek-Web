@@ -23,6 +23,20 @@ class SoilMoistureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
+
 
         /*
         |--------------------------------------------------------------------------
@@ -83,6 +97,24 @@ class SoilMoistureController extends Controller
             return response()->json([
                 'message' =>
                 'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
+            ], 403);
+        }
+
+        if ($zone->plan_restricted) {
+
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
+            ], 403);
+        }
+
+        if ($sensor->plan_restricted) {
+
+            return response()->json([
+                'message' =>
+                'Este sensor está restringido por el plan actual. '
                     . 'Renueva Pro para continuar registrando lecturas.',
             ], 403);
         }
@@ -565,6 +597,28 @@ class SoilMoistureController extends Controller
         $recordedAt
     ): ?IrrigationEvent {
 
+
+        $zone = \App\Models\Zone::query()
+            ->with('greenhouse')
+            ->find($zoneId);
+
+        if (!$zone) {
+            return null;
+        }
+
+        if (
+            $zone->status !== 'active'
+            ||
+            $zone->plan_restricted
+            ||
+            !$zone->greenhouse
+            ||
+            $zone->greenhouse->status !== 'active'
+            ||
+            $zone->greenhouse->plan_restricted
+        ) {
+            return null;
+        }
         /*
         |--------------------------------------------------------------------------
         | Configuración
@@ -729,6 +783,20 @@ class SoilMoistureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
+
 
         if (
             $sensor->sensor_type
@@ -770,6 +838,56 @@ class SoilMoistureController extends Controller
                 'message' =>
                 'No tienes permiso para consultar este sensor.',
             ], 403);
+        }
+
+        if (
+            $greenhouse->plan_restricted
+            ||
+            $sensor->device->zone->plan_restricted
+            ||
+            $sensor->plan_restricted
+        ) {
+
+            return response()->json([
+                'data' => [
+
+                    'sensor_id' =>
+                    $sensor->id,
+
+                    'sensor_name' =>
+                    $sensor->name,
+
+                    'humidity' =>
+                    null,
+
+                    'unit' =>
+                    '%',
+
+                    'level' =>
+                    null,
+
+                    'level_label' =>
+                    'Restringido',
+
+                    'connection_status' =>
+                    'restricted',
+
+                    'connection_label' =>
+                    'Restringido',
+
+                    'recorded_at' =>
+                    null,
+
+                    'minutes_since_last_reading' =>
+                    null,
+
+                    'threshold' =>
+                    null,
+
+                    'restricted_message' =>
+                    'Monitoreo restringido por el plan actual.',
+                ],
+            ]);
         }
 
 
@@ -1047,6 +1165,12 @@ class SoilMoistureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1065,49 +1189,57 @@ class SoilMoistureController extends Controller
             ], 403);
         }
 
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $greenhouse->refresh();
+
         if ($greenhouse->plan_restricted) {
 
-    return response()->json([
-        'data' => [
+            return response()->json([
+                'data' => [
 
-            'sensor_id' =>
-                null,
+                    'sensor_id' =>
+                    null,
 
-            'sensor_name' =>
-                null,
+                    'sensor_name' =>
+                    null,
 
-            'humidity' =>
-                null,
+                    'humidity' =>
+                    null,
 
-            'unit' =>
-                '%',
+                    'unit' =>
+                    '%',
 
-            'level' =>
-                null,
+                    'level' =>
+                    null,
 
-            'level_label' =>
-                'Restringido',
+                    'level_label' =>
+                    'Restringido',
 
-            'connection_status' =>
-                'restricted',
+                    'connection_status' =>
+                    'restricted',
 
-            'connection_label' =>
-                'Restringido',
+                    'connection_label' =>
+                    'Restringido',
 
-            'recorded_at' =>
-                null,
+                    'recorded_at' =>
+                    null,
 
-            'minutes_since_last_reading' =>
-                null,
+                    'minutes_since_last_reading' =>
+                    null,
 
-            'threshold' =>
-                null,
+                    'threshold' =>
+                    null,
 
-            'restricted_message' =>
-                'Monitoreo restringido por el plan actual.',
-        ],
-    ]);
-}
+                    'restricted_message' =>
+                    'Monitoreo restringido por el plan actual.',
+                ],
+            ]);
+        }
 
 
         /*
@@ -1126,14 +1258,37 @@ class SoilMoistureController extends Controller
                 'status',
                 'active'
             )
+            ->where(
+                'plan_restricted',
+                false
+            )
+            ->whereHas(
+                'device',
+                function ($query) {
+
+                    $query->where(
+                        'status',
+                        'active'
+                    );
+                }
+            )
             ->whereHas(
                 'device.zone',
                 function ($query) use ($greenhouse) {
 
-                    $query->where(
-                        'greenhouse_id',
-                        $greenhouse->id
-                    );
+                    $query
+                        ->where(
+                            'greenhouse_id',
+                            $greenhouse->id
+                        )
+                        ->where(
+                            'status',
+                            'active'
+                        )
+                        ->where(
+                            'plan_restricted',
+                            false
+                        );
                 }
             )
             ->with([

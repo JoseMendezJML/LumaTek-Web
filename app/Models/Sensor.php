@@ -22,11 +22,13 @@ class Sensor extends Model
         'position_x',
         'position_y',
         'status',
+        'plan_restricted',
     ];
 
     protected $casts = [
         'position_x' => 'decimal:2',
         'position_y' => 'decimal:2',
+        'plan_restricted' => 'boolean',
     ];
 
     /**

@@ -130,8 +130,8 @@ class IrrigationController extends Controller
             ->orderByDesc('started_at')
             ->get()
             ->map(
-                fn ($event) =>
-                    $this->formatEvent($event)
+                fn($event) =>
+                $this->formatEvent($event)
             );
 
 
@@ -151,6 +151,12 @@ class IrrigationController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -163,6 +169,32 @@ class IrrigationController extends Controller
             $user->company_id
         );
 
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $zone->refresh();
+
+        $zone->loadMissing('greenhouse');
+
+        if ($zone->greenhouse->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar utilizando el riego.',
+            ], 403);
+        }
+
+        if ($zone->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para continuar utilizando el riego.',
+            ], 403);
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -174,7 +206,7 @@ class IrrigationController extends Controller
 
             return response()->json([
                 'message' =>
-                    'No se puede iniciar el riego porque la zona está inactiva.',
+                'No se puede iniciar el riego porque la zona está inactiva.',
             ], 422);
         }
 
@@ -209,22 +241,22 @@ class IrrigationController extends Controller
 
         $activeIrrigation =
             IrrigationEvent::query()
-                ->where(
-                    'zone_id',
-                    $zone->id
-                )
-                ->where(
-                    'status',
-                    'started'
-                )
-                ->exists();
+            ->where(
+                'zone_id',
+                $zone->id
+            )
+            ->where(
+                'status',
+                'started'
+            )
+            ->exists();
 
 
         if ($activeIrrigation) {
 
             return response()->json([
                 'message' =>
-                    'Ya existe un riego activo en esta zona.',
+                'Ya existe un riego activo en esta zona.',
             ], 422);
         }
 
@@ -257,43 +289,43 @@ class IrrigationController extends Controller
 
                 return IrrigationEvent::create([
                     'zone_id' =>
-                        $zone->id,
+                    $zone->id,
 
                     'user_id' =>
-                        $user->id,
+                    $user->id,
 
                     'trigger_reading_id' =>
-                        null,
+                    null,
 
                     'mode' =>
-                        'manual',
+                    'manual',
 
                     'status' =>
-                        'started',
+                    'started',
 
                     'duration_minutes' =>
-                        null,
+                    null,
 
                     'water_liters' =>
-                        $data['water_liters']
+                    $data['water_liters']
                         ?? null,
 
                     'soil_humidity_before' =>
-                        $soilReading
-                            ? (float) $soilReading->value
-                            : null,
+                    $soilReading
+                        ? (float) $soilReading->value
+                        : null,
 
                     'soil_humidity_after' =>
-                        null,
+                    null,
 
                     'started_at' =>
-                        now(),
+                    now(),
 
                     'ended_at' =>
-                        null,
+                    null,
 
                     'notes' =>
-                        $data['notes']
+                    $data['notes']
                         ?? null,
                 ]);
             }
@@ -309,62 +341,84 @@ class IrrigationController extends Controller
 
         return response()->json([
             'message' =>
-                'Riego manual iniciado correctamente.',
+            'Riego manual iniciado correctamente.',
 
             'data' =>
-                $this->formatEvent($event),
+            $this->formatEvent($event),
         ], 201);
     }
 
     /**
- * Inicia un riego manual en todas las zonas activas
- * de un invernadero.
- */
-public function startManualByGreenhouse(
-    Request $request,
-    Greenhouse $greenhouse
-): JsonResponse {
+     * Inicia un riego manual en todas las zonas activas
+     * de un invernadero.
+     */
+    public function startManualByGreenhouse(
+        Request $request,
+        Greenhouse $greenhouse
+    ): JsonResponse {
 
-    $user = auth('api')->user();
+        $user = auth('api')->user();
+
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Seguridad multiempresa
     |--------------------------------------------------------------------------
     */
 
-    if (
-        $greenhouse->company_id
-        !== $user->company_id
-    ) {
+        if (
+            $greenhouse->company_id
+            !== $user->company_id
+        ) {
 
-        return response()->json([
-            'message' =>
+            return response()->json([
+                'message' =>
                 'El invernadero seleccionado no es válido.',
-        ], 404);
-    }
+            ], 404);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $greenhouse->refresh();
+
+        if ($greenhouse->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar utilizando el riego.',
+            ], 403);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Invernadero activo
     |--------------------------------------------------------------------------
     */
 
-    if (
-        $greenhouse->status
-        !== 'active'
-    ) {
+        if (
+            $greenhouse->status
+            !== 'active'
+        ) {
 
-        return response()->json([
-            'message' =>
+            return response()->json([
+                'message' =>
                 'No se puede iniciar el riego porque el invernadero está inactivo.',
-        ], 422);
-    }
+            ], 422);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Validación
     |--------------------------------------------------------------------------
@@ -374,53 +428,57 @@ public function startManualByGreenhouse(
     |
     */
 
-    $data = $request->validate([
+        $data = $request->validate([
 
-        'water_liters' => [
-            'nullable',
-            'numeric',
-            'min:0',
-            'max:99999999.99',
-        ],
+            'water_liters' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:99999999.99',
+            ],
 
-        'notes' => [
-            'nullable',
-            'string',
-            'max:1000',
-        ],
+            'notes' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
 
-    ]);
+        ]);
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Zonas activas
     |--------------------------------------------------------------------------
     */
 
-    $zones = Zone::query()
-        ->where(
-            'greenhouse_id',
-            $greenhouse->id
-        )
-        ->where(
-            'status',
-            'active'
-        )
-        ->orderBy('name')
-        ->get();
+        $zones = Zone::query()
+            ->where(
+                'greenhouse_id',
+                $greenhouse->id
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->where(
+                'plan_restricted',
+                false
+            )
+            ->orderBy('name')
+            ->get();
 
 
-    if ($zones->isEmpty()) {
+        if ($zones->isEmpty()) {
 
-        return response()->json([
-            'message' =>
+            return response()->json([
+                'message' =>
                 'El invernadero no tiene zonas activas disponibles para riego.',
-        ], 422);
-    }
+            ], 422);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Evitar riego parcial
     |--------------------------------------------------------------------------
@@ -430,12 +488,12 @@ public function startManualByGreenhouse(
     |
     */
 
-    $zoneIds =
-        $zones->pluck('id');
+        $zoneIds =
+            $zones->pluck('id');
 
 
-    $zonesWithActiveIrrigation =
-        IrrigationEvent::query()
+        $zonesWithActiveIrrigation =
+            IrrigationEvent::query()
             ->whereIn(
                 'zone_id',
                 $zoneIds
@@ -448,149 +506,149 @@ public function startManualByGreenhouse(
             ->get();
 
 
-    if (
-        $zonesWithActiveIrrigation
-            ->isNotEmpty()
-    ) {
-
-        $zoneNames =
+        if (
             $zonesWithActiveIrrigation
+            ->isNotEmpty()
+        ) {
+
+            $zoneNames =
+                $zonesWithActiveIrrigation
                 ->pluck('zone.name')
                 ->filter()
                 ->implode(', ');
 
 
-        return response()->json([
-            'message' =>
+            return response()->json([
+                'message' =>
                 'No se puede iniciar el riego de todo el invernadero porque existen zonas con riego activo.'
-                . (
-                    $zoneNames
+                    . (
+                        $zoneNames
                         ? ' Zonas: ' . $zoneNames . '.'
                         : ''
-                ),
-        ], 422);
-    }
+                    ),
+            ], 422);
+        }
 
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Crear un evento por cada zona
     |--------------------------------------------------------------------------
     */
 
-    $events = DB::transaction(
-        function () use (
-            $zones,
-            $user,
-            $data
-        ) {
+        $events = DB::transaction(
+            function () use (
+                $zones,
+                $user,
+                $data
+            ) {
 
-            $createdEvents =
-                collect();
-
-
-            foreach ($zones as $zone) {
-
-                $soilReading =
-                    $this->latestSoilReading(
-                        $zone->id
-                    );
+                $createdEvents =
+                    collect();
 
 
-                $event =
-                    IrrigationEvent::create([
+                foreach ($zones as $zone) {
 
-                        'zone_id' =>
+                    $soilReading =
+                        $this->latestSoilReading(
+                            $zone->id
+                        );
+
+
+                    $event =
+                        IrrigationEvent::create([
+
+                            'zone_id' =>
                             $zone->id,
 
-                        'user_id' =>
+                            'user_id' =>
                             $user->id,
 
-                        'trigger_reading_id' =>
+                            'trigger_reading_id' =>
                             null,
 
-                        'mode' =>
+                            'mode' =>
                             'manual',
 
-                        'status' =>
+                            'status' =>
                             'started',
 
-                        'duration_minutes' =>
+                            'duration_minutes' =>
                             null,
 
-                        'water_liters' =>
+                            'water_liters' =>
                             $data['water_liters']
-                            ?? null,
+                                ?? null,
 
-                        'soil_humidity_before' =>
+                            'soil_humidity_before' =>
                             $soilReading
                                 ? (float) $soilReading->value
                                 : null,
 
-                        'soil_humidity_after' =>
+                            'soil_humidity_after' =>
                             null,
 
-                        'started_at' =>
+                            'started_at' =>
                             now(),
 
-                        'ended_at' =>
+                            'ended_at' =>
                             null,
 
-                        'notes' =>
+                            'notes' =>
                             $data['notes']
-                            ?? 'Riego manual iniciado para todo el invernadero.',
+                                ?? 'Riego manual iniciado para todo el invernadero.',
+                        ]);
+
+
+                    $event->load([
+                        'zone.greenhouse',
+                        'user',
+                        'triggerReading.sensor',
                     ]);
 
 
-                $event->load([
-                    'zone.greenhouse',
-                    'user',
-                    'triggerReading.sensor',
-                ]);
+                    $createdEvents->push(
+                        $this->formatEvent(
+                            $event
+                        )
+                    );
+                }
 
 
-                $createdEvents->push(
-                    $this->formatEvent(
-                        $event
-                    )
-                );
+                return $createdEvents;
             }
+        );
 
 
-            return $createdEvents;
-        }
-    );
-
-
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Respuesta
     |--------------------------------------------------------------------------
     */
 
-    return response()->json([
+        return response()->json([
 
-        'message' =>
-            'Riego manual iniciado en todas las zonas activas del invernadero.',
+            'message' =>
+            'Riego manual iniciado en todas las zonas disponibles del invernadero.',
 
-        'summary' => [
+            'summary' => [
 
-            'greenhouse_id' =>
+                'greenhouse_id' =>
                 $greenhouse->id,
 
-            'greenhouse_name' =>
+                'greenhouse_name' =>
                 $greenhouse->name,
 
-            'zones_started' =>
+                'zones_started' =>
                 $events->count(),
 
-        ],
+            ],
 
-        'data' =>
+            'data' =>
             $events,
 
-    ], 201);
-}
+        ], 201);
+    }
 
 
     /**
@@ -629,7 +687,7 @@ public function startManualByGreenhouse(
 
             return response()->json([
                 'message' =>
-                    'Solamente se puede finalizar un riego que esté activo.',
+                'Solamente se puede finalizar un riego que esté activo.',
             ], 422);
         }
 
@@ -701,25 +759,25 @@ public function startManualByGreenhouse(
 
                 $irrigationEvent->update([
                     'status' =>
-                        'completed',
+                    'completed',
 
                     'duration_minutes' =>
-                        $durationMinutes,
+                    $durationMinutes,
 
                     'water_liters' =>
-                        $data['water_liters']
+                    $data['water_liters']
                         ?? $irrigationEvent->water_liters,
 
                     'soil_humidity_after' =>
-                        $soilReadingAfter
-                            ? (float) $soilReadingAfter->value
-                            : null,
+                    $soilReadingAfter
+                        ? (float) $soilReadingAfter->value
+                        : null,
 
                     'ended_at' =>
-                        $endedAt,
+                    $endedAt,
 
                     'notes' =>
-                        $data['notes']
+                    $data['notes']
                         ?? $irrigationEvent->notes,
                 ]);
             }
@@ -735,12 +793,12 @@ public function startManualByGreenhouse(
 
         return response()->json([
             'message' =>
-                'Riego finalizado correctamente.',
+            'Riego finalizado correctamente.',
 
             'data' =>
-                $this->formatEvent(
-                    $irrigationEvent
-                ),
+            $this->formatEvent(
+                $irrigationEvent
+            ),
         ]);
     }
 
@@ -781,7 +839,7 @@ public function startManualByGreenhouse(
 
             return response()->json([
                 'message' =>
-                    'Solamente se puede cancelar un riego que esté activo.',
+                'Solamente se puede cancelar un riego que esté activo.',
             ], 422);
         }
 
@@ -812,16 +870,16 @@ public function startManualByGreenhouse(
 
         $irrigationEvent->update([
             'status' =>
-                'cancelled',
+            'cancelled',
 
             'duration_minutes' =>
-                $durationMinutes,
+            $durationMinutes,
 
             'ended_at' =>
-                $endedAt,
+            $endedAt,
 
             'notes' =>
-                $data['notes']
+            $data['notes']
                 ?? $irrigationEvent->notes,
         ]);
 
@@ -835,12 +893,12 @@ public function startManualByGreenhouse(
 
         return response()->json([
             'message' =>
-                'Riego cancelado correctamente.',
+            'Riego cancelado correctamente.',
 
             'data' =>
-                $this->formatEvent(
-                    $irrigationEvent
-                ),
+            $this->formatEvent(
+                $irrigationEvent
+            ),
         ]);
     }
 
@@ -870,9 +928,9 @@ public function startManualByGreenhouse(
 
         return response()->json([
             'data' =>
-                $this->formatEvent(
-                    $irrigationEvent
-                ),
+            $this->formatEvent(
+                $irrigationEvent
+            ),
         ]);
     }
 
@@ -972,21 +1030,21 @@ public function startManualByGreenhouse(
 
         $belongs =
             Zone::query()
-                ->where(
-                    'id',
-                    $zone->id
-                )
-                ->whereHas(
-                    'greenhouse',
-                    function ($query) use ($companyId) {
+            ->where(
+                'id',
+                $zone->id
+            )
+            ->whereHas(
+                'greenhouse',
+                function ($query) use ($companyId) {
 
-                        $query->where(
-                            'company_id',
-                            $companyId
-                        );
-                    }
-                )
-                ->exists();
+                    $query->where(
+                        'company_id',
+                        $companyId
+                    );
+                }
+            )
+            ->exists();
 
 
         abort_unless(
@@ -1008,21 +1066,21 @@ public function startManualByGreenhouse(
 
         $belongs =
             IrrigationEvent::query()
-                ->where(
-                    'id',
-                    $event->id
-                )
-                ->whereHas(
-                    'zone.greenhouse',
-                    function ($query) use ($companyId) {
+            ->where(
+                'id',
+                $event->id
+            )
+            ->whereHas(
+                'zone.greenhouse',
+                function ($query) use ($companyId) {
 
-                        $query->where(
-                            'company_id',
-                            $companyId
-                        );
-                    }
-                )
-                ->exists();
+                    $query->where(
+                        'company_id',
+                        $companyId
+                    );
+                }
+            )
+            ->exists();
 
 
         abort_unless(
@@ -1042,120 +1100,120 @@ public function startManualByGreenhouse(
 
         return [
             'id' =>
-                $event->id,
+            $event->id,
 
             'mode' =>
-                $event->mode,
+            $event->mode,
 
             'mode_label' =>
-                $event->mode === 'automatic'
-                    ? 'Automático'
-                    : 'Manual',
+            $event->mode === 'automatic'
+                ? 'Automático'
+                : 'Manual',
 
             'status' =>
-                $event->status,
+            $event->status,
 
             'status_label' =>
-                match ($event->status) {
+            match ($event->status) {
 
-                    'started' =>
-                        'En curso',
+                'started' =>
+                'En curso',
 
-                    'completed' =>
-                        'Completado',
+                'completed' =>
+                'Completado',
 
-                    'cancelled' =>
-                        'Cancelado',
+                'cancelled' =>
+                'Cancelado',
 
-                    'failed' =>
-                        'Fallido',
+                'failed' =>
+                'Fallido',
 
-                    default =>
-                        $event->status,
-                },
+                default =>
+                $event->status,
+            },
 
             'duration_minutes' =>
-                $event->duration_minutes,
+            $event->duration_minutes,
 
             'water_liters' =>
-                $event->water_liters !== null
-                    ? (float) $event->water_liters
-                    : null,
+            $event->water_liters !== null
+                ? (float) $event->water_liters
+                : null,
 
             'soil_humidity_before' =>
-                $event->soil_humidity_before !== null
-                    ? (float) $event->soil_humidity_before
-                    : null,
+            $event->soil_humidity_before !== null
+                ? (float) $event->soil_humidity_before
+                : null,
 
             'soil_humidity_after' =>
-                $event->soil_humidity_after !== null
-                    ? (float) $event->soil_humidity_after
-                    : null,
+            $event->soil_humidity_after !== null
+                ? (float) $event->soil_humidity_after
+                : null,
 
             'started_at' =>
-                $event->started_at
-                    ?->toDateTimeString(),
+            $event->started_at
+                ?->toDateTimeString(),
 
             'ended_at' =>
-                $event->ended_at
-                    ?->toDateTimeString(),
+            $event->ended_at
+                ?->toDateTimeString(),
 
             'notes' =>
-                $event->notes,
+            $event->notes,
 
             'zone' => [
                 'id' =>
-                    $event->zone?->id,
+                $event->zone?->id,
 
                 'name' =>
-                    $event->zone?->name,
+                $event->zone?->name,
             ],
 
             'greenhouse' => [
                 'id' =>
-                    $event
-                        ->zone
-                        ?->greenhouse
-                        ?->id,
+                $event
+                    ->zone
+                    ?->greenhouse
+                    ?->id,
 
                 'name' =>
-                    $event
-                        ->zone
-                        ?->greenhouse
-                        ?->name,
+                $event
+                    ->zone
+                    ?->greenhouse
+                    ?->name,
             ],
 
             'user' =>
-                $event->user
-                    ? [
-                        'id' =>
-                            $event->user->id,
+            $event->user
+                ? [
+                    'id' =>
+                    $event->user->id,
 
-                        'name' =>
-                            $event->user->name,
-                    ]
-                    : null,
+                    'name' =>
+                    $event->user->name,
+                ]
+                : null,
 
             'trigger_reading' =>
-                $event->triggerReading
-                    ? [
-                        'id' =>
-                            $event
-                                ->triggerReading
-                                ->id,
+            $event->triggerReading
+                ? [
+                    'id' =>
+                    $event
+                        ->triggerReading
+                        ->id,
 
-                        'value' =>
-                            (float) $event
-                                ->triggerReading
-                                ->value,
+                    'value' =>
+                    (float) $event
+                        ->triggerReading
+                        ->value,
 
-                        'recorded_at' =>
-                            $event
-                                ->triggerReading
-                                ->recorded_at
-                                ?->toDateTimeString(),
-                    ]
-                    : null,
+                    'recorded_at' =>
+                    $event
+                        ->triggerReading
+                        ->recorded_at
+                        ?->toDateTimeString(),
+                ]
+                : null,
         ];
     }
 }

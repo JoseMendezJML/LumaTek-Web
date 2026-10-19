@@ -153,6 +153,249 @@ class Company extends Model
             ]);
     }
 
+    public function syncZonePlanRestrictions(): void
+{
+    $plan = $this->effectivePlan();
+
+    if (!$plan) {
+        return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sincronizar primero los invernaderos
+    |--------------------------------------------------------------------------
+    */
+
+    $this->syncGreenhousePlanRestrictions();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quitar restricciones anteriores de las zonas
+    |--------------------------------------------------------------------------
+    |
+    | Esto permite recuperar las zonas cuando la empresa renueva Pro.
+    |
+    */
+
+    Zone::query()
+        ->whereHas(
+            'greenhouse',
+            function ($query) {
+                $query->where(
+                    'company_id',
+                    $this->id
+                );
+            }
+        )
+        ->update([
+            'plan_restricted' => false,
+        ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Obtener invernaderos activos
+    |--------------------------------------------------------------------------
+    */
+
+    $greenhouses = $this
+        ->greenhouses()
+        ->where('status', 'active')
+        ->orderBy('id')
+        ->get();
+
+    foreach ($greenhouses as $greenhouse) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Invernadero restringido
+        |--------------------------------------------------------------------------
+        |
+        | Si todo el invernadero está restringido, sus zonas activas también.
+        |
+        */
+
+        if ($greenhouse->plan_restricted) {
+
+            $greenhouse
+                ->zones()
+                ->where('status', 'active')
+                ->update([
+                    'plan_restricted' => true,
+                ]);
+
+            continue;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Zonas activas del invernadero disponible
+        |--------------------------------------------------------------------------
+        */
+
+        $activeZones = $greenhouse
+            ->zones()
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Zonas que exceden el límite del plan
+        |--------------------------------------------------------------------------
+        */
+
+        $restrictedIds = $activeZones
+            ->skip($plan->max_zones_per_greenhouse)
+            ->pluck('id');
+
+        if ($restrictedIds->isEmpty()) {
+            continue;
+        }
+
+        $greenhouse
+            ->zones()
+            ->whereIn('id', $restrictedIds)
+            ->update([
+                'plan_restricted' => true,
+            ]);
+    }
+}
+
+    public function syncSensorPlanRestrictions(): void
+{
+    $plan = $this->effectivePlan();
+
+    if (!$plan) {
+        return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sincronizar primero invernaderos y zonas
+    |--------------------------------------------------------------------------
+    */
+
+    $this->syncZonePlanRestrictions();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quitar restricciones anteriores de sensores
+    |--------------------------------------------------------------------------
+    |
+    | Esto permite recuperar los sensores si la empresa renueva Pro.
+    |
+    */
+
+    Sensor::query()
+        ->whereHas(
+            'device.zone.greenhouse',
+            function ($query) {
+                $query->where(
+                    'company_id',
+                    $this->id
+                );
+            }
+        )
+        ->update([
+            'plan_restricted' => false,
+        ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Obtener zonas activas de la empresa
+    |--------------------------------------------------------------------------
+    */
+
+    $zones = Zone::query()
+        ->where('status', 'active')
+        ->whereHas(
+            'greenhouse',
+            function ($query) {
+                $query->where(
+                    'company_id',
+                    $this->id
+                );
+            }
+        )
+        ->with('greenhouse')
+        ->orderBy('id')
+        ->get();
+
+    foreach ($zones as $zone) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Zona o invernadero restringido
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $zone->plan_restricted
+            ||
+            $zone->greenhouse->plan_restricted
+        ) {
+
+            Sensor::query()
+                ->where('status', 'active')
+                ->whereHas(
+                    'device',
+                    function ($query) use ($zone) {
+                        $query->where(
+                            'zone_id',
+                            $zone->id
+                        );
+                    }
+                )
+                ->update([
+                    'plan_restricted' => true,
+                ]);
+
+            continue;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sensores activos de la zona
+        |--------------------------------------------------------------------------
+        */
+
+        $activeSensors = Sensor::query()
+            ->where('status', 'active')
+            ->whereHas(
+                'device',
+                function ($query) use ($zone) {
+                    $query->where(
+                        'zone_id',
+                        $zone->id
+                    );
+                }
+            )
+            ->orderBy('id')
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sensores que exceden el límite del plan
+        |--------------------------------------------------------------------------
+        */
+
+        $restrictedIds = $activeSensors
+            ->skip($plan->max_sensors_per_zone)
+            ->pluck('id');
+
+        if ($restrictedIds->isEmpty()) {
+            continue;
+        }
+
+        Sensor::query()
+            ->whereIn('id', $restrictedIds)
+            ->update([
+                'plan_restricted' => true,
+            ]);
+    }
+}
+
     public function syncUserPlanRestrictions(): void
     {
         $plan = $this->effectivePlan();

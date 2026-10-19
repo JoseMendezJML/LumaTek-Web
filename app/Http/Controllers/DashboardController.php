@@ -27,9 +27,7 @@ class DashboardController extends Controller
 
         $user->loadMissing('company');
 
-        $user
-            ->company
-            ?->syncGreenhousePlanRestrictions();
+        $user->company?->syncSensorPlanRestrictions();
 
         $companyId = $user->company_id;
 
@@ -48,6 +46,7 @@ class DashboardController extends Controller
 
             'zones' => Zone::query()
                 ->where('status', 'active')
+                ->where('plan_restricted', false)
                 ->whereHas(
                     'greenhouse',
                     function ($query) use ($companyId) {
@@ -67,6 +66,14 @@ class DashboardController extends Controller
             'devices' => Device::query()
                 ->where('status', 'active')
                 ->whereHas(
+                    'zone',
+                    function ($query) {
+                        $query
+                            ->where('status', 'active')
+                            ->where('plan_restricted', false);
+                    }
+                )
+                ->whereHas(
                     'zone.greenhouse',
                     function ($query) use ($companyId) {
                         $query
@@ -84,6 +91,7 @@ class DashboardController extends Controller
 
             'sensors' => Sensor::query()
                 ->where('status', 'active')
+                ->where('plan_restricted', false)
                 ->whereHas(
                     'device.zone.greenhouse',
                     function ($query) use ($companyId) {
@@ -102,6 +110,22 @@ class DashboardController extends Controller
 
             'active_alerts' => Alert::query()
                 ->where('status', 'active')
+                ->whereHas(
+                    'sensor',
+                    function ($query) {
+                        $query
+                            ->where('status', 'active')
+                            ->where('plan_restricted', false);
+                    }
+                )
+                ->whereHas(
+                    'sensor.device.zone',
+                    function ($query) {
+                        $query
+                            ->where('status', 'active')
+                            ->where('plan_restricted', false);
+                    }
+                )
                 ->whereHas(
                     'sensor.device.zone.greenhouse',
                     function ($query) use ($companyId) {
@@ -132,10 +156,15 @@ class DashboardController extends Controller
             ->with([
                 'thresholds',
                 'zones' => function ($query) {
-                    $query->where(
-                        'status',
-                        'active'
-                    );
+                    $query
+                        ->where(
+                            'status',
+                            'active'
+                        )
+                        ->where(
+                            'plan_restricted',
+                            false
+                        );
                 },
                 'zones.devices' => function ($query) {
                     $query->where(
@@ -144,10 +173,15 @@ class DashboardController extends Controller
                     );
                 },
                 'zones.devices.sensors' => function ($query) {
-                    $query->where(
-                        'status',
-                        'active'
-                    );
+                    $query
+                        ->where(
+                            'status',
+                            'active'
+                        )
+                        ->where(
+                            'plan_restricted',
+                            false
+                        );
                 },
                 'zones.devices.sensors.latestReading',
             ])
@@ -271,6 +305,23 @@ class DashboardController extends Controller
         */
 
         $recentAlerts = Alert::query()
+
+            ->whereHas(
+                'sensor',
+                function ($query) {
+                    $query
+                        ->where('status', 'active')
+                        ->where('plan_restricted', false);
+                }
+            )
+            ->whereHas(
+                'sensor.device.zone',
+                function ($query) {
+                    $query
+                        ->where('status', 'active')
+                        ->where('plan_restricted', false);
+                }
+            )
             ->whereHas(
                 'sensor.device.zone.greenhouse',
                 function ($query) use ($companyId) {

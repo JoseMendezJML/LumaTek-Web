@@ -60,6 +60,20 @@ class DeviceController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $zone->refresh();
+
         $zone->load(
             'greenhouse'
         );
@@ -82,6 +96,14 @@ class DeviceController extends Controller
                 'message' =>
                 'Este invernadero está restringido por el plan actual. '
                     . 'Renueva Pro para administrar sus dispositivos.',
+            ], 403);
+        }
+
+        if ($zone->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para agregar dispositivos.',
             ], 403);
         }
 
@@ -260,10 +282,6 @@ class DeviceController extends Controller
                 'in:wifi,ethernet,lora,simulation',
             ],
 
-            'status' => [
-                'nullable',
-                'in:active,inactive',
-            ],
         ], [
             'name.required' =>
             'El nombre del dispositivo es obligatorio.',
@@ -311,9 +329,6 @@ class DeviceController extends Controller
             'connection_type' =>
             $validated['connection_type'],
 
-            'status' =>
-            $validated['status']
-                ?? $device->status,
         ]);
 
         return response()->json([
@@ -338,6 +353,20 @@ class DeviceController extends Controller
     ): JsonResponse {
 
         $user = auth('api')->user();
+
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $device->refresh();
 
         $device->load(
             'zone.greenhouse'
@@ -379,6 +408,18 @@ class DeviceController extends Controller
             return response()->json([
                 'message' =>
                 'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para activar sus dispositivos.',
+            ], 403);
+        }
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $device->zone->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
                     . 'Renueva Pro para activar sus dispositivos.',
             ], 403);
         }

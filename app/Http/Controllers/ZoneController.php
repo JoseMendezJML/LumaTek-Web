@@ -19,11 +19,23 @@ class ZoneController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
         if ($greenhouse->company_id !== $user->company_id) {
             return response()->json([
                 'message' => 'No tienes permiso para consultar este invernadero.',
             ], 403);
         }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
 
         $zones = $greenhouse
             ->zones()
@@ -56,9 +68,22 @@ class ZoneController extends Controller
             ], 401);
         }
 
+        if ($greenhouse->company_id !== $user->company_id) {
+            return response()->json([
+                'message' =>
+                'No tienes permiso para modificar este invernadero.',
+            ], 403);
+        }
+
         $user->loadMissing(
             'company'
         );
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $greenhouse->refresh();
 
         $plan =
             $user
@@ -94,11 +119,6 @@ class ZoneController extends Controller
             ], 422);
         }
 
-        if ($greenhouse->company_id !== $user->company_id) {
-            return response()->json([
-                'message' => 'No tienes permiso para modificar este invernadero.',
-            ], 403);
-        }
 
 
         if ($greenhouse->plan_restricted) {
@@ -252,10 +272,7 @@ class ZoneController extends Controller
                 'between:0,100',
             ],
 
-            'status' => [
-                'nullable',
-                'in:active,inactive',
-            ],
+
         ]);
 
         $exists = Zone::query()
@@ -301,9 +318,6 @@ class ZoneController extends Controller
             $validated['position_y']
                 ?? null,
 
-            'status' =>
-            $validated['status']
-                ?? $zone->status,
         ]);
 
         return response()->json([
@@ -329,9 +343,13 @@ class ZoneController extends Controller
 
         $user = auth('api')->user();
 
-        $zone->load(
-            'greenhouse'
-        );
+        if (!($user instanceof User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $zone->load('greenhouse');
 
         if ($zone->greenhouse->company_id !== $user->company_id) {
             return response()->json([
@@ -339,17 +357,20 @@ class ZoneController extends Controller
             ], 403);
         }
 
-        if (
-            $zone->greenhouse->plan_restricted
-            &&
-            $request->input('status') === 'active'
-        ) {
-            return response()->json([
-                'message' =>
-                'Este invernadero está restringido por el plan actual. '
-                    . 'Renueva Pro para activar sus zonas.',
-            ], 403);
-        }
+        $user->loadMissing('company');
+
+        /*
+    |--------------------------------------------------------------------------
+    | Sincronizar restricciones del plan
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $zone->refresh();
+        $zone->load('greenhouse');
 
         $validated = $request->validate([
             'status' => [
@@ -358,25 +379,55 @@ class ZoneController extends Controller
             ],
         ]);
 
+        /*
+    |--------------------------------------------------------------------------
+    | No permitir activación dentro de un invernadero restringido
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $zone->greenhouse->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para activar sus zonas.',
+            ], 403);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | No permitir mantener/activar una zona restringida por el plan
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $validated['status'] === 'active'
+            &&
+            $zone->plan_restricted
+        ) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para volver a utilizarla.',
+            ], 403);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Validar límite antes de activar
+    |--------------------------------------------------------------------------
+    */
+
         if (
             $validated['status'] === 'active'
             &&
             $zone->status !== 'active'
         ) {
 
-            if (!($user instanceof User)) {
-                return response()->json([
-                    'message' =>
-                    'Usuario no autenticado.',
-                ], 401);
-            }
-
-            $user->loadMissing(
-                'company'
-            );
-
-            $plan =
-                $user
+            $plan = $user
                 ->company
                 ?->effectivePlan();
 
@@ -387,8 +438,7 @@ class ZoneController extends Controller
                 ], 422);
             }
 
-            $activeZones =
-                Zone::query()
+            $activeZones = Zone::query()
                 ->where(
                     'greenhouse_id',
                     $zone->greenhouse_id
@@ -413,10 +463,27 @@ class ZoneController extends Controller
             }
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | Cambiar estado
+    |--------------------------------------------------------------------------
+    */
+
         $zone->update([
-            'status' =>
-            $validated['status'],
+            'status' => $validated['status'],
         ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Recalcular restricciones después del cambio
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->company
+            ?->syncZonePlanRestrictions();
+
+        $zone->refresh();
 
         return response()->json([
             'message' =>
@@ -424,8 +491,7 @@ class ZoneController extends Controller
                 ? 'Zona activada correctamente.'
                 : 'Zona desactivada correctamente.',
 
-            'data' =>
-            $zone,
+            'data' => $zone,
         ]);
     }
 }

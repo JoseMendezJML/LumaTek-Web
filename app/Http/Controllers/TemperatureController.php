@@ -20,6 +20,20 @@ class TemperatureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
+
         /*
         |--------------------------------------------------------------------------
         | Validar que sea un sensor de temperatura
@@ -58,6 +72,22 @@ class TemperatureController extends Controller
             return response()->json([
                 'message' =>
                 'Este invernadero está restringido por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
+            ], 403);
+        }
+
+        if ($sensor->device->zone->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Esta zona está restringida por el plan actual. '
+                    . 'Renueva Pro para continuar registrando lecturas.',
+            ], 403);
+        }
+
+        if ($sensor->plan_restricted) {
+            return response()->json([
+                'message' =>
+                'Este sensor está restringido por el plan actual. '
                     . 'Renueva Pro para continuar registrando lecturas.',
             ], 403);
         }
@@ -349,6 +379,20 @@ class TemperatureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $sensor->refresh();
+
         if ($sensor->sensor_type !== 'temperature') {
             return response()->json([
                 'message' => 'El sensor seleccionado no es de temperatura.',
@@ -376,6 +420,30 @@ class TemperatureController extends Controller
             return response()->json([
                 'message' => 'No tienes permiso para consultar este sensor.',
             ], 403);
+        }
+
+        if (
+            $greenhouse->plan_restricted
+            ||
+            $sensor->device->zone->plan_restricted
+            ||
+            $sensor->plan_restricted
+        ) {
+            return response()->json([
+                'data' => [
+                    'sensor_id' => $sensor->id,
+                    'sensor_name' => $sensor->name,
+                    'temperature' => null,
+                    'unit' => $sensor->unit,
+                    'connection_status' => 'restricted',
+                    'connection_label' => 'Restringido',
+                    'recorded_at' => null,
+                    'minutes_since_last_reading' => null,
+                    'threshold' => null,
+                    'restricted_message' =>
+                    'Monitoreo restringido por el plan actual.',
+                ],
+            ]);
         }
 
         $latestReading =
@@ -520,6 +588,12 @@ class TemperatureController extends Controller
 
         $user = auth('api')->user();
 
+        if (!($user instanceof \App\Models\User)) {
+            return response()->json([
+                'message' => 'Usuario no autenticado.',
+            ], 401);
+        }
+
         /*
     |--------------------------------------------------------------------------
     | Aislamiento por empresa
@@ -531,6 +605,14 @@ class TemperatureController extends Controller
                 'message' => 'No tienes permiso para consultar este invernadero.',
             ], 403);
         }
+
+        $user->loadMissing('company');
+
+        $user
+            ->company
+            ?->syncSensorPlanRestrictions();
+
+        $greenhouse->refresh();
 
         if ($greenhouse->plan_restricted) {
             return response()->json([
@@ -560,12 +642,28 @@ class TemperatureController extends Controller
         $sensor = Sensor::query()
             ->where('sensor_type', 'temperature')
             ->where('status', 'active')
+            ->where('plan_restricted', false)
+            ->whereHas('device', function ($query) {
+                $query->where(
+                    'status',
+                    'active'
+                );
+            })
             ->whereHas('device.zone', function ($query) use ($greenhouse) {
 
-                $query->where(
-                    'greenhouse_id',
-                    $greenhouse->id
-                );
+                $query
+                    ->where(
+                        'greenhouse_id',
+                        $greenhouse->id
+                    )
+                    ->where(
+                        'status',
+                        'active'
+                    )
+                    ->where(
+                        'plan_restricted',
+                        false
+                    );
             })
             ->with([
                 'device.zone.greenhouse.thresholds',
