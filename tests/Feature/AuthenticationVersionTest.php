@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Plan;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Session\Store;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -169,14 +170,18 @@ class AuthenticationVersionTest extends TestCase
         $ownerToken = $this->loginApi($owner);
         $this->loginWeb($user);
         session()->forget(User::AUTH_VERSION_SESSION_KEY);
-        $oldSession = session()->all();
+        session()->save();
+        $oldSessionId = session()->getId();
+        $storedSession = $this->readStoredSession($oldSessionId);
+        $this->assertSame($user->id, $storedSession->get(Auth::guard('web')->getName()));
+        $this->assertFalse($storedSession->has(User::AUTH_VERSION_SESSION_KEY));
         $this->assertNull($user->fresh()->auth_version);
         $this->resetGuards();
         $this->get('/dashboard')->assertOk();
 
         $this->cycleAccount($ownerToken, $user);
-        $this->withSession($oldSession);
-        session()->forget(User::AUTH_VERSION_SESSION_KEY);
+        $this->assertFalse($this->readStoredSession($oldSessionId)->has(User::AUTH_VERSION_SESSION_KEY));
+        $this->withCookie(config('session.cookie'), $oldSessionId);
         $this->resetGuards();
         $this->get('/dashboard')
             ->assertRedirect(route('login'))
@@ -288,26 +293,41 @@ class AuthenticationVersionTest extends TestCase
         [, $user] = $this->createManagedUser('employee');
         $validToken = $this->loginApi($user);
         $this->loginWeb($user);
-        $validSession = session()->all();
+        $validSessionId = session()->getId();
+        $sessionKey = Auth::guard('web')->getName();
         $rememberToken = $user->fresh()->remember_token;
 
         if (is_array($marker) && ($marker['user_id'] ?? null) === 'current') {
             $marker['user_id'] = $user->id;
         }
 
+        // Keep the valid browser's stored session and create a separate one.
+        session()->migrate(false);
+        $invalidSessionId = session()->getId();
+        $this->assertNotSame($validSessionId, $invalidSessionId);
         $this->withSession([User::AUTH_VERSION_SESSION_KEY => $marker]);
+        // StartSession reloads the handler on the next request, so put() alone
+        // cannot replace the credentials persisted by the real web login.
+        session()->save();
+        $storedSession = $this->readStoredSession($invalidSessionId);
+        $this->assertSame($marker, $storedSession->get(User::AUTH_VERSION_SESSION_KEY));
+        $this->assertSame($user->id, $storedSession->get($sessionKey));
+        $this->withCookie(config('session.cookie'), $invalidSessionId);
         $this->resetGuards();
         $this->get('/dashboard')
             ->assertRedirect(route('login'))
             ->assertSessionHas('error', self::EXPIRED_MESSAGE)
+            ->assertSessionMissing($sessionKey)
             ->assertSessionMissing(User::AUTH_VERSION_SESSION_KEY);
         $this->assertGuest('web');
+        $this->assertNotSame($invalidSessionId, session()->getId());
+        $this->assertSame('', session()->getHandler()->read($invalidSessionId));
         $this->assertSame($rememberToken, $user->fresh()->remember_token);
         $this->assertNull($user->fresh()->auth_version);
 
         // Rejecting one browser must not revoke a valid token or another session.
         $this->api($validToken, 'GET', '/api/greenhouses')->assertOk();
-        $this->withSession($validSession);
+        $this->withCookie(config('session.cookie'), $validSessionId);
         $this->resetGuards();
         $this->get('/dashboard')->assertOk();
         $this->assertAuthenticatedAs($user, 'web');
@@ -433,6 +453,17 @@ class AuthenticationVersionTest extends TestCase
         session()->regenerate(true);
         $this->resetGuards();
         $this->withCookie(config('session.cookie'), session()->getId());
+    }
+
+    private function readStoredSession(string $sessionId): Store
+    {
+        // Preserve the application's serialization while discarding memory state.
+        $session = clone session()->driver();
+        $session->flush();
+        $session->setId($sessionId);
+        $session->start();
+
+        return $session;
     }
 
     private function resetGuards(): void
