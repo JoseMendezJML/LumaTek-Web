@@ -16,12 +16,20 @@ return Application::configure(
     ->withMiddleware(function (Middleware $middleware): void {
 
         $middleware->alias([
+            'active.user' =>
+            \App\Http\Middleware\EnsureActiveUser::class,
+
             'company.admin' =>
             \App\Http\Middleware\EnsureCompanyAdmin::class,
 
             'plan.access' =>
             \App\Http\Middleware\EnsurePlanAccess::class,
         ]);
+
+        $middleware->appendToPriorityList(
+            \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+            \App\Http\Middleware\EnsureActiveUser::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

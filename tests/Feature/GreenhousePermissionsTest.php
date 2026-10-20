@@ -5,62 +5,24 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\Greenhouse;
 use App\Models\User;
-use Database\Seeders\DatabaseSeeder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\UsesInMemoryDatabase;
 use Tests\TestCase;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class GreenhousePermissionsTest extends TestCase
 {
+    use UsesInMemoryDatabase {
+        setUp as private setUpInMemoryDatabase;
+    }
+
     private Company $company;
 
     protected function setUp(): void
     {
-        parent::setUp();
-
-        // Fail before any connection or migration if PHPUnit isolation is absent.
-        $this->assertTrue($this->app->environment('testing'));
-        $this->assertFalse($this->app->configurationIsCached());
-        $this->assertSame('sqlite', config('database.default'));
-        $this->assertSame(':memory:', config('database.connections.sqlite.database'));
-        $this->assertEmpty(config('database.connections.sqlite.url'));
-
-        // Replace the connection definition so inherited read/write settings cannot
-        // redirect any query. All overrides live only in this test application.
-        config([
-            'database.connections.sqlite' => [
-                'driver' => 'sqlite',
-                'url' => null,
-                'database' => ':memory:',
-                'prefix' => '',
-                'foreign_key_constraints' => true,
-            ],
-            'cache.default' => 'array',
-            'session.driver' => 'array',
-            'mail.default' => 'array',
-            'queue.default' => 'sync',
-            'logging.default' => 'test_null',
-            'logging.channels.test_null' => [
-                'driver' => 'monolog',
-                'handler' => \Monolog\Handler\NullHandler::class,
-            ],
-            'app.key' => 'base64:'.base64_encode(str_repeat('t', 32)),
-            'jwt.secret' => str_repeat('test-only-jwt-secret-', 4),
-            'jwt.algo' => 'HS256',
-        ]);
-
-        DB::purge('sqlite');
-        $connection = DB::connection('sqlite');
-        $this->assertSame('sqlite', $connection->getDriverName());
-        $this->assertSame(':memory:', $connection->getDatabaseName());
-        $databases = $connection->select('PRAGMA database_list');
-        $this->assertSame('main', $databases[0]->name);
-        $this->assertSame('', $databases[0]->file);
-
-        // A new in-memory database per test; no RefreshDatabase/migrate:fresh.
-        $this->artisan('migrate', ['--database' => 'sqlite'])->assertExitCode(0);
-        $this->seed(DatabaseSeeder::class);
+        $this->setUpInMemoryDatabase();
         $this->company = $this->createCompany();
     }
 
@@ -188,8 +150,12 @@ class GreenhousePermissionsTest extends TestCase
         $before = $greenhouse->getRawOriginal();
         $this->authenticate($role, $userStatus);
 
-        $this->json($method, sprintf($uri, $greenhouse->id), $this->payload($status))
+        $response = $this->json($method, sprintf($uri, $greenhouse->id), $this->payload($status))
             ->assertForbidden();
+
+        if ($userStatus === 'inactive') {
+            $response->assertExactJson(['message' => 'La cuenta se encuentra inactiva.']);
+        }
 
         $this->assertDatabaseCount('greenhouses', 1);
         $this->assertSame($before, $greenhouse->fresh()->getRawOriginal());
@@ -277,10 +243,48 @@ class GreenhousePermissionsTest extends TestCase
         string $status,
         bool $canManage,
     ): void {
-        // The web page uses the session guard; its data requests still use JWT.
-        $response = $this->actingAs($this->createUser($role, $status), 'web')
-            ->get('/greenhouses')
-            ->assertOk()
+        // Establish a real session before deactivation instead of bypassing login.
+        $user = $this->createUser($role);
+        $this->withCredentials()->postJson('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertOk()->assertJsonPath('user.id', $user->id);
+        $this->assertAuthenticatedAs($user, 'web');
+        $sessionKey = Auth::guard('web')->getName();
+        $this->assertSame([
+            'user_id' => $user->id,
+            'version' => $user->authenticationVersion(),
+        ], session(User::AUTH_VERSION_SESSION_KEY));
+        session()->put('protected_marker', 'must be removed');
+        session()->save();
+        $sessionId = session()->getId();
+        $csrfToken = session()->token();
+
+        if ($status === 'inactive') {
+            $user->update(['status' => 'inactive']);
+        }
+
+        $this->withCookie(config('session.cookie'), $sessionId);
+        Auth::forgetGuards();
+        Auth::shouldUse('web');
+        $response = $this->get('/greenhouses');
+
+        if ($status === 'inactive') {
+            $response->assertRedirect(route('login'))
+                ->assertSessionHas('error', 'La cuenta se encuentra inactiva.')
+                ->assertSessionMissing($sessionKey)
+                ->assertSessionMissing(User::AUTH_VERSION_SESSION_KEY)
+                ->assertSessionMissing('protected_marker');
+            $this->assertGuest('web');
+            $this->assertNotSame($sessionId, session()->getId());
+            $this->assertNotSame($csrfToken, session()->token());
+            $this->assertSame('', session()->getHandler()->read($sessionId));
+
+            return;
+        }
+
+        $this->assertAuthenticatedAs($user, 'web');
+        $response->assertOk()
             ->assertSee('id="greenhouses-list"', false)
             ->assertSee('id="greenhouse-message"', false)
             ->assertSee('function loadGreenhouses()', false)

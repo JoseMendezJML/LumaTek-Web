@@ -118,6 +118,7 @@ Route::get(
 
 Route::middleware([
     'auth:api',
+    'active.user',
     'plan.access',
 ])->group(function () {
 
