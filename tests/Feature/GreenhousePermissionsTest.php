@@ -83,6 +83,38 @@ class GreenhousePermissionsTest extends TestCase
         ];
     }
 
+    public static function webUserRoles(): array
+    {
+        $cases = [];
+        foreach (['employee', 'company_admin', 'superadmin'] as $role) {
+            foreach (['active', 'inactive'] as $status) {
+                $cases[$role.' '.$status] = [
+                    $role,
+                    $status,
+                    $role === 'company_admin' && $status === 'active',
+                ];
+            }
+        }
+
+        return $cases;
+    }
+
+    public static function unauthorizedMutations(): array
+    {
+        $cases = [];
+        foreach (self::webUserRoles() as $userName => [$role, $status, $canManage]) {
+            if ($canManage) {
+                continue;
+            }
+
+            foreach (self::mutations() as $mutationName => $request) {
+                $cases[$userName.' '.$mutationName] = [$role, $status, ...$request];
+            }
+        }
+
+        return $cases;
+    }
+
     public static function foreignRequests(): array
     {
         $cases = [];
@@ -144,12 +176,17 @@ class GreenhousePermissionsTest extends TestCase
             ->assertJsonPath('data.id', $greenhouse->id);
     }
 
-    #[DataProvider('mutations')]
-    public function test_employee_cannot_mutate_greenhouses(string $method, string $uri, ?string $status): void
-    {
+    #[DataProvider('unauthorizedMutations')]
+    public function test_unauthorized_user_cannot_mutate_greenhouses(
+        string $role,
+        string $userStatus,
+        string $method,
+        string $uri,
+        ?string $status,
+    ): void {
         $greenhouse = $this->createGreenhouse($this->company, $status === 'active' ? 'inactive' : 'active');
         $before = $greenhouse->getRawOriginal();
-        $this->authenticate('employee');
+        $this->authenticate($role, $userStatus);
 
         $this->json($method, sprintf($uri, $greenhouse->id), $this->payload($status))
             ->assertForbidden();
@@ -234,20 +271,62 @@ class GreenhousePermissionsTest extends TestCase
         $this->assertSame($before, $greenhouse->fresh()->getRawOriginal());
     }
 
-    private function authenticate(string $role): void
-    {
-        $user = User::factory()->create([
-            'company_id' => $this->company->id,
-            'role_id' => DB::table('roles')->where('name', $role)->value('id'),
-            'status' => 'active',
-            'is_company_owner' => $role === 'company_admin',
-            'plan_restricted' => false,
-        ]);
+    #[DataProvider('webUserRoles')]
+    public function test_web_interface_exposes_management_controls_only_to_active_company_administrators(
+        string $role,
+        string $status,
+        bool $canManage,
+    ): void {
+        // The web page uses the session guard; its data requests still use JWT.
+        $response = $this->actingAs($this->createUser($role, $status), 'web')
+            ->get('/greenhouses')
+            ->assertOk()
+            ->assertSee('id="greenhouses-list"', false)
+            ->assertSee('id="greenhouse-message"', false)
+            ->assertSee('function loadGreenhouses()', false)
+            ->assertSee('loadGreenhouses();', false);
 
+        foreach ([
+            'id="greenhouse-form"',
+            'id="save-button"',
+            'class="btn-secondary edit-greenhouse"',
+            'class="btn-secondary toggle-greenhouse-status"',
+            '.edit-greenhouse',
+            '.toggle-greenhouse-status',
+            'function startEdit(',
+            'function changeGreenhouseStatus(',
+        ] as $control) {
+            if ($canManage) {
+                $response->assertSee($control, false);
+            } else {
+                $response->assertDontSee($control, false);
+            }
+        }
+    }
+
+    public function test_guest_is_redirected_to_login_from_the_greenhouses_web_page(): void
+    {
+        $this->get('/greenhouses')->assertRedirect(route('login'));
+    }
+
+    private function authenticate(string $role, string $status = 'active'): void
+    {
+        $user = $this->createUser($role, $status);
         $token = JWTAuth::fromUser($user);
         // Force the next request to resolve the Bearer token through the guard.
         $this->app['auth']->forgetGuards();
         $this->withToken($token);
+    }
+
+    private function createUser(string $role, string $status = 'active'): User
+    {
+        return User::factory()->create([
+            'company_id' => $this->company->id,
+            'role_id' => DB::table('roles')->where('name', $role)->value('id'),
+            'status' => $status,
+            'is_company_owner' => $role === 'company_admin',
+            'plan_restricted' => false,
+        ]);
     }
 
     private function createCompany(): Company

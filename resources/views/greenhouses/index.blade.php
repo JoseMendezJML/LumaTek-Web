@@ -13,6 +13,14 @@
 
 <div class="page-container">
 
+    <div
+        id="greenhouse-message"
+        class="panel-message"
+        style="display: none;"
+    ></div>
+
+    @if(auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
+
     {{-- =========================================================
          FORMULARIO DEL INVERNADERO
     ========================================================== --}}
@@ -34,12 +42,6 @@
         </div>
 
         <div class="panel-card-body">
-
-            <div
-                id="greenhouse-message"
-                class="panel-message"
-                style="display: none;"
-            ></div>
 
             <form id="greenhouse-form">
 
@@ -183,6 +185,7 @@
 
     </section>
 
+    @endif
 
     {{-- =========================================================
          LISTADO DE INVERNADEROS
@@ -651,6 +654,13 @@
             'lumatek_access_token'
         );
 
+    const message =
+        document.getElementById(
+            'greenhouse-message'
+        );
+
+    @if(auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
+
     const greenhouseForm =
         document.getElementById(
             'greenhouse-form'
@@ -659,11 +669,6 @@
     const greenhouseId =
         document.getElementById(
             'greenhouse-id'
-        );
-
-    const message =
-        document.getElementById(
-            'greenhouse-message'
         );
 
     const saveButton =
@@ -680,6 +685,8 @@
         document.getElementById(
             'form-title'
         );
+
+    @endif
 
     const list =
         document.getElementById(
@@ -702,12 +709,16 @@
         );
 
 
+    @if(auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
+
     document.getElementById(
         'planting_date'
     ).max =
         new Date()
             .toISOString()
             .split('T')[0];
+
+    @endif
 
 
     /*
@@ -2124,6 +2135,8 @@
                         </div>
 
 
+                        @if(auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
+
                         <div class="greenhouse-card-actions">
 
     <button
@@ -2143,7 +2156,11 @@
     </button>
 
 </div>
+
+                        @endif
                     `;
+
+@if(auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
 
 card
     .querySelector(
@@ -2176,6 +2193,7 @@ card
         }
     );
 
+@endif
 
 list.appendChild(
     card
@@ -2228,6 +2246,8 @@ list.appendChild(
 
     }
 
+
+    @if(auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
 
     /*
     |--------------------------------------------------------------------------
@@ -2621,6 +2641,7 @@ list.appendChild(
     }
 }
 
+    @endif
 
     /*
     |--------------------------------------------------------------------------
