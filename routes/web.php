@@ -40,6 +40,7 @@ Route::get('/reset-password/{token}', function (
 
 Route::middleware([
     'auth',
+    'active.user',
     'plan.access',
 ])->group(function () {
     Route::view('/greenhouses', 'greenhouses.index')
