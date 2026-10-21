@@ -233,7 +233,7 @@ class ZoneIrrigationSettingController extends Controller
         if (
             $data['automatic_enabled']
             &&
-            $zone->status !== 'active'
+            ($zone->status !== 'active' || $zone->greenhouse->status !== 'active')
         ) {
 
             return response()->json([
@@ -287,27 +287,7 @@ class ZoneIrrigationSettingController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $setting =
-            ZoneIrrigationSetting::updateOrCreate(
-                [
-                    'zone_id' =>
-                    $zone->id,
-                ],
-                [
-                    'automatic_enabled' =>
-                    $data['automatic_enabled'],
-
-                    'duration_minutes' =>
-                    $data['duration_minutes'],
-
-                    'water_liters' =>
-                    $data['water_liters']
-                        ?? null,
-
-                    'cooldown_minutes' =>
-                    $data['cooldown_minutes'],
-                ]
-            );
+        $setting = $this->saveSetting($zone, $data);
 
 
         /*
@@ -555,27 +535,7 @@ class ZoneIrrigationSettingController extends Controller
 
                 foreach ($zones as $zone) {
 
-                    $setting =
-                        ZoneIrrigationSetting::updateOrCreate(
-                            [
-                                'zone_id' =>
-                                $zone->id,
-                            ],
-                            [
-                                'automatic_enabled' =>
-                                $data['automatic_enabled'],
-
-                                'duration_minutes' =>
-                                $data['duration_minutes'],
-
-                                'water_liters' =>
-                                $data['water_liters']
-                                    ?? null,
-
-                                'cooldown_minutes' =>
-                                $data['cooldown_minutes'],
-                            ]
-                        );
+                    $setting = $this->saveSetting($zone, $data);
 
 
                     $updatedSettings->push([
@@ -643,6 +603,42 @@ class ZoneIrrigationSettingController extends Controller
         ]);
     }
 
+
+    /**
+     * A restricted resource may only disable an existing configuration without
+     * changing its parameters. The bulk caller runs this inside a transaction.
+     */
+    private function saveSetting(Zone $zone, array $data): ZoneIrrigationSetting
+    {
+        $zone->loadMissing('greenhouse');
+        if ($zone->plan_restricted || $zone->greenhouse->plan_restricted) {
+            $setting = ZoneIrrigationSetting::where('zone_id', $zone->id)->first();
+            abort_unless($setting && !$data['automatic_enabled'], 403, 'El recurso está restringido por el plan.');
+
+            foreach (['duration_minutes', 'water_liters', 'cooldown_minutes'] as $field) {
+                $value = $data[$field] ?? null;
+                $current = $setting->{$field};
+                $same = $value === null || $current === null
+                    ? $value === $current
+                    : (string) (float) $value === (string) (float) $current;
+                abort_unless($same, 403, 'Solo puedes desactivar la automatización sin cambiar sus parámetros.');
+            }
+
+            $setting->update(['automatic_enabled' => false]);
+
+            return $setting;
+        }
+
+        return ZoneIrrigationSetting::updateOrCreate(
+            ['zone_id' => $zone->id],
+            [
+                'automatic_enabled' => $data['automatic_enabled'],
+                'duration_minutes' => $data['duration_minutes'],
+                'water_liters' => $data['water_liters'] ?? null,
+                'cooldown_minutes' => $data['cooldown_minutes'],
+            ]
+        );
+    }
 
     /**
      * Comprueba que la zona pertenezca a la empresa autenticada.

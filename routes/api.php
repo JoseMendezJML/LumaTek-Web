@@ -437,13 +437,13 @@ Route::middleware([
     Route::put(
         '/zones/{zone}/irrigation-setting',
         [ZoneIrrigationSettingController::class, 'update']
-    )->name('api.irrigation-settings.update');
+    )->middleware('company.admin')->name('api.irrigation-settings.update');
 
 
     Route::put(
         '/greenhouses/{greenhouse}/irrigation-setting',
         [ZoneIrrigationSettingController::class, 'updateByGreenhouse']
-    )->name('api.irrigation-settings.greenhouse.update');
+    )->middleware('company.admin')->name('api.irrigation-settings.greenhouse.update');
 
     Route::get('/history', [HistoryController::class, 'index'])
         ->name('api.history.index');

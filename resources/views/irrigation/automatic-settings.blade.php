@@ -1,3 +1,5 @@
+@php($canConfigureAutomatic = auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
+
 <section class="irrigation-card">
 
     <div class="section-header">
@@ -37,7 +39,11 @@
     </div>
 
 
+    @if($canConfigureAutomatic)
     <form id="automatic-irrigation-form">
+    @else
+    <div id="automatic-irrigation-details">
+    @endif
 
         <div class="form-grid">
 
@@ -86,6 +92,7 @@
 
                 <div class="automatic-toggle-row">
 
+                    @if($canConfigureAutomatic)
                     <label class="automatic-switch">
 
                         <input
@@ -96,6 +103,7 @@
                         <span class="automatic-slider"></span>
 
                     </label>
+                    @endif
 
                     <span id="automatic-enabled-label">
                         Desactivado
@@ -114,6 +122,7 @@
 
                 <div class="input-with-unit">
 
+                    @if($canConfigureAutomatic)
                     <input
                         id="automatic-duration"
                         type="number"
@@ -122,6 +131,9 @@
                         value="10"
                         required
                     >
+                    @else
+                    <output id="automatic-duration">—</output>
+                    @endif
 
                     <span>
                         min
@@ -140,6 +152,7 @@
 
                 <div class="input-with-unit">
 
+                    @if($canConfigureAutomatic)
                     <input
                         id="automatic-water"
                         type="number"
@@ -147,6 +160,9 @@
                         step="0.01"
                         placeholder="Ej. 8"
                     >
+                    @else
+                    <output id="automatic-water">—</output>
+                    @endif
 
                     <span>
                         L
@@ -165,6 +181,7 @@
 
                 <div class="input-with-unit">
 
+                    @if($canConfigureAutomatic)
                     <input
                         id="automatic-cooldown"
                         type="number"
@@ -173,6 +190,9 @@
                         value="60"
                         required
                     >
+                    @else
+                    <output id="automatic-cooldown">—</output>
+                    @endif
 
                     <span>
                         min
@@ -208,6 +228,7 @@
         </div>
 
 
+        @if($canConfigureAutomatic)
         <div class="form-actions">
 
     <button
@@ -231,7 +252,13 @@
 
 </div>
 
+        @endif
+
+    @if($canConfigureAutomatic)
     </form>
+    @else
+    </div>
+    @endif
 
 </section>
 
@@ -478,7 +505,7 @@ document.addEventListener(
         const enabled =
             document.getElementById(
                 'automatic-enabled'
-            );
+            ) ?? { checked: false };
 
 
         const enabledLabel =
@@ -719,7 +746,7 @@ document.addEventListener(
                 true;
 
 
-            saveButton.disabled =
+            if (saveButton) saveButton.disabled =
                 true;
 
 
@@ -850,13 +877,13 @@ document.addEventListener(
             zoneId
         ) {
 
-            saveButton.disabled =
+            if (saveButton) saveButton.disabled =
                 true;
 
-            applyAllButton.disabled =
+            if (applyAllButton) applyAllButton.disabled =
     true;
 
-            applyAllButton.disabled =
+            if (applyAllButton) applyAllButton.disabled =
     true;
 
 
@@ -975,10 +1002,10 @@ document.addEventListener(
                 updateVisualState();
 
 
-                saveButton.disabled =
+                if (saveButton) saveButton.disabled =
                     false;
 
-                applyAllButton.disabled =
+                if (applyAllButton) applyAllButton.disabled =
                     false;
 
 
@@ -992,6 +1019,7 @@ document.addEventListener(
         }
 
 
+        @if($canConfigureAutomatic)
         async function saveSetting(
             event
         ) {
@@ -1039,7 +1067,7 @@ document.addEventListener(
             };
 
 
-            saveButton.disabled =
+            if (saveButton) saveButton.disabled =
                 true;
 
 
@@ -1123,7 +1151,7 @@ document.addEventListener(
 
             } finally {
 
-                saveButton.disabled =
+                if (saveButton) saveButton.disabled =
                     false;
 
 
@@ -1208,11 +1236,11 @@ async function applySettingToAllZones() {
     };
 
 
-    applyAllButton.disabled =
+    if (applyAllButton) applyAllButton.disabled =
         true;
 
 
-    saveButton.disabled =
+    if (saveButton) saveButton.disabled =
         true;
 
 
@@ -1300,11 +1328,11 @@ async function applySettingToAllZones() {
 
     } finally {
 
-        applyAllButton.disabled =
+        if (applyAllButton) applyAllButton.disabled =
             false;
 
 
-        saveButton.disabled =
+        if (saveButton) saveButton.disabled =
             false;
 
 
@@ -1313,6 +1341,8 @@ async function applySettingToAllZones() {
     }
 }
 
+
+        @endif
 
         greenhouse.addEventListener(
             'change',
@@ -1336,12 +1366,13 @@ async function applySettingToAllZones() {
         );
 
 
-        enabled.addEventListener(
+        enabled.addEventListener?.(
             'change',
             updateVisualState
         );
 
 
+        @if($canConfigureAutomatic)
         form.addEventListener(
             'submit',
             saveSetting
@@ -1352,6 +1383,8 @@ async function applySettingToAllZones() {
     applySettingToAllZones
 );
 
+
+        @endif
 
         updateVisualState();
 
