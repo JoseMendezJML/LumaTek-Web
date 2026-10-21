@@ -17,7 +17,7 @@
         </section>
         <section class="platform-card">
             <h2>Planes y suscripciones</h2>
-            <p>La consulta y administración estarán disponibles próximamente.</p>
+            <p><a href="{{ route('platform.plans.index') }}">Consultar y administrar planes</a></p>
         </section>
     </div>
 @endsection

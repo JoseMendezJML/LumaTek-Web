@@ -30,6 +30,34 @@
         .platform-filters input, .platform-filters select { padding: 10px; border: 1px solid #dfe8e2; border-radius: 8px; max-width: 100%; }
         .platform-header nav a { margin-right: 18px; }
         .platform-pagination { display: flex; justify-content: space-between; margin-top: 24px; gap: 12px; }
+        .platform-plan-form { display: grid; gap: 14px; }
+        .platform-plan-form label { display: grid; gap: 6px; }
+        .platform-plan-form input:not([type=checkbox]), .platform-plan-form select { width: 100%; padding: 10px; border: 1px solid #dfe8e2; border-radius: 8px; }
+        .platform-plans { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 24px; }
+        .platform-plans .platform-plan-card { min-width: 0; padding: 28px; }
+        .platform-plans h2 { font-size: 24px; margin-bottom: 10px; }
+        .platform-plans .platform-plan-description { color: #617168; min-height: 3.2em; margin: 0 0 22px; }
+        .platform-plan-details { margin: 0; }
+        .platform-plan-row { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: baseline; gap: 16px; padding: 13px 0; border-bottom: 1px solid #e5ece7; }
+        .platform-plan-row dt { color: #52635a; font-size: 14px; line-height: 1.5; }
+        .platform-plan-row dd { margin: 0; text-align: right; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+        .platform-plan-price { padding: 14px; background: #eff7f1; border: 0; border-radius: 10px; margin-bottom: 8px; }
+        .platform-plan-price dt { color: #176136; }
+        .platform-plan-price dd { color: #176136; font-size: 18px; }
+        .platform-plan-edit-title { margin: 28px 0 18px; padding-top: 24px; border-top: 1px solid #dfe8e2; font-size: 18px; color: #173d27; }
+        .platform-plans .platform-plan-form { gap: 20px; }
+        .platform-plan-prices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; }
+        .platform-plans .platform-plan-form label { font-size: 14px; line-height: 1.5; gap: 8px; }
+        .platform-plans .platform-plan-form input:not([type=checkbox]), .platform-plans .platform-plan-form select { min-width: 0; min-height: 44px; font: inherit; color: #26372d; background: #fff; }
+        .platform-plans .platform-plan-form :is(input, select, button):focus-visible { outline: 2px solid #176136; outline-offset: 3px; }
+        .platform-plans #annual-price-help { margin: 8px 0 0; font-size: 13px; color: #617168; }
+        .platform-plans .platform-plan-confirmation { display: flex; align-items: flex-start; gap: 10px; padding: 14px; background: #f4f7f5; border-radius: 8px; }
+        .platform-plan-confirmation input { flex: 0 0 auto; width: 18px; height: 18px; margin: 2px 0 0; accent-color: #176136; }
+        .platform-plans .platform-plan-form button { justify-self: start; background: #176136; color: #fff; min-height: 44px; font: inherit; font-weight: 600; }
+        .platform-plans .platform-plan-form button:hover { background: #124d2b; }
+        .platform-plans .platform-plan-readonly { margin: 24px 0 0; padding: 16px; border-radius: 10px; background: #f4f7f5; color: #52635a; font-size: 14px; }
+        @media(max-width: 760px) { .platform-plans { grid-template-columns: minmax(0, 1fr); } .platform-plans .platform-plan-description { min-height: 0; } }
+        @media(max-width: 420px) { .platform-plans .platform-plan-card { padding: 20px; } .platform-plan-prices { grid-template-columns: minmax(0, 1fr); } .platform-plan-row { gap: 12px; } .platform-plan-price dd { font-size: 16px; } .platform-plans .platform-plan-form button { width: 100%; } }
         #platform-message { color: #9b2424; }
         @media(max-width: 600px) { .platform-header { padding: 16px; gap: 16px; } .platform-header nav { flex-basis: 100%; } }
     </style>
@@ -42,6 +70,7 @@
         <nav aria-label="Plataforma">
             <a href="{{ route('platform.dashboard') }}" @if(request()->routeIs('platform.dashboard')) aria-current="page" @endif>Inicio de plataforma</a>
             <a href="{{ route('platform.companies.index') }}" @if(request()->routeIs('platform.companies.*')) aria-current="page" @endif>Empresas</a>
+            <a href="{{ route('platform.plans.index') }}" @if(request()->routeIs('platform.plans.*')) aria-current="page" @endif>Planes</a>
         </nav>
         <span>{{ auth()->user()->name }}</span>
         <form id="platform-logout" method="POST" action="{{ route('platform.logout') }}">

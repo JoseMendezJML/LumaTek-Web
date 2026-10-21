@@ -89,5 +89,7 @@ Route::prefix('platform')->name('platform.')->middleware([
     Route::get('/companies', [\App\Http\Controllers\Platform\CompanyController::class, 'index'])->name('companies.index');
     Route::get('/companies/{company}', [\App\Http\Controllers\Platform\CompanyController::class, 'show'])->name('companies.show');
     Route::patch('/companies/{company}/status', [\App\Http\Controllers\Platform\CompanyController::class, 'changeStatus'])->name('companies.status');
+    Route::get('/plans', [\App\Http\Controllers\Platform\PlanController::class, 'index'])->name('plans.index');
+    Route::patch('/plans/{plan}', [\App\Http\Controllers\Platform\PlanController::class, 'update'])->name('plans.update');
     Route::post('/logout', [AuthController::class, 'webLogout'])->name('logout');
 });
