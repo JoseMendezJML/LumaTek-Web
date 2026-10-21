@@ -2507,6 +2507,7 @@ async function startGreenhouseIrrigation() {
                     </div>
 
 
+                    ${event.mode === 'manual' || !@json(auth()->user()?->role?->name === 'employee') ? `
                     <div class="active-actions">
 
                         <button
@@ -2527,6 +2528,8 @@ async function startGreenhouseIrrigation() {
                         </button>
 
                     </div>
+                    ` : ''}
+
                 `;
 
 

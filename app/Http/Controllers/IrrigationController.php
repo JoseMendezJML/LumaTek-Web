@@ -202,6 +202,12 @@ class IrrigationController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        if ($zone->greenhouse->status !== 'active') {
+            return response()->json([
+                'message' => 'No se puede iniciar el riego porque el invernadero está inactivo.',
+            ], 422);
+        }
+
         if ($zone->status !== 'active') {
 
             return response()->json([
@@ -673,6 +679,12 @@ class IrrigationController extends Controller
             $user->company_id
         );
 
+        abort_if(
+            $user->role?->name === 'employee' && $irrigationEvent->mode !== 'manual',
+            403,
+            'Solo puedes finalizar o cancelar riegos manuales.'
+        );
+
 
         /*
         |--------------------------------------------------------------------------
@@ -697,6 +709,16 @@ class IrrigationController extends Controller
         | Validación
         |--------------------------------------------------------------------------
         */
+
+        $user->loadMissing('company');
+        $user->company?->syncZonePlanRestrictions();
+        $irrigationEvent->load('zone.greenhouse');
+
+        abort_if(
+            $irrigationEvent->zone->plan_restricted || $irrigationEvent->zone->greenhouse->plan_restricted,
+            403,
+            'El recurso está restringido por el plan. Puedes cancelar el riego iniciado.'
+        );
 
         $data = $request->validate([
             'water_liters' => [
@@ -823,6 +845,12 @@ class IrrigationController extends Controller
         $this->ensureEventBelongsToCompany(
             $irrigationEvent,
             $user->company_id
+        );
+
+        abort_if(
+            $user->role?->name === 'employee' && $irrigationEvent->mode !== 'manual',
+            403,
+            'Solo puedes finalizar o cancelar riegos manuales.'
         );
 
 
