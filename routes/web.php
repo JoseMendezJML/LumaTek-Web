@@ -80,3 +80,11 @@ Route::middleware([
         [AuthController::class, 'webLogout']
     )->name('web.logout');
 });
+
+// Platform routes deliberately do not depend on a company's subscription.
+Route::prefix('platform')->name('platform.')->middleware([
+    'auth', 'active.user', 'platform.admin',
+])->group(function () {
+    Route::view('/', 'platform.index')->name('dashboard');
+    Route::post('/logout', [AuthController::class, 'webLogout'])->name('logout');
+});

@@ -252,7 +252,7 @@ loginMessage.style.display =
     setTimeout(function () {
 
     window.location.href =
-        '/dashboard';
+        data.user.role === 'superadmin' ? '/platform' : '/dashboard';
 
 }, 700);
             loginMessage.className =

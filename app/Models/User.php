@@ -70,6 +70,17 @@ class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 
     protected static function booted(): void
     {
+        static::saving(function (User $user): void {
+            if ($user->company_id === null) {
+                $role = Role::whereKey($user->role_id)->value('name');
+                if ($role !== 'superadmin' || $user->is_company_owner) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'company_id' => 'Las cuentas empresariales deben pertenecer a una empresa.',
+                    ]);
+                }
+            }
+        });
+
         static::updating(function (User $user): void {
             if ($user->isDirty('status')) {
                 // Persist status and revocation together in the same UPDATE.

@@ -16,6 +16,8 @@ return Application::configure(
     ->withMiddleware(function (Middleware $middleware): void {
 
         $middleware->alias([
+            'platform.admin' => \App\Http\Middleware\EnsureSuperadmin::class,
+
             'active.user' =>
             \App\Http\Middleware\EnsureActiveUser::class,
 

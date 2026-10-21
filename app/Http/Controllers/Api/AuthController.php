@@ -135,13 +135,13 @@ class AuthController extends Controller
             'company'
         );
 
-        $user
-            ->company
-            ?->syncUserPlanRestrictions();
+        if ($user->role?->name !== 'superadmin') {
+            $user->company?->syncUserPlanRestrictions();
+        }
 
         $user->refresh();
 
-        if ($user->plan_restricted) {
+        if ($user->plan_restricted && $user->role?->name !== 'superadmin') {
             return response()->json([
                 'message' =>
                 'Tu cuenta está restringida por el plan actual de la empresa. '
@@ -288,13 +288,13 @@ class AuthController extends Controller
             'company'
         );
 
-        $user
-            ->company
-            ?->syncUserPlanRestrictions();
+        if ($user->role?->name !== 'superadmin') {
+            $user->company?->syncUserPlanRestrictions();
+        }
 
         $user->refresh();
 
-        if ($user->plan_restricted) {
+        if ($user->plan_restricted && $user->role?->name !== 'superadmin') {
 
             return response()->json([
                 'message' =>
