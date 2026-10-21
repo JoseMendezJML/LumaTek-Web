@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: PHPUnit (PHP 8.3, SQLite in memory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'false'
+      APP_URL: http://localhost
+      APP_MAINTENANCE_DRIVER: file
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      DB_URL: ''
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      BROADCAST_CONNECTION: 'null'
+      LOG_CHANNEL: 'null'
+      BCRYPT_ROUNDS: '4'
+      PULSE_ENABLED: 'false'
+      TELESCOPE_ENABLED: 'false'
+      NIGHTWATCH_ENABLED: 'false'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Reject local environment files and cached configuration
+        shell: bash
+        run: |
+          test ! -e .env
+          test ! -e .env.testing
+          test ! -e bootstrap/cache/config.php
+
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, xml, xmlwriter, fileinfo, curl, zip, bcmath, intl, gd, pdo_sqlite, sqlite3, :pdo_mysql, :mysqli, :pdo_pgsql, :pgsql
+          tools: composer:v2
+          coverage: none
+
+      - name: Generate an ephemeral test application key
+        shell: bash
+        run: php -r 'echo "APP_KEY=base64:".base64_encode(random_bytes(32)).PHP_EOL;' >> "$GITHUB_ENV"
+
+      - name: Install locked dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check platform requirements
+        run: composer check-platform-reqs
+
+      - name: Verify isolation and run migrations in memory
+        shell: bash
+        run: |
+          php <<'PHP'
+          <?php
+          try {
+              require 'vendor/autoload.php';
+
+              $app = require 'bootstrap/app.php';
+              if ($app->configurationIsCached()) {
+                  throw new RuntimeException('Cached configuration is forbidden in CI.');
+              }
+              $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+              $kernel->bootstrap();
+
+              if (!$app->environment('testing')
+                  || config('database.default') !== 'sqlite'
+                  || config('database.connections.sqlite.driver') !== 'sqlite'
+                  || config('database.connections.sqlite.database') !== ':memory:'
+                  || !in_array(config('database.connections.sqlite.url'), [null, ''], true)) {
+                  throw new RuntimeException('CI requires SQLite :memory: without a database URL.');
+              }
+              if (Illuminate\Support\Facades\DB::getConnections() !== []) {
+                  throw new RuntimeException('A database connection was opened before isolation was verified.');
+              }
+
+              // Remove every other connection before any migration can run.
+              config(['database.connections' => ['sqlite' => config('database.connections.sqlite')]]);
+              $connection = Illuminate\Support\Facades\DB::connection('sqlite');
+              if ($connection->getDriverName() !== 'sqlite' || $connection->getDatabaseName() !== ':memory:') {
+                  throw new RuntimeException('Unexpected database connection.');
+              }
+              $databases = $connection->select('PRAGMA database_list');
+              if ($databases === []) {
+                  throw new RuntimeException('SQLite isolation could not be verified.');
+              }
+              foreach ($databases as $database) {
+                  if ($database->file !== '') {
+                      throw new RuntimeException('File-backed databases are forbidden in CI.');
+                  }
+              }
+
+              $status = $kernel->call('migrate', ['--database' => 'sqlite', '--no-interaction' => true]);
+              echo $kernel->output();
+              exit($status);
+          } catch (Throwable $exception) {
+              file_put_contents('php://stderr', $exception->getMessage().PHP_EOL);
+              exit(1);
+          }
+          PHP
+
+      # Database tests independently verify isolation before migrating their own
+      # in-memory connection. No Node/Vite build is needed: they use withoutVite().
+      - name: Run PHPUnit
+        run: php vendor/bin/phpunit --configuration phpunit.xml
