@@ -13,7 +13,7 @@
     <div class="platform-grid">
         <section class="platform-card">
             <h2>Empresas y cuentas</h2>
-            <p>La gestión global estará disponible próximamente.</p>
+            <p><a href="{{ route('platform.companies.index') }}">Consultar y administrar empresas</a></p>
         </section>
         <section class="platform-card">
             <h2>Planes y suscripciones</h2>

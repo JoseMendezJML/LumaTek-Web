@@ -136,6 +136,9 @@ class AuthController extends Controller
         );
 
         if ($user->role?->name !== 'superadmin') {
+            if ($user->company?->status !== 'active') {
+                return response()->json(['message' => 'La empresa se encuentra suspendida.'], 403);
+            }
             $user->company?->syncUserPlanRestrictions();
         }
 
@@ -289,6 +292,9 @@ class AuthController extends Controller
         );
 
         if ($user->role?->name !== 'superadmin') {
+            if ($user->company?->status !== 'active') {
+                return response()->json(['message' => 'La empresa se encuentra suspendida.'], 403);
+            }
             $user->company?->syncUserPlanRestrictions();
         }
 

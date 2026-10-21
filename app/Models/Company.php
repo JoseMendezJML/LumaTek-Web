@@ -27,6 +27,12 @@ class Company extends Model
         return $this->hasMany(User::class);
     }
 
+    public function owners(): HasMany
+    {
+        return $this->users()->where('is_company_owner', true)
+            ->whereHas('role', fn ($query) => $query->where('name', 'company_admin'));
+    }
+
     /**
      * Invernaderos que pertenecen a la empresa.
      */
