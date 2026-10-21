@@ -15,6 +15,8 @@ class Plan extends Model
         'slug',
         'description',
         'price_monthly',
+        'price_yearly',
+        'currency',
         'max_greenhouses',
         'max_zones_per_greenhouse',
         'max_sensors_per_zone',
@@ -27,6 +29,7 @@ class Plan extends Model
     {
         return [
             'price_monthly' => 'decimal:2',
+            'price_yearly' => 'decimal:2',
             'max_greenhouses' => 'integer',
             'max_zones_per_greenhouse' => 'integer',
             'max_sensors_per_zone' => 'integer',

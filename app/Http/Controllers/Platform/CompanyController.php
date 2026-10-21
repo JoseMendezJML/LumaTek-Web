@@ -23,7 +23,7 @@ class CompanyController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $freePlan = Plan::where('slug', 'free')->where('is_active', true)->first();
-        $query = Company::with(['owners', 'activeSubscription.plan'])->orderBy('name')->orderBy('id');
+        $query = Company::with(['owners', 'activeSubscription.contract'])->orderBy('name')->orderBy('id');
         if ($search = trim($filters['q'] ?? '')) {
             $query->where(function ($query) use ($search) {
                 $pattern = '%'.$search.'%';
@@ -36,15 +36,10 @@ class CompanyController extends Controller
             $query->where('status', $status);
         }
         if ($planId = $filters['plan_id'] ?? null) {
-            // Match Company::effectivePlan(): the latest active, unexpired
-            // subscription wins; otherwise the company uses the free plan.
-            $valid = fn ($subscription) => $subscription->where(fn ($dates) => $dates->whereNull('ends_at')->orWhere('ends_at', '>=', now()));
-            $query->where(function ($query) use ($planId, $freePlan, $valid) {
-                $query->whereHas('activeSubscription', function ($subscription) use ($planId, $valid) {
-                    $valid($subscription)->where('plan_id', $planId);
-                });
+            $query->where(function ($query) use ($planId, $freePlan) {
+                $query->whereHas('activeSubscription', fn ($subscription) => $subscription->where('plan_id', $planId));
                 if ((int) $planId === $freePlan?->id) {
-                    $query->orWhereDoesntHave('activeSubscription', $valid);
+                    $query->orWhereDoesntHave('activeSubscription');
                 }
             });
         }
@@ -59,7 +54,7 @@ class CompanyController extends Controller
 
     public function show(Company $company): View
     {
-        $company->load(['owners', 'activeSubscription.plan']);
+        $company->load(['owners', 'activeSubscription.contract']);
 
         return view('platform.companies.show', [
             'company' => $company,
