@@ -72,7 +72,7 @@ class PlatformCompaniesTest extends TestCase
         }
         $this->get('/platform/companies/'.$company->id)->assertOk()->assertSee('Alpha Legal')->assertSee('5551234567')
             ->assertSee($owner->email)->assertSee('name="confirmed"', false)->assertSee('confirm(', false);
-        $subscription->update(['ends_at' => now()->subDay()]);
+        $this->travelTo(now()->addMonths(2));
         $free = Plan::where('slug', 'free')->firstOrFail();
         $this->get('/platform/companies?q=Alpha&plan_id='.$free->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->total() === 1);
         $this->get('/platform/companies?q=Alpha&plan_id='.$pro->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->isEmpty());
@@ -247,7 +247,7 @@ class PlatformCompaniesTest extends TestCase
         }
     }
 
-    public function test_expired_latest_subscription_uses_free_plan_even_if_an_older_pro_subscription_is_active(): void
+    public function test_expired_latest_subscription_does_not_hide_an_older_current_pro_subscription(): void
     {
         $company = $this->company();
         $pro = Plan::where('slug', 'pro')->firstOrFail();
@@ -256,8 +256,8 @@ class PlatformCompaniesTest extends TestCase
             Subscription::create(['company_id' => $company->id, 'plan_id' => $pro->id, 'status' => 'active', 'starts_at' => now()->subMonth(), 'ends_at' => $end]);
         }
         $this->actingAs($this->user('superadmin'), 'web');
-        $this->get('/platform/companies?plan_id='.$free->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->total() === 1);
-        $this->get('/platform/companies?plan_id='.$pro->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->isEmpty());
+        $this->get('/platform/companies?plan_id='.$free->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->isEmpty());
+        $this->get('/platform/companies?plan_id='.$pro->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->total() === 1);
     }
 
     #[DataProvider('companyRoles')]

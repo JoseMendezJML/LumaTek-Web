@@ -53,53 +53,26 @@ class Company extends Model
 
 
     /**
-     * Suscripción activa actual de la empresa.
+     * SuscripciÃ³n activa actual de la empresa.
      */
     public function activeSubscription(): HasOne
     {
-        return $this
-            ->hasOne(Subscription::class)
-            ->where('status', 'active')
-            ->latestOfMany();
+        return $this->hasOne(Subscription::class)
+            ->ofMany(['id' => 'max'], fn ($query) => $query->current());
     }
 
     public function effectivePlan(): ?Plan
     {
-        $subscription =
-            $this
-            ->activeSubscription()
-            ->with('plan')
-            ->first();
-
-        /*
-    |--------------------------------------------------------------------------
-    | Sin suscripción activa o con suscripción vencida
-    |--------------------------------------------------------------------------
-    |
-    | La empresa pasa a utilizar las reglas del plan Gratis.
-    |
-    */
-
-        if (
-            !$subscription
-            ||
-            $subscription->isExpired()
-        ) {
-
-            return Plan::query()
-                ->where(
-                    'slug',
-                    'free'
-                )
-                ->where(
-                    'is_active',
-                    true
-                )
-                ->first();
+        app(\App\Services\SubscriptionContractIntegrity::class)->assertSubscriptions($this->id);
+        $subscription = $this->activeSubscription()->with('contract')->first();
+        if ($subscription) {
+            // Never fall back to editable catalog limits for a contracted period.
+            return $subscription->contract->effectivePlan();
         }
 
-        return $subscription->plan;
+        return Plan::where('slug', 'free')->where('is_active', true)->first();
     }
+
 
     public function syncGreenhousePlanRestrictions(): void
     {
@@ -139,7 +112,7 @@ class Company extends Model
 
         /*
     |--------------------------------------------------------------------------
-    | Determinar cuáles exceden el plan actual
+    | Determinar cuÃ¡les exceden el plan actual
     |--------------------------------------------------------------------------
     */
 
@@ -217,7 +190,7 @@ class Company extends Model
         | Invernadero restringido
         |--------------------------------------------------------------------------
         |
-        | Si todo el invernadero está restringido, sus zonas activas también.
+        | Si todo el invernadero estÃ¡ restringido, sus zonas activas tambiÃ©n.
         |
         */
 
@@ -247,7 +220,7 @@ class Company extends Model
 
         /*
         |--------------------------------------------------------------------------
-        | Zonas que exceden el límite del plan
+        | Zonas que exceden el lÃ­mite del plan
         |--------------------------------------------------------------------------
         */
 
@@ -382,7 +355,7 @@ class Company extends Model
 
         /*
         |--------------------------------------------------------------------------
-        | Sensores que exceden el límite del plan
+        | Sensores que exceden el lÃ­mite del plan
         |--------------------------------------------------------------------------
         */
 

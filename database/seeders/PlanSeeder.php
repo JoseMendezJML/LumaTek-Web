@@ -9,7 +9,7 @@ class PlanSeeder extends Seeder
 {
     public function run(): void
     {
-        Plan::updateOrCreate(
+        Plan::firstOrCreate(
             [
                 'slug' => 'free',
             ],
@@ -20,6 +20,7 @@ class PlanSeeder extends Seeder
                     'Plan para empresas pequeñas que desean comenzar a monitorear sus invernaderos con LumaTek.',
 
                 'price_monthly' => 0,
+                'currency' => 'MXN',
 
                 'max_greenhouses' => 2,
 
@@ -36,7 +37,7 @@ class PlanSeeder extends Seeder
         );
 
 
-        Plan::updateOrCreate(
+        Plan::firstOrCreate(
             [
                 'slug' => 'pro',
             ],
@@ -52,6 +53,7 @@ class PlanSeeder extends Seeder
                  * como plan gratuito en la interfaz.
                  */
                 'price_monthly' => 0,
+                'currency' => 'MXN',
 
                 'max_greenhouses' => 10,
 

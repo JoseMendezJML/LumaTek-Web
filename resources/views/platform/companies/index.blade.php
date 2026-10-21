@@ -35,7 +35,7 @@
     <tbody>
     @forelse($companies as $company)
         @php($subscription = $company->activeSubscription)
-        @php($effectivePlan = $subscription && !$subscription->isExpired() ? $subscription->plan : $freePlan)
+        @php($effectivePlan = $subscription ? $subscription->contract?->effectivePlan() : $freePlan)
         <tr>
             <td>{{ $company->name }}<br><small>{{ $company->email }}</small></td>
             <td>@forelse($company->owners as $owner)
