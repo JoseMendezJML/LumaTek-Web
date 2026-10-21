@@ -122,17 +122,25 @@ class InactiveAccountAccessTest extends TestCase
     }
 
     #[DataProvider('roles')]
-    public function test_active_accounts_keep_their_existing_operational_write_permission(string $role): void
+    public function test_only_active_company_administrators_can_create_zones(string $role): void
     {
         $user = $this->createUser($role);
         $greenhouse = $this->createGreenhouse($user->company);
         $token = JWTAuth::fromUser($user);
 
-        $this->api($token, 'POST', '/api/greenhouses/'.$greenhouse->id.'/zones', [
+        $response = $this->api($token, 'POST', '/api/greenhouses/'.$greenhouse->id.'/zones', [
             'name' => 'Zona permitida',
             'description' => 'Creada por una cuenta activa',
-        ])
-            ->assertCreated()
+        ]);
+
+        if ($role !== 'company_admin') {
+            $response->assertForbidden();
+            $this->assertDatabaseCount('zones', 0);
+
+            return;
+        }
+
+        $response->assertCreated()
             ->assertJsonPath('data.greenhouse_id', $greenhouse->id)
             ->assertJsonPath('data.name', 'Zona permitida');
 

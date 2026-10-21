@@ -11,7 +11,15 @@
 
 @section('content')
 
+@php($canManageResources = auth()->user()?->status === 'active' && auth()->user()?->role?->name === 'company_admin')
+
 <div class="zones-page">
+
+    <div
+        id="zone-message"
+        class="panel-message"
+        style="display:none;"
+    ></div>
 
     {{-- =========================================================
          SELECTOR DE INVERNADERO
@@ -65,6 +73,7 @@
          FORMULARIO DE ZONA
     ========================================================== --}}
 
+    @if($canManageResources)
     <section
         class="panel-card"
         style="margin-top:24px;"
@@ -87,12 +96,6 @@
         </div>
 
         <div class="panel-card-body">
-
-            <div
-                id="zone-message"
-                class="panel-message"
-                style="display:none;"
-            ></div>
 
             <form id="zone-form">
 
@@ -207,6 +210,7 @@
         </div>
 
     </section>
+    @endif
 
 
     {{-- =========================================================
@@ -323,6 +327,7 @@
                 style="display:none;"
             ></div>
 
+            @if($canManageResources)
             <div class="management-box">
 
                 <h3 id="device-form-title">
@@ -475,6 +480,8 @@
             </div>
 
 
+            @endif
+
             <div class="management-header">
 
                 <div>
@@ -562,6 +569,7 @@
             ></div>
 
 
+            @if($canManageResources)
             <div class="management-box">
 
                 <h3 id="sensor-form-title">
@@ -730,6 +738,8 @@
 
             </div>
 
+
+            @endif
 
             <div class="management-header">
 
@@ -1101,6 +1111,8 @@
 @push('scripts')
 
 <script>
+
+    const canManageResources = @json($canManageResources);
 
     const token =
         sessionStorage.getItem('lumatek_access_token');
@@ -1699,6 +1711,7 @@
                     Dispositivos
                 </button>
 
+                @if($canManageResources)
                 <button
                     type="button"
                     class="action-button edit-zone"
@@ -1716,6 +1729,7 @@
                             : 'Activar'
                     }
                 </button>
+                @endif
 
             </div>
         `;
@@ -1731,7 +1745,7 @@
 
         card
             .querySelector('.edit-zone')
-            .addEventListener(
+            ?.addEventListener(
                 'click',
                 () => startEditZone(zone)
             );
@@ -1739,7 +1753,7 @@
 
         card
             .querySelector('.status-zone')
-            .addEventListener(
+            ?.addEventListener(
                 'click',
                 () => changeZoneStatus(zone)
             );
@@ -1749,7 +1763,7 @@
     }
 
 
-    zoneForm.addEventListener(
+    zoneForm?.addEventListener(
         'submit',
         async function (event) {
 
@@ -1894,6 +1908,8 @@
 
     function startEditZone(zone) {
 
+        if (!canManageResources) return;
+
         zoneId.value =
             zone.id;
 
@@ -1929,6 +1945,8 @@
 
     function resetZoneForm() {
 
+        if (!canManageResources) return;
+
         zoneForm.reset();
 
         zoneId.value =
@@ -1945,13 +1963,15 @@
     }
 
 
-    cancelZoneEdit.addEventListener(
+    cancelZoneEdit?.addEventListener(
         'click',
         resetZoneForm
     );
 
 
     async function changeZoneStatus(zone) {
+
+        if (!canManageResources) return;
 
         const newStatus =
             zone.status === 'active'
@@ -2287,6 +2307,7 @@
                     Sensores
                 </button>
 
+                @if($canManageResources)
                 <button
                     type="button"
                     class="action-button edit-device"
@@ -2304,6 +2325,7 @@
                             : 'Activar'
                     }
                 </button>
+                @endif
 
             </div>
         `;
@@ -2320,7 +2342,7 @@
 
         card
             .querySelector('.edit-device')
-            .addEventListener(
+            ?.addEventListener(
                 'click',
                 () =>
                     startEditDevice(device)
@@ -2329,7 +2351,7 @@
 
         card
             .querySelector('.status-device')
-            .addEventListener(
+            ?.addEventListener(
                 'click',
                 () =>
                     changeDeviceStatus(device)
@@ -2340,7 +2362,7 @@
     }
 
 
-    deviceForm.addEventListener(
+    deviceForm?.addEventListener(
         'submit',
         async function (event) {
 
@@ -2467,6 +2489,8 @@
 
     function startEditDevice(device) {
 
+        if (!canManageResources) return;
+
         deviceId.value =
             device.id;
 
@@ -2502,6 +2526,8 @@
 
     function resetDeviceForm() {
 
+        if (!canManageResources) return;
+
         deviceForm.reset();
 
         deviceId.value =
@@ -2518,13 +2544,15 @@
     }
 
 
-    cancelDeviceEdit.addEventListener(
+    cancelDeviceEdit?.addEventListener(
         'click',
         resetDeviceForm
     );
 
 
     async function changeDeviceStatus(device) {
+
+        if (!canManageResources) return;
 
         const newStatus =
             device.status === 'active'
@@ -2989,6 +3017,7 @@ if (sensor.latest_reading) {
 
             <div class="actions-row">
 
+                @if($canManageResources)
                 <button
                     type="button"
                     class="action-button edit-sensor"
@@ -3007,6 +3036,7 @@ if (sensor.latest_reading) {
                             : 'Activar'
                     }
                 </button>
+                @endif
 
             </div>
         `;
@@ -3014,7 +3044,7 @@ if (sensor.latest_reading) {
 
         card
             .querySelector('.edit-sensor')
-            .addEventListener(
+            ?.addEventListener(
                 'click',
                 () =>
                     startEditSensor(sensor)
@@ -3023,7 +3053,7 @@ if (sensor.latest_reading) {
 
         card
             .querySelector('.status-sensor')
-            .addEventListener(
+            ?.addEventListener(
                 'click',
                 () =>
                     changeSensorStatus(sensor)
@@ -3034,7 +3064,7 @@ if (sensor.latest_reading) {
     }
 
 
-    sensorForm.addEventListener(
+    sensorForm?.addEventListener(
         'submit',
         async function (event) {
 
@@ -3181,6 +3211,8 @@ if (sensor.latest_reading) {
 
     function startEditSensor(sensor) {
 
+        if (!canManageResources) return;
+
         sensorId.value =
             sensor.id;
 
@@ -3222,6 +3254,8 @@ if (sensor.latest_reading) {
 
     function resetSensorForm() {
 
+        if (!canManageResources) return;
+
         sensorForm.reset();
 
         sensorId.value =
@@ -3238,13 +3272,15 @@ if (sensor.latest_reading) {
     }
 
 
-    cancelSensorEdit.addEventListener(
+    cancelSensorEdit?.addEventListener(
         'click',
         resetSensorForm
     );
 
 
     async function changeSensorStatus(sensor) {
+
+        if (!canManageResources) return;
 
         const newStatus =
             sensor.status === 'active'

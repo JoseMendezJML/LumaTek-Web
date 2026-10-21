@@ -270,19 +270,19 @@ Route::middleware([
     Route::post(
         '/greenhouses/{greenhouse}/zones',
         [ZoneController::class, 'store']
-    )->name('greenhouses.zones.store');
+    )->middleware('company.admin')->name('greenhouses.zones.store');
 
 
     Route::put(
         '/zones/{zone}',
         [ZoneController::class, 'update']
-    )->name('zones.update');
+    )->middleware('company.admin')->name('zones.update');
 
 
     Route::patch(
         '/zones/{zone}/status',
         [ZoneController::class, 'changeStatus']
-    )->name('zones.status');
+    )->middleware('company.admin')->name('zones.status');
 
 
     /*
@@ -300,19 +300,19 @@ Route::middleware([
     Route::post(
         '/zones/{zone}/devices',
         [DeviceController::class, 'store']
-    )->name('zones.devices.store');
+    )->middleware('company.admin')->name('zones.devices.store');
 
 
     Route::put(
         '/devices/{device}',
         [DeviceController::class, 'update']
-    )->name('devices.update');
+    )->middleware('company.admin')->name('devices.update');
 
 
     Route::patch(
         '/devices/{device}/status',
         [DeviceController::class, 'changeStatus']
-    )->name('devices.status');
+    )->middleware('company.admin')->name('devices.status');
 
 
     /*
@@ -330,19 +330,19 @@ Route::middleware([
     Route::post(
         '/devices/{device}/sensors',
         [SensorController::class, 'store']
-    )->name('devices.sensors.store');
+    )->middleware('company.admin')->name('devices.sensors.store');
 
 
     Route::put(
         '/sensors/{sensor}',
         [SensorController::class, 'update']
-    )->name('sensors.update');
+    )->middleware('company.admin')->name('sensors.update');
 
 
     Route::patch(
         '/sensors/{sensor}/status',
         [SensorController::class, 'changeStatus']
-    )->name('sensors.status');
+    )->middleware('company.admin')->name('sensors.status');
 
 
     /*
