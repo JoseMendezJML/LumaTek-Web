@@ -86,5 +86,8 @@ Route::prefix('platform')->name('platform.')->middleware([
     'auth', 'active.user', 'platform.admin',
 ])->group(function () {
     Route::view('/', 'platform.index')->name('dashboard');
+    Route::get('/companies', [\App\Http\Controllers\Platform\CompanyController::class, 'index'])->name('companies.index');
+    Route::get('/companies/{company}', [\App\Http\Controllers\Platform\CompanyController::class, 'show'])->name('companies.show');
+    Route::patch('/companies/{company}/status', [\App\Http\Controllers\Platform\CompanyController::class, 'changeStatus'])->name('companies.status');
     Route::post('/logout', [AuthController::class, 'webLogout'])->name('logout');
 });

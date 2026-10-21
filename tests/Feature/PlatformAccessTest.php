@@ -281,7 +281,7 @@ class PlatformAccessTest extends TestCase
     public function test_all_platform_routes_have_authentication_active_user_and_role_middleware(): void
     {
         $routes = collect(app('router')->getRoutes()->getRoutes())->filter(fn ($route) => str_starts_with($route->uri(), 'platform'));
-        $this->assertCount(2, $routes);
+        $this->assertCount(5, $routes);
         foreach ($routes as $route) {
             $middleware = $route->gatherMiddleware();
             foreach (['web', 'auth', 'active.user', 'platform.admin'] as $required) {

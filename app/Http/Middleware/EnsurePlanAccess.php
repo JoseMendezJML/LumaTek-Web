@@ -36,7 +36,7 @@ class EnsurePlanAccess
         |--------------------------------------------------------------------------
         */
 
-        $user->loadMissing(
+        $user->load(
             'company'
         );
 
@@ -44,6 +44,8 @@ class EnsurePlanAccess
 
         // This middleware guards company modules, never platform routes.
         abort_unless($company, 403, 'Esta cuenta no tiene acceso a los modulos empresariales.');
+
+        abort_unless($company->status === 'active', 403, 'La empresa se encuentra suspendida.');
 
         $isRestricted =
             $company->isUserRestrictedByPlan(

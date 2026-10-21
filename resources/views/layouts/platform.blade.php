@@ -22,6 +22,14 @@
         .platform-card { background: white; border: 1px solid #dfe8e2; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(20,60,40,.04); }
         .platform-card h2 { margin-top: 0; color: #176136; font-size: 18px; }
         .platform-card p { line-height: 1.6; }
+        .platform-table-wrap { overflow-x: auto; }
+        .platform-table { width: 100%; border-collapse: collapse; }
+        .platform-table th, .platform-table td { text-align: left; padding: 12px; border-bottom: 1px solid #dfe8e2; vertical-align: top; }
+        .platform-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 24px; }
+        .platform-filters label { display: grid; gap: 6px; }
+        .platform-filters input, .platform-filters select { padding: 10px; border: 1px solid #dfe8e2; border-radius: 8px; max-width: 100%; }
+        .platform-header nav a { margin-right: 18px; }
+        .platform-pagination { display: flex; justify-content: space-between; margin-top: 24px; gap: 12px; }
         #platform-message { color: #9b2424; }
         @media(max-width: 600px) { .platform-header { padding: 16px; gap: 16px; } .platform-header nav { flex-basis: 100%; } }
     </style>
@@ -32,7 +40,8 @@
             <img class="platform-logo" src="{{ asset('images/lumatek-logo.png') }}" alt="LumaTek">
         </a>
         <nav aria-label="Plataforma">
-            <a href="{{ route('platform.dashboard') }}" aria-current="page">Inicio de plataforma</a>
+            <a href="{{ route('platform.dashboard') }}" @if(request()->routeIs('platform.dashboard')) aria-current="page" @endif>Inicio de plataforma</a>
+            <a href="{{ route('platform.companies.index') }}" @if(request()->routeIs('platform.companies.*')) aria-current="page" @endif>Empresas</a>
         </nav>
         <span>{{ auth()->user()->name }}</span>
         <form id="platform-logout" method="POST" action="{{ route('platform.logout') }}">
