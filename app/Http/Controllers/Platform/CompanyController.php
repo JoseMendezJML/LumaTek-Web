@@ -79,13 +79,12 @@ class CompanyController extends Controller
                 return;
             }
             $locked->update(['status' => $data['status']]);
-            if ($data['status'] === 'inactive') {
-                // Revoke existing sessions/JWT and remember-me credentials without
-                // deactivating users. Platform sessions remain independent.
-                User::where('company_id', $locked->id)
-                    ->whereHas('role', fn ($role) => $role->where('name', '!=', 'superadmin'))
-                    ->update(['auth_version' => (string) Str::uuid(), 'remember_token' => Str::random(60)]);
-            }
+            // Revoke on both suspension and reactivation: previously-inactive
+            // companies may still have credentials issued before revocation existed.
+            // Preserve user statuses and independent platform credentials.
+            User::where('company_id', $locked->id)
+                ->whereHas('role', fn ($role) => $role->where('name', '!=', 'superadmin'))
+                ->update(['auth_version' => (string) Str::uuid(), 'remember_token' => Str::random(60)]);
         });
 
         return redirect()->route('platform.companies.show', $company)

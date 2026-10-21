@@ -128,7 +128,7 @@ class PlatformCompaniesTest extends TestCase
         $this->api(JWTAuth::fromUser($other), '/api/dashboard')->assertOk();
         $this->change($admin, $company, 'active');
         $this->api($oldToken, '/api/dashboard')->assertUnauthorized();
-        $this->assertSame($version, $user->fresh()->authenticationVersion());
+        $this->assertNotSame($version, $user->fresh()->authenticationVersion());
         $this->assertSame('inactive', $inactive->fresh()->status);
         $this->assertSame('active', $user->fresh()->status);
         $this->assertSame($otherBefore, $other->fresh()->getRawOriginal());
@@ -172,6 +172,9 @@ class PlatformCompaniesTest extends TestCase
         $version = $user->authenticationVersion();
         $this->change($admin, $company, 'inactive');
         $this->assertSame($version, $user->fresh()->authenticationVersion());
+        $this->change($admin, $company, 'active');
+        $this->assertNotSame($version, $user->fresh()->authenticationVersion());
+        $version = $user->fresh()->authenticationVersion();
         $this->change($admin, $company, 'active');
         $this->assertSame($version, $user->fresh()->authenticationVersion());
     }
@@ -255,6 +258,54 @@ class PlatformCompaniesTest extends TestCase
         $this->actingAs($this->user('superadmin'), 'web');
         $this->get('/platform/companies?plan_id='.$free->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->total() === 1);
         $this->get('/platform/companies?plan_id='.$pro->id)->assertOk()->assertViewHas('companies', fn ($companies) => $companies->isEmpty());
+    }
+
+    #[DataProvider('companyRoles')]
+    public function test_reactivating_previously_inactive_company_revokes_all_old_credentials(string $role): void
+    {
+        $company = $this->company();
+        $user = $this->user($role, $company);
+        $inactive = $this->user('employee', $company, 'inactive');
+        $other = $this->user('company_admin', $this->company());
+        $otherBefore = $other->fresh()->getRawOriginal();
+        $admin = $this->user('superadmin', $company);
+        $adminBefore = $admin->fresh()->getRawOriginal();
+        $subscription = Subscription::create(['company_id' => $company->id, 'plan_id' => Plan::where('slug', 'pro')->value('id'), 'status' => 'active', 'starts_at' => now(), 'ends_at' => now()->addMonth(), 'auto_renew' => false]);
+        $subscriptionBefore = $subscription->fresh()->getRawOriginal();
+
+        $this->withCredentials()->postJson('/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
+        $credentials = session(User::AUTH_VERSION_SESSION_KEY);
+        $oldToken = JWTAuth::fromUser($user->fresh());
+        $oldRememberToken = $user->fresh()->remember_token;
+        $oldInactiveVersion = $inactive->fresh()->authenticationVersion();
+        // Simulate an already-inactive company whose suspension predates the
+        // platform revocation mechanism. No suspension endpoint is called.
+        $company->update(['status' => 'inactive']);
+        $tokenWhileInactive = JWTAuth::fromUser($user->fresh());
+        $this->assertSame($credentials['version'], $user->fresh()->authenticationVersion());
+
+        $this->change($admin, $company, 'active');
+        $this->assertNotSame($credentials['version'], $user->fresh()->authenticationVersion());
+        $this->assertNotSame($oldRememberToken, $user->fresh()->remember_token);
+        $this->assertNotSame($oldInactiveVersion, $inactive->fresh()->authenticationVersion());
+        $this->assertSame('active', $user->fresh()->status);
+        $this->assertSame('inactive', $inactive->fresh()->status);
+        $this->assertSame($otherBefore, $other->fresh()->getRawOriginal());
+        $this->assertSame($adminBefore, $admin->fresh()->getRawOriginal());
+        $this->assertSame($subscriptionBefore, $subscription->fresh()->getRawOriginal());
+        $this->get('/platform')->assertOk();
+        foreach ([$oldToken, $tokenWhileInactive] as $token) {
+            $this->api($token, '/api/dashboard')->assertUnauthorized();
+        }
+        $this->actingAs($user->fresh(), 'web')->withSession([User::AUTH_VERSION_SESSION_KEY => $credentials]);
+        $this->get('/dashboard')->assertRedirect(route('login'));
+        $this->assertGuest('web');
+        $this->resetGuards();
+        $fresh = $this->postJson('/api/login', ['email' => $user->email, 'password' => 'password'])->assertOk()->json('access_token');
+        $this->api($fresh, '/api/dashboard')->assertOk();
+        $this->postJson('/login', ['email' => $user->email, 'password' => 'password'])->assertOk();
+        $this->get('/dashboard')->assertOk();
+        $this->postJson('/api/login', ['email' => $inactive->email, 'password' => 'password'])->assertForbidden();
     }
 
     private function change(User $admin, Company $company, string $status): void

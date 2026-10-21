@@ -56,5 +56,7 @@ empresariales de esa empresa dentro de una transaccion. No modifica sus estados
 individuales, datos ni suscripciones. Las cuentas superadmin conservan sus
 credenciales de plataforma, incluso si tienen una empresa asociada antigua.
 El login y las rutas empresariales rechazan empresas suspendidas; `/platform`
-permanece independiente. Reactivar solo cambia el estado de empresa: no restaura
-credenciales antiguas y sigue aplicando `plan.access` e inactividad individual.
+permanece independiente. Reactivar tambien revoca las credenciales empresariales,
+incluso si la empresa ya estaba inactiva antes de implementar la suspension.
+No restaura credenciales antiguas y sigue aplicando `plan.access` e inactividad
+individual. Solicitar el mismo estado actual no vuelve a revocar credenciales.
