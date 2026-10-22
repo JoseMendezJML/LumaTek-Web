@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\UsesInMemoryDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
+    use UsesInMemoryDatabase;
+
     /**
      * A basic test example.
      */

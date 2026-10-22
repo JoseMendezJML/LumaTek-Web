@@ -2,13 +2,14 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\Platform\CompanyController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'landing')
+Route::get('/', LandingController::class)
     ->name('landing');
 
 Route::view('/login', 'auth.login')
