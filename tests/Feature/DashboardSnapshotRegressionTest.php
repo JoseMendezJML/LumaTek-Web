@@ -50,9 +50,12 @@ class DashboardSnapshotRegressionTest extends TestCase
                 'recent_alerts' => [[
                     'id' => $r['alert']->id,
                     'type' => 'low_soil_humidity',
+                    'type_label' => 'Humedad del suelo baja',
                     'message' => 'Low humidity',
                     'severity' => 'warning',
+                    'severity_label' => 'Advertencia',
                     'status' => 'active',
+                    'status_label' => 'Activa',
                     'created_at' => '2026-10-22 12:00:00',
                     'reading' => null,
                     'sensor' => ['name' => 'Sensor', 'unit' => '%'],

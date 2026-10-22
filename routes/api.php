@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ManualSubscriptionController;
+use App\Http\Controllers\Api\MobileGoogleAuthController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AmbientHumidityController;
 use App\Http\Controllers\DashboardController;
@@ -46,6 +47,14 @@ Route::post(
     '/login',
     [AuthController::class, 'login']
 )->name('api.login');
+
+
+Route::post(
+    '/auth/google',
+    [MobileGoogleAuthController::class, 'login']
+)
+    ->middleware('throttle:10,1')
+    ->name('api.auth.google');
 
 
 /*

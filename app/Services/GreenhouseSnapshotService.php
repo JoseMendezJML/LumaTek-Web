@@ -488,11 +488,17 @@ class GreenhouseSnapshotService
 
                         'type' => $alert->type,
 
+                        'type_label' => Alert::typeLabel($alert->type),
+
                         'message' => $alert->message,
 
                         'severity' => $alert->severity,
 
+                        'severity_label' => Alert::severityLabel($alert->severity),
+
                         'status' => $alert->status,
+
+                        'status_label' => Alert::statusLabel($alert->status),
 
                         'created_at' =>
                         $alert->created_at

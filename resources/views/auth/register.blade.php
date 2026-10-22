@@ -153,6 +153,8 @@
 
     </form>
 
+    @include('auth.partials.google-button')
+
     <div class="auth-footer">
 
         <span>

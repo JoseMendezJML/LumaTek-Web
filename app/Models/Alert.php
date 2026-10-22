@@ -28,6 +28,40 @@ class Alert extends Model
     ];
 
     /**
+     * Etiquetas legibles. Se usan en todas las respuestas de la API
+     * para que la web y la app móvil muestren el mismo texto.
+     */
+    public static function typeLabel(string $type): string
+    {
+        return match ($type) {
+            'high_temperature' => 'Temperatura alta',
+            'low_temperature' => 'Temperatura baja',
+            'low_soil_humidity' => 'Humedad del suelo baja',
+            'high_ambient_humidity' => 'Humedad ambiental alta',
+            default => 'Alerta de monitoreo',
+        };
+    }
+
+    public static function severityLabel(string $severity): string
+    {
+        return match ($severity) {
+            'critical' => 'Crítica',
+            'warning' => 'Advertencia',
+            default => 'Informativa',
+        };
+    }
+
+    public static function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'active' => 'Activa',
+            'acknowledged' => 'Atendida',
+            'resolved' => 'Resuelta',
+            default => $status,
+        };
+    }
+
+    /**
      * Sensor que originó la alerta.
      */
     public function sensor(): BelongsTo

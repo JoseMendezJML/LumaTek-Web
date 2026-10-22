@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\Chat\ChatAssistant;
 use App\Services\Chat\ClaudeChatAssistant;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +25,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $trustedProxies = trim((string) config('app.trusted_proxies'));
+
+        if ($trustedProxies !== '') {
+            TrustProxies::at(
+                $trustedProxies === '*'
+                    ? '*'
+                    : array_map('trim', explode(',', $trustedProxies))
+            );
+        }
+
         Event::listen(Login::class, function (Login $event): void {
             if ($event->guard === 'web' && $event->user instanceof User) {
                 session()->put(User::AUTH_VERSION_SESSION_KEY, [

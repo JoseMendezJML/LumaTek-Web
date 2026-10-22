@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\Platform\CompanyController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\SubscriptionController;
@@ -20,6 +21,32 @@ Route::post(
 
 Route::view('/register', 'auth.register')
     ->name('register');
+
+/*
+|--------------------------------------------------------------------------
+| Inicio de sesión con Google
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/auth/google/redirect',
+    [GoogleAuthController::class, 'redirect']
+)->name('google.redirect');
+
+Route::get(
+    '/auth/google/callback',
+    [GoogleAuthController::class, 'callback']
+)->name('google.callback');
+
+Route::get(
+    '/auth/google/complete',
+    [GoogleAuthController::class, 'showComplete']
+)->name('google.complete');
+
+Route::post(
+    '/auth/google/complete',
+    [GoogleAuthController::class, 'complete']
+)->name('google.complete.store');
 
 Route::view('/forgot-password', 'auth.forgot-password')
     ->name('password.request');

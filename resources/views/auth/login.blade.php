@@ -15,6 +15,12 @@
         </p>
     </div>
 
+    @if (session('google_error'))
+        <div class="auth-message auth-message-error">
+            {{ session('google_error') }}
+        </div>
+    @endif
+
     <div
         id="login-message"
         class="auth-message"
@@ -95,6 +101,8 @@
         </button>
 
     </form>
+
+    @include('auth.partials.google-button')
 
     <div class="auth-footer">
         <span>
