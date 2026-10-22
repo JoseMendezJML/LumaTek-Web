@@ -92,9 +92,10 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    // LumaTek ofrece su interfaz y sus respuestas públicas en español.
+    'locale' => 'es',
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => 'es',
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 

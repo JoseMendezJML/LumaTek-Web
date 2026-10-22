@@ -8,19 +8,19 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Models\Company;
-use App\Models\Role;
-use App\Models\User;
 use App\Models\Plan;
+use App\Models\Role;
 use App\Models\Subscription;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tymon\JWTAuth\Facades\JWTAuth;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
@@ -50,12 +50,10 @@ class AuthController extends Controller
                 'status' => 'active',
             ]);
 
-
             $freePlan = Plan::where(
                 'slug',
                 'free'
             )->firstOrFail();
-
 
             Subscription::create([
                 'company_id' => $company->id,
@@ -65,7 +63,6 @@ class AuthController extends Controller
                 'ends_at' => null,
                 'auto_renew' => false,
             ]);
-
 
             return $user;
         });
@@ -106,8 +103,8 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (
-            !$user ||
-            !Hash::check($request->password, $user->password)
+            ! $user ||
+            ! Hash::check($request->password, $user->password)
         ) {
             RateLimiter::hit(
                 $key,
@@ -146,13 +143,12 @@ class AuthController extends Controller
 
         if ($user->plan_restricted && $user->role?->name !== 'superadmin') {
             return response()->json([
-                'message' =>
-                'Tu cuenta está restringida por el plan actual de la empresa. '
-                    . 'Contacta al propietario o renueva el plan Pro.',
+                'message' => 'Tu cuenta está restringida por el plan actual de la empresa. '
+                    .'Contacta al propietario o renueva el plan Pro.',
             ], 403);
         }
 
-        if (!$user->hasVerifiedEmail()) {
+        if (! $user->hasVerifiedEmail()) {
             return response()->json([
                 'message' => 'Debes verificar tu correo electrónico antes de iniciar sesión.',
             ], 403);
@@ -192,7 +188,6 @@ class AuthController extends Controller
             $request->ip()
         );
 
-
         /*
     |--------------------------------------------------------------------------
     | Bloqueo por demasiados intentos
@@ -211,16 +206,12 @@ class AuthController extends Controller
                     $key
                 );
 
-
             return response()->json([
-                'message' =>
-                'Demasiados intentos fallidos. Intenta nuevamente más tarde.',
+                'message' => 'Demasiados intentos fallidos. Intenta nuevamente más tarde.',
 
-                'retry_after_seconds' =>
-                $seconds,
+                'retry_after_seconds' => $seconds,
             ], 429);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -234,7 +225,6 @@ class AuthController extends Controller
                 $request->email
             )->first();
 
-
         /*
     |--------------------------------------------------------------------------
     | Validar credenciales
@@ -242,9 +232,9 @@ class AuthController extends Controller
     */
 
         if (
-            !$user
+            ! $user
             ||
-            !Hash::check(
+            ! Hash::check(
                 $request->password,
                 $user->password
             )
@@ -255,23 +245,18 @@ class AuthController extends Controller
                 self::LOCKOUT_SECONDS
             );
 
-
             $remaining =
                 RateLimiter::remaining(
                     $key,
                     self::MAX_LOGIN_ATTEMPTS
                 );
 
-
             return response()->json([
-                'message' =>
-                'Correo o contraseña incorrectos.',
+                'message' => 'Correo o contraseña incorrectos.',
 
-                'attempts_remaining' =>
-                $remaining,
+                'attempts_remaining' => $remaining,
             ], 401);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -282,8 +267,7 @@ class AuthController extends Controller
         if ($user->status !== 'active') {
 
             return response()->json([
-                'message' =>
-                'La cuenta se encuentra inactiva.',
+                'message' => 'La cuenta se encuentra inactiva.',
             ], 403);
         }
 
@@ -303,12 +287,10 @@ class AuthController extends Controller
         if ($user->plan_restricted && $user->role?->name !== 'superadmin') {
 
             return response()->json([
-                'message' =>
-                'Tu cuenta está restringida por el plan actual de la empresa. '
-                    . 'Contacta al propietario o renueva el plan Pro.',
+                'message' => 'Tu cuenta está restringida por el plan actual de la empresa. '
+                    .'Contacta al propietario o renueva el plan Pro.',
             ], 403);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -316,14 +298,12 @@ class AuthController extends Controller
     |--------------------------------------------------------------------------
     */
 
-        if (!$user->hasVerifiedEmail()) {
+        if (! $user->hasVerifiedEmail()) {
 
             return response()->json([
-                'message' =>
-                'Debes verificar tu correo electrónico antes de iniciar sesión.',
+                'message' => 'Debes verificar tu correo electrónico antes de iniciar sesión.',
             ], 403);
         }
-
 
         /*
     |--------------------------------------------------------------------------
@@ -336,11 +316,9 @@ class AuthController extends Controller
             $request->boolean('remember')
         );
 
-
         $request
             ->session()
             ->regenerate();
-
 
         /*
     |--------------------------------------------------------------------------
@@ -351,7 +329,6 @@ class AuthController extends Controller
         RateLimiter::clear(
             $key
         );
-
 
         /*
     |--------------------------------------------------------------------------
@@ -364,40 +341,29 @@ class AuthController extends Controller
                 $user
             );
 
-
         $user->loadMissing(
             'role'
         );
 
-
         return response()->json([
-            'message' =>
-            'Inicio de sesión correcto.',
+            'message' => 'Inicio de sesión correcto.',
 
-            'access_token' =>
-            $token,
+            'access_token' => $token,
 
-            'token_type' =>
-            'Bearer',
+            'token_type' => 'Bearer',
 
-            'expires_in' =>
-            (int) config('jwt.ttl') * 60,
+            'expires_in' => (int) config('jwt.ttl') * 60,
 
             'user' => [
-                'id' =>
-                $user->id,
+                'id' => $user->id,
 
-                'name' =>
-                $user->name,
+                'name' => $user->name,
 
-                'email' =>
-                $user->email,
+                'email' => $user->email,
 
-                'company_id' =>
-                $user->company_id,
+                'company_id' => $user->company_id,
 
-                'role' =>
-                $user->role?->name,
+                'role' => $user->role?->name,
             ],
         ]);
     }
@@ -417,8 +383,7 @@ class AuthController extends Controller
             ->regenerateToken();
 
         return response()->json([
-            'message' =>
-            'Sesión cerrada correctamente.',
+            'message' => 'Sesión cerrada correctamente.',
         ]);
     }
 
@@ -456,6 +421,7 @@ class AuthController extends Controller
             function (User $user, string $password): void {
                 $user->forceFill([
                     'password' => Hash::make($password),
+                    'auth_version' => (string) Str::uuid(),
                 ]);
 
                 $user->setRememberToken(
@@ -482,8 +448,8 @@ class AuthController extends Controller
         ?string $ip
     ): string {
         return 'login:'
-            . strtolower($email)
-            . '|'
-            . ($ip ?? 'unknown');
+            .strtolower($email)
+            .'|'
+            .($ip ?? 'unknown');
     }
 }

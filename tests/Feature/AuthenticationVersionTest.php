@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Session\Store;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -24,6 +25,91 @@ class AuthenticationVersionTest extends TestCase
     private const INACTIVE_MESSAGE = 'La cuenta se encuentra inactiva.';
 
     private const EXPIRED_MESSAGE = 'Las credenciales han caducado. Inicia sesión nuevamente.';
+
+    #[DataProvider('roles')]
+    public function test_password_reset_revokes_old_jwts_and_preserves_identity(string $role): void
+    {
+        [, $user] = $this->createManagedUser($role);
+        $oldToken = $this->loginApi($user);
+        $secondToken = $this->loginApi($user);
+        $identity = $user->only(['company_id', 'role_id', 'is_company_owner', 'status', 'email_verified_at']);
+        $rememberToken = $user->remember_token;
+
+        $this->postJson('/api/password/reset', [
+            'email' => $user->email,
+            'token' => Password::createToken($user),
+            'password' => 'Nueva-Clave-123!',
+            'password_confirmation' => 'Nueva-Clave-123!',
+        ])->assertOk();
+
+        $version = $user->fresh()->authenticationVersion();
+        $this->assertTrue(Str::isUuid($version));
+        $this->assertNotSame($rememberToken, $user->fresh()->remember_token);
+        $this->assertEquals($identity, $user->fresh()->only(array_keys($identity)));
+
+        foreach ([$oldToken, $secondToken] as $token) {
+            $this->api($token, 'GET', '/api/greenhouses')
+                ->assertUnauthorized()->assertJsonPath('message', self::EXPIRED_MESSAGE);
+        }
+
+        $this->resetGuards();
+        $refreshed = JWTAuth::setToken($secondToken)->refresh();
+        $this->api($refreshed, 'GET', '/api/greenhouses')->assertUnauthorized();
+        $this->resetGuards();
+        $this->postJson('/api/login', ['email' => $user->email, 'password' => 'password'])->assertUnauthorized();
+        $this->resetGuards();
+        $newToken = $this->postJson('/api/login', [
+            'email' => $user->email, 'password' => 'Nueva-Clave-123!',
+        ])->assertOk()->json('access_token');
+        $this->assertSame($version, JWTAuth::setToken($newToken)->getPayload()->get('auth_version'));
+        $this->api($newToken, 'GET', '/api/greenhouses')->assertOk();
+    }
+
+    public function test_password_reset_revokes_an_unvisited_web_session_and_remember_cookie(): void
+    {
+        [, $user] = $this->createManagedUser('employee');
+        $response = $this->loginWeb($user, true);
+        $session = session()->all();
+        $recallerName = Auth::guard('web')->getRecallerName();
+        $recaller = $response->getCookie($recallerName);
+        $this->assertNotNull($recaller);
+
+        $this->postJson('/api/password/reset', [
+            'email' => $user->email, 'token' => Password::createToken($user),
+            'password' => 'Nueva-Clave-123!', 'password_confirmation' => 'Nueva-Clave-123!',
+        ])->assertOk();
+        $this->withSession($session);
+        $this->resetGuards();
+        $this->get('/dashboard')->assertRedirect(route('login'))
+            ->assertSessionHas('error', self::EXPIRED_MESSAGE);
+        $this->assertGuest('web');
+
+        $this->clearBrowserSession();
+        $this->withCookie($recallerName, $recaller->getValue());
+        $this->get('/dashboard')->assertRedirect(route('login'));
+        $this->assertGuest('web');
+
+        $this->resetGuards();
+        $this->withCredentials()->postJson('/login', [
+            'email' => $user->email, 'password' => 'Nueva-Clave-123!',
+        ])->assertOk();
+        $this->assertSame($user->fresh()->authenticationVersion(), session(User::AUTH_VERSION_SESSION_KEY.'.version'));
+        $this->resetGuards();
+        $this->get('/dashboard')->assertOk();
+    }
+
+    public function test_unsuccessful_reset_does_not_revoke_credentials(): void
+    {
+        [, $user] = $this->createManagedUser('employee');
+        $token = $this->loginApi($user);
+        $before = $user->fresh()->only(['password', 'auth_version', 'remember_token']);
+        $this->postJson('/api/password/reset', [
+            'email' => $user->email, 'token' => 'invalid-token',
+            'password' => 'Nueva-Clave-123!', 'password_confirmation' => 'Nueva-Clave-123!',
+        ])->assertUnprocessable();
+        $this->assertSame($before, $user->fresh()->only(array_keys($before)));
+        $this->api($token, 'GET', '/api/greenhouses')->assertOk();
+    }
 
     public static function roles(): array
     {
