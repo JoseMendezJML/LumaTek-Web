@@ -20,8 +20,12 @@ class ManualSubscriptionController extends Controller
         return response()->json(['quote' => $service->quote($request->user(), $data['billing_period'], $data['request_key'])]);
     }
 
-    public function confirm(Request $request, SubscriptionQuote $quote, SubscriptionContractService $service): JsonResponse
+    public function confirm(Request $request, string $quote, SubscriptionContractService $service): JsonResponse
     {
+        // Resolve only after platform.admin has authorized the request, so binding
+        // cannot reveal quote existence through different 403/404 responses.
+        $quote = SubscriptionQuote::findOrFail($quote);
+
         $data = $request->validate([
             'medium' => ['required', 'string', 'max:100'],
             'reference' => ['required', 'string', 'max:255'],

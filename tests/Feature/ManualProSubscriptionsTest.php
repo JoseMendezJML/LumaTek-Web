@@ -129,6 +129,48 @@ class ManualProSubscriptionsTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
+    public static function unauthorizedQuoteLookups(): array
+    {
+        return [['company_admin', true, 'active'], ['company_admin', false, 'active'],
+            ['employee', false, 'active'], ['company_admin', true, 'inactive'], ['superadmin', false, 'inactive']];
+    }
+
+    #[DataProvider('unauthorizedQuoteLookups')]
+    public function test_unauthorized_users_cannot_distinguish_existing_and_missing_quotes(string $role, bool $owner, string $status): void
+    {
+        config(['app.debug' => false]);
+        $this->catalog();
+        $quote = $this->service()->quote($this->actor(), 'monthly', 'private-quote');
+        $unauthorized = $this->actor($role, $owner, $status);
+        $payload = ['medium' => 'bank_transfer', 'reference' => 'External receipt'];
+        DB::enableQueryLog();
+        $existing = $this->jwt($unauthorized)->postJson('/api/platform/pro/quotes/'.$quote->id.'/confirm', $payload)->assertForbidden();
+        $missing = $this->jwt($unauthorized)->postJson('/api/platform/pro/quotes/'.($quote->id + 1000).'/confirm', $payload)->assertForbidden();
+        $quoteQueries = collect(DB::getQueryLog())->filter(fn ($query) => str_contains($query['query'], 'subscription_quotes'));
+        DB::disableQueryLog();
+        $this->assertSame($existing->json(), $missing->json());
+        $this->assertCount(0, $quoteQueries);
+        $this->assertDatabaseCount('subscriptions', 0);
+        $this->assertDatabaseCount('subscription_contracts', 0);
+        $this->assertDatabaseCount('subscription_manual_confirmations', 0);
+    }
+
+    public function test_authorized_quote_lookup_preserves_missing_response_and_idempotent_confirmation(): void
+    {
+        $this->catalog();
+        $quote = $this->service()->quote($this->actor(), 'monthly', 'authorized-lookup');
+        $admin = $this->actor('superadmin', false);
+        $payload = ['medium' => 'bank_transfer', 'reference' => 'External receipt'];
+        $this->jwt($admin)->postJson('/api/platform/pro/quotes/'.($quote->id + 1000).'/confirm', $payload)->assertNotFound();
+        $first = $this->jwt($admin)->postJson('/api/platform/pro/quotes/'.$quote->id.'/confirm', $payload)->assertOk();
+        $this->travelTo($quote->expires_at->addDay());
+        $retry = $this->jwt($admin)->postJson('/api/platform/pro/quotes/'.$quote->id.'/confirm', $payload)->assertOk();
+        $this->assertSame($first->json('confirmation.id'), $retry->json('confirmation.id'));
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertDatabaseCount('subscription_contracts', 1);
+        $this->assertDatabaseCount('subscription_manual_confirmations', 1);
+    }
+
     public function test_frozen_quote_survives_catalog_changes_and_deactivation_and_audits_external_confirmation(): void
     {
         $plan = $this->catalog();
