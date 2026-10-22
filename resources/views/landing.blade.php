@@ -12,7 +12,7 @@
 
     <meta
         name="description"
-        content="LumaTek - Monitoreo inteligente para invernaderos."
+        content="LumaTek: gestión de invernaderos, lecturas de temperatura y humedad, alertas, reportes y configuración de riego. Consulta los planes disponibles."
     >
 
     <title>
@@ -646,6 +646,7 @@
         }
 
         .plan-name {
+            margin: 0;
             color: var(--green-dark);
 
             font-size: 18px;
@@ -677,6 +678,11 @@
             line-height: 1.6;
         }
 
+        .plan-terms {
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
         .plan-divider {
             height: 1px;
 
@@ -699,8 +705,8 @@
 
             color: #4c5d53;
 
-            font-size: 11px;
-            line-height: 1.45;
+            font-size: 13px;
+            line-height: 1.55;
         }
 
         .plan-check {
@@ -1295,9 +1301,12 @@
                     href="#soluciones"
                     class="nav-link"
                 >
-                    Soluciones
+                    Características
                 </a>
 
+                <a href="#funcionamiento" class="nav-link">
+                    Cómo funciona
+                </a>
                 <a
                     href="#planes"
                     class="nav-link"
@@ -1379,10 +1388,9 @@
 
 
             <p class="hero-description">
-                Supervisa las condiciones de tus invernaderos,
-                organiza zonas, sensores y dispositivos, recibe
-                alertas y toma decisiones con información
-                centralizada en una sola plataforma.
+                Consulta las lecturas registradas de temperatura y humedad,
+                organiza invernaderos, zonas, dispositivos y sensores,
+                y revisa alertas, historial y reportes desde una sola plataforma.
             </p>
 
 
@@ -1392,7 +1400,7 @@
                     href="{{ route('register') }}"
                     class="hero-primary"
                 >
-                    Comenzar gratis
+                    Crear cuenta
                 </a>
 
 
@@ -1446,7 +1454,7 @@
         <div class="section-heading">
 
             <span class="section-label">
-                Soluciones
+                Características
             </span>
 
             <h2>
@@ -1551,9 +1559,9 @@
                 </h3>
 
                 <p>
-                    Registra riegos manuales y configura reglas
-                    de riego automático de acuerdo con la humedad
-                    del suelo.
+                    Registra riegos y configura en el software los
+                    umbrales de humedad, la duración y los intervalos
+                    del riego. La actuación física requiere pruebas en hardware.
                 </p>
 
             </article>
@@ -1577,6 +1585,24 @@
 
             </article>
 
+            <article class="feature-card">
+                <div class="feature-icon">RPT</div>
+                <h3>Reportes</h3>
+                <p>Consulta y exporta reportes por invernadero y periodo con las lecturas, alertas y riegos registrados.</p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-icon">USR</div>
+                <h3>Usuarios y permisos</h3>
+                <p>Organiza propietarios, administradores adicionales y empleados según los límites del plan y los permisos de cada cuenta.</p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-icon">LMA</div>
+                <h3>Asistente Luma</h3>
+                <p>Consulta al asistente desde tu cuenta cuando el servicio esté configurado y disponible. Su funcionamiento depende de la configuración y los límites del servicio.</p>
+            </article>
+
         </div>
 
     </div>
@@ -1588,14 +1614,14 @@
      FUNCIONAMIENTO
 ============================================================= --}}
 
-<section class="section">
+<section id="funcionamiento" class="section">
 
     <div class="container">
 
         <div class="section-heading">
 
             <span class="section-label">
-                Funcionamiento
+                Cómo funciona
             </span>
 
             <h2>
@@ -1604,9 +1630,9 @@
             </h2>
 
             <p>
-                Desde la empresa hasta cada sensor,
-                la información se organiza de manera
-                clara y separada.
+                Gestiona la estructura y la configuración del software.
+                La conexión con ESP32 y la activación física de bombas
+                requieren integración y pruebas en hardware.
             </p>
 
         </div>
@@ -1625,8 +1651,8 @@
                 </h3>
 
                 <p>
-                    Crea la cuenta administrativa de tu empresa
-                    para comenzar a trabajar en LumaTek.
+                    Crea tu cuenta de propietario. Consulta los planes
+                    disponibles y solicita una cotización Pro desde Mi suscripción.
                 </p>
 
             </article>
@@ -1643,8 +1669,8 @@
                 </h3>
 
                 <p>
-                    Organiza tus invernaderos y divide cada uno
-                    en las zonas que necesites.
+                    Organiza tus invernaderos y sus zonas de acuerdo
+                    con la capacidad del plan efectivo de tu empresa.
                 </p>
 
             </article>
@@ -1657,12 +1683,12 @@
                 </span>
 
                 <h3>
-                    Conecta dispositivos
+                    Registra dispositivos y sensores
                 </h3>
 
                 <p>
-                    Asocia dispositivos y sensores para registrar
-                    las variables del cultivo.
+                    Administra los dispositivos y sensores asociados a tus zonas
+                    y consulta las lecturas disponibles en la plataforma.
                 </p>
 
             </article>
@@ -1679,8 +1705,8 @@
                 </h3>
 
                 <p>
-                    Consulta lecturas, alertas, historial y riego
-                    desde el panel de monitoreo.
+                    Consulta lecturas, alertas, historial y reportes.
+                    Gestiona el riego desde el software con los permisos de tu cuenta.
                 </p>
 
             </article>
@@ -1715,8 +1741,8 @@
             </h2>
 
             <p>
-                LumaTek contempla dos niveles para adaptarse
-                a diferentes necesidades de monitoreo.
+                Consulta los precios y capacidades del catálogo vigente.
+                Pro se contrata mediante cotización y confirmación manual del pago externo.
             </p>
 
         </div>
@@ -1724,146 +1750,48 @@
 
         <div class="plans-grid">
 
-            {{-- GRATIS --}}
-
-<article class="plan-card">
-
-    <div class="plan-name">
-        Gratis
-    </div>
-
-    <div class="plan-price">
-        $0
-
-        <small>
-            MXN
-        </small>
-    </div>
-
-    <p class="plan-description">
-        Para comenzar a gestionar y monitorear
-        un invernadero con LumaTek.
-    </p>
-
-    <div class="plan-divider"></div>
-
-    <div class="plan-list">
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Gestión de invernaderos
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Organización por zonas
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Monitoreo de sensores
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Resumen general
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Centro de alertas
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Gestión de riego
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Historial y gráficas
-        </div>
-
-    </div>
-
-    <a
-        href="{{ route('register') }}"
-        class="plan-button"
-    >
-        Crear cuenta gratis
-    </a>
-
-</article>
-
-
-{{-- PRO --}}
-
-<article class="plan-card pro">
-
-    <span class="plan-featured">
-        Próximamente
-    </span>
-
-    <div class="plan-name">
-        Pro
-    </div>
-
-    <div class="plan-price">
-        Próximamente
-    </div>
-
-    <p class="plan-description">
-        Pensado para empresas que requieran
-        mayor capacidad de administración,
-        análisis y seguimiento.
-    </p>
-
-    <div class="plan-divider"></div>
-
-    <div class="plan-list">
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Mayor capacidad de invernaderos
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Mayor capacidad de zonas y sensores
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Historial ampliado
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Reportes y exportación
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Más usuarios por empresa
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Funciones avanzadas de monitoreo
-        </div>
-
-        <div class="plan-item">
-            <span class="plan-check">✓</span>
-            Herramientas adicionales de gestión
-        </div>
-
-    </div>
-
-    <span class="plan-button">
-        Disponible próximamente
-    </span>
-
-</article>
+            @forelse($plans as $plan)
+                <article @class(['plan-card', 'pro' => $plan['slug'] === 'pro']) data-plan="{{ $plan['slug'] }}">
+                    @if($plan['slug'] === 'pro')
+                        <span class="plan-featured">Contratación manual</span>
+                    @endif
+                    <h3 class="plan-name">{{ $plan['name'] }}</h3>
+                    <div class="plan-price">
+                        {{ $plan['monthly'] ?? 'Precio mensual por confirmar' }}
+                        @if($plan['monthly'] !== null)<small>/ mes</small>@endif
+                    </div>
+                    @if($plan['slug'] === 'pro' || $plan['yearly'] !== null)
+                        <p class="plan-description">
+                            {{ $plan['yearly'] !== null ? 'Anual: '.$plan['yearly'].' / año' : 'Precio anual por confirmar' }}
+                        </p>
+                    @endif
+                    <p class="plan-description">{{ filled($plan['description']) ? $plan['description'] : 'Capacidad y condiciones del catálogo vigente.' }}</p>
+                    <div class="plan-divider"></div>
+                    <div class="plan-list">
+                        @foreach($plan['limits'] as $label => $limit)
+                            <div class="plan-item">
+                                <span class="plan-check" aria-hidden="true">✓</span>
+                                <span>{{ $label }}: <strong>{{ $limit }}</strong></span>
+                            </div>
+                        @endforeach
+                    </div>
+                    @if($plan['slug'] === 'free')
+                        <a href="{{ route('register') }}" class="plan-button">Crear cuenta gratis</a>
+                    @else
+                        <p class="plan-description plan-terms">Solicitar una cotización no activa Pro. La activación requiere confirmación manual del pago externo. No hay cobros ni renovaciones automáticas.</p>
+                        @if($proAudience === 'owner')
+                            <a href="{{ route('subscription.index') }}" class="plan-button">Mi suscripción</a>
+                        @elseif($proAudience === 'guest')
+                            <a href="{{ route('login') }}" class="plan-button">Iniciar sesión para solicitar Pro</a>
+                            <p class="plan-description plan-terms">Si aún no tienes cuenta, <a href="{{ route('register') }}">registra tu empresa</a>. Como propietario podrás solicitar una cotización desde Mi suscripción.</p>
+                        @else
+                            <p class="plan-description plan-terms">La solicitud de Pro está disponible únicamente para propietarios de empresas activas.</p>
+                        @endif
+                    @endif
+                </article>
+            @empty
+                <p>Los planes no están disponibles temporalmente. Consulta más adelante.</p>
+            @endforelse
 
         </div>
 
@@ -1901,9 +1829,9 @@
                 <p>
                     LumaTek nace como una plataforma orientada
                     al monitoreo y gestión de invernaderos,
-                    integrando información de sensores,
-                    alertas, riego e historial en un entorno
-                    centralizado.
+                    reuniendo lecturas registradas, alertas,
+                    historial, reportes y configuración de riego
+                    en un entorno centralizado.
                 </p>
 
                 <p>
@@ -1964,12 +1892,12 @@
                 <article class="about-value">
 
                     <strong>
-                        Escalabilidad
+                        Planes
                     </strong>
 
                     <span>
-                        Una base preparada para incorporar
-                        nuevas funciones y servicios.
+                        Capacidades de los planes Gratis y Pro
+                        publicadas según el catálogo vigente.
                     </span>
 
                 </article>
@@ -2062,7 +1990,7 @@
                 </strong>
 
                 <a href="#soluciones">
-                    Soluciones
+                    Características
                 </a>
 
                 <a href="#planes">
