@@ -528,74 +528,18 @@ class AlertController extends Controller
     }
 
 
-    /**
-     * Etiqueta legible para el tipo de alerta.
-     */
-    private function typeLabel(
-        string $type
-    ): string {
-
-        return match ($type) {
-
-            'high_temperature' =>
-                'Temperatura alta',
-
-            'low_temperature' =>
-                'Temperatura baja',
-
-            'low_soil_humidity' =>
-                'Humedad del suelo baja',
-
-            'high_ambient_humidity' =>
-                'Humedad ambiental alta',
-
-            default =>
-                'Alerta de monitoreo',
-        };
+    private function typeLabel(string $type): string
+    {
+        return Alert::typeLabel($type);
     }
 
-
-    /**
-     * Etiqueta legible para severidad.
-     */
-    private function severityLabel(
-        string $severity
-    ): string {
-
-        return match ($severity) {
-
-            'critical' =>
-                'Crítica',
-
-            'warning' =>
-                'Advertencia',
-
-            default =>
-                'Informativa',
-        };
+    private function severityLabel(string $severity): string
+    {
+        return Alert::severityLabel($severity);
     }
 
-
-    /**
-     * Etiqueta legible para estado.
-     */
-    private function statusLabel(
-        string $status
-    ): string {
-
-        return match ($status) {
-
-            'active' =>
-                'Activa',
-
-            'acknowledged' =>
-                'Atendida',
-
-            'resolved' =>
-                'Resuelta',
-
-            default =>
-                $status,
-        };
+    private function statusLabel(string $status): string
+    {
+        return Alert::statusLabel($status);
     }
 }
