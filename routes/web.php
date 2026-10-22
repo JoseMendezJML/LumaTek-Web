@@ -73,9 +73,6 @@ Route::middleware([
     Route::view('/reports', 'reports.index')
         ->name('reports.index');
 
-    Route::view('/assistant', 'assistant.index')
-        ->name('assistant.index');
-
     Route::middleware('company.admin')->group(function () {
 
         Route::view('/users', 'users.index')

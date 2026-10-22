@@ -1,4 +1,4 @@
-# Asistente LumaTek (chatbot): diseño
+# Luma, asistente de LumaTek (chatbot): diseño
 
 Fecha: 2026-10-22 · Rama: `feature/chatbot`
 
@@ -52,8 +52,7 @@ App móvil            ─┘        │
 | `routes/api.php` | `POST /chat` dentro del grupo `auth:api`, con `throttle:10,1`. Nombre: `api.chat.send`. |
 | `config/services.php` | Bloque `anthropic`: `api_key`, `model`, `daily_limit`, `timeout`. |
 | `.env.example` | `ANTHROPIC_API_KEY=`, `ANTHROPIC_MODEL=claude-opus-5-5`, `CHAT_DAILY_LIMIT=50`. |
-| `routes/web.php` | `Route::view('/assistant', 'assistant.index')->name('assistant.index')` dentro del grupo `auth`, `active.user`, `plan.access`. |
-| `resources/views/assistant/index.blade.php` | Interfaz web del chat. |
+| `resources/views/assistant/partials/widget.blade.php` | Botón flotante y panel de chat de Luma, incluido desde `layouts/app.blade.php` para usuarios con empresa. |
 | `resources/views/layouts/app.blade.php` | Enlace "Asistente" en el menú lateral y limpieza de `lumatek_chat_history` al cerrar sesión. |
 | `docs/chatbot.md` | Contrato del endpoint para el equipo móvil. |
 
@@ -160,7 +159,13 @@ la consola de Anthropic.
 
 Ningún error consume el límite diario.
 
-## Interfaz web (`/assistant`)
+## Interfaz web (Luma, botón flotante)
+
+> Actualización 2026-10-23: la página `/assistant` se reemplazó por un botón
+> flotante en la esquina inferior derecha de todas las páginas de la empresa.
+> Abre un panel (380×560 px; pantalla completa en celular) con el mismo
+> comportamiento descrito abajo. El asistente se llama **Luma**. El estado
+> abierto/cerrado se recuerda en `sessionStorage` (`lumatek_luma_open`).
 
 - Encabezado con "Quedan N hoy" y el botón "Nueva conversación".
 - Estado vacío con sugerencias: "Resumen de mis invernaderos", "¿Qué alertas debo
@@ -199,7 +204,7 @@ Ningún error consume el límite diario.
 - `GET /api/dashboard` mantiene su estructura y valores tras la extracción.
 
 `tests/Feature/AssistantPageTest.php`:
-- `/assistant` redirige si no hay sesión y responde 200 con sesión activa.
+- El botón de Luma aparece en las páginas de la empresa, no en las de invitado, y `/assistant` ya no existe.
 
 No se hacen llamadas reales a la API en las pruebas. La verificación manual
 con una API key real queda como paso aparte, con autorización.

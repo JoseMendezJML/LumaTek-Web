@@ -74,6 +74,7 @@ class ClaudeChatAssistantTest extends TestCase
         $this->assertSame(['server-side-fallback-2026-07-01'], $request['betas']);
         $this->assertCount(2, $request['system']);
         $this->assertStringContainsString('asistente agronómico de LumaTek', $request['system'][0]['text']);
+        $this->assertStringContainsString('Te llamas Luma', $request['system'][0]['text']);
         $this->assertSame(['type' => 'ephemeral'], $request['system'][0]['cacheControl']);
         $this->assertStringContainsString(json_encode($this->snapshot, JSON_UNESCAPED_UNICODE), $request['system'][1]['text']);
         $this->assertSame($this->question(), $request['messages']);

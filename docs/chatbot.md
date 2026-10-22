@@ -1,8 +1,9 @@
-# Asistente LumaTek: contrato para la web y la app móvil
+# Luma, el asistente de LumaTek: contrato para la web y la app móvil
 
-El asistente resume el estado de los invernaderos de la empresa, da consejos
+Luma resume el estado de los invernaderos de la empresa, da consejos
 agronómicos y analiza fotos para orientar la detección de plagas. La web
-(`/assistant`) y la app móvil usan el mismo endpoint.
+(botón flotante en la esquina inferior derecha de las páginas de la empresa)
+y la app móvil usan el mismo endpoint.
 
 El servidor **no guarda conversaciones**: cada cliente guarda su historial y lo
 envía completo en cada mensaje.

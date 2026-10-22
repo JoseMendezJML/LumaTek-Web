@@ -1,288 +1,301 @@
-@extends('layouts.app')
+{{-- =========================================================
+     LUMA: asistente flotante de LumaTek
+     Usa POST /api/chat, igual que la app móvil.
+========================================================== --}}
 
-@section('title', 'Asistente | LumaTek')
+<button
+    type="button"
+    id="luma-launcher"
+    class="luma-launcher"
+    aria-label="Abrir a Luma, el asistente de LumaTek"
+    aria-controls="luma-panel"
+    aria-expanded="false"
+    hidden
+>
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+        <path
+            fill="currentColor"
+            d="M12 3C6.48 3 2 6.92 2 11.75c0 2.4 1.1 4.57 2.9 6.15L4 21.5a.5.5 0 0 0 .72.55l4.05-2.13c1.02.27 2.11.42 3.23.42 5.52 0 10-3.92 10-8.75S17.52 3 12 3Zm4.6 5.1c-.2 2.9-2.3 5.2-5.1 5.4-.4 0-.7.3-.7.7v.6a.6.6 0 0 1-1.2 0v-.6c0-1 .7-1.8 1.7-1.9 1.9-.2 3.4-1.8 3.6-3.7-1.9.1-3.5 1.6-3.7 3.5a.6.6 0 0 1-1.2-.1c.3-2.7 2.6-4.7 5.3-4.6.7 0 1.3.1 1.3.7Z"
+        />
+    </svg>
+</button>
 
-@section('page-title', 'Asistente')
 
-@section(
-    'page-subtitle',
-    'Resúmenes de tus invernaderos, consejos agronómicos y detección de plagas'
-)
+<section
+    id="luma-panel"
+    class="luma-panel"
+    role="dialog"
+    aria-label="Luma, asistente de LumaTek"
+    hidden
+>
 
-@section('content')
+    {{-- ENCABEZADO --}}
 
-<div class="assistant-page">
+    <header class="luma-header">
 
-    <section class="assistant-card">
+        <div class="luma-avatar" aria-hidden="true">L</div>
 
-        {{-- =========================================================
-             ENCABEZADO
-        ========================================================== --}}
+        <div class="luma-title">
+            <strong>Luma</strong>
+            <span>Asistente de LumaTek</span>
+        </div>
 
-        <div class="assistant-header">
+        <span
+            id="luma-remaining"
+            class="luma-remaining"
+        ></span>
 
-            <div>
-                <h2>Asistente LumaTek</h2>
+        <button
+            type="button"
+            id="luma-reset"
+            class="luma-icon-button"
+            title="Nueva conversación"
+            aria-label="Nueva conversación"
+        >
+            ↺
+        </button>
 
-                <p>
-                    Las respuestas usan los datos actuales de tus invernaderos.
-                </p>
-            </div>
+        <button
+            type="button"
+            id="luma-close"
+            class="luma-icon-button"
+            title="Cerrar"
+            aria-label="Cerrar a Luma"
+        >
+            ✕
+        </button>
 
-            <div class="assistant-header-actions">
+    </header>
 
-                <span
-                    id="assistant-remaining"
-                    class="assistant-remaining"
-                ></span>
+
+    {{-- MENSAJES --}}
+
+    <div
+        id="luma-messages"
+        class="luma-messages"
+        aria-live="polite"
+    >
+
+        <div
+            id="luma-empty"
+            class="luma-empty"
+        >
+
+            <p>
+                Hola, soy <strong>Luma</strong>. Conozco el estado de tus
+                invernaderos, te doy consejos agronómicos y reviso fotos de
+                posibles plagas.
+            </p>
+
+            <div class="luma-suggestions">
 
                 <button
                     type="button"
-                    id="assistant-reset"
-                    class="secondary-button"
+                    class="luma-suggestion"
+                    data-suggestion="Dame un resumen de mis invernaderos."
                 >
-                    Nueva conversación
+                    Resumen de mis invernaderos
+                </button>
+
+                <button
+                    type="button"
+                    class="luma-suggestion"
+                    data-suggestion="¿Qué alertas debo atender primero?"
+                >
+                    ¿Qué alertas debo atender?
+                </button>
+
+                <button
+                    type="button"
+                    class="luma-suggestion"
+                    data-suggestion="¿Qué plaga o problema ves en esta foto?"
+                    data-photo="1"
+                >
+                    Analizar foto de una plaga
                 </button>
 
             </div>
 
         </div>
 
+    </div>
 
-        {{-- =========================================================
-             MENSAJES
-        ========================================================== --}}
+
+    {{-- AVISOS --}}
+
+    <div
+        id="luma-notice"
+        class="luma-notice"
+        role="alert"
+        hidden
+    ></div>
+
+
+    {{-- FORMULARIO --}}
+
+    <form
+        id="luma-form"
+        class="luma-form"
+    >
 
         <div
-            id="assistant-messages"
-            class="assistant-messages"
-            aria-live="polite"
+            id="luma-preview"
+            class="luma-preview"
+            hidden
         >
-
-            <div
-                id="assistant-empty"
-                class="assistant-empty"
+            <img
+                id="luma-preview-image"
+                alt="Foto adjunta"
             >
 
-                <p>
-                    ¿En qué te ayudo hoy? Prueba con una sugerencia:
-                </p>
+            <span id="luma-preview-name"></span>
 
-                <div class="assistant-suggestions">
-
-                    <button
-                        type="button"
-                        class="suggestion-button"
-                        data-suggestion="Dame un resumen de mis invernaderos."
-                    >
-                        Resumen de mis invernaderos
-                    </button>
-
-                    <button
-                        type="button"
-                        class="suggestion-button"
-                        data-suggestion="¿Qué alertas debo atender primero?"
-                    >
-                        ¿Qué alertas debo atender?
-                    </button>
-
-                    <button
-                        type="button"
-                        class="suggestion-button"
-                        data-suggestion="¿Qué plaga o problema ves en esta foto?"
-                        data-photo="1"
-                    >
-                        Analizar foto de una plaga
-                    </button>
-
-                </div>
-
-            </div>
-
+            <button
+                type="button"
+                id="luma-preview-remove"
+                class="luma-preview-remove"
+                aria-label="Quitar foto"
+            >
+                ✕
+            </button>
         </div>
 
+        <div class="luma-input-row">
 
-        {{-- =========================================================
-             AVISOS
-        ========================================================== --}}
-
-        <div
-            id="assistant-notice"
-            class="assistant-notice"
-            role="alert"
-            hidden
-        ></div>
-
-
-        {{-- =========================================================
-             FORMULARIO
-        ========================================================== --}}
-
-        <form
-            id="assistant-form"
-            class="assistant-form"
-        >
-
-            <div
-                id="assistant-preview"
-                class="assistant-preview"
+            <input
+                type="file"
+                id="luma-file"
+                accept="image/jpeg,image/png,image/webp"
                 hidden
             >
-                <img
-                    id="assistant-preview-image"
-                    alt="Foto adjunta"
-                >
 
-                <span id="assistant-preview-name"></span>
+            <button
+                type="button"
+                id="luma-attach"
+                class="luma-attach"
+                aria-label="Adjuntar foto"
+                title="Adjuntar foto (JPG, PNG o WEBP)"
+            >
+                📎
+            </button>
 
-                <button
-                    type="button"
-                    id="assistant-preview-remove"
-                    class="preview-remove"
-                    aria-label="Quitar foto"
-                >
-                    ✕
-                </button>
-            </div>
+            <textarea
+                id="luma-input"
+                rows="1"
+                maxlength="4000"
+                placeholder="Pregúntale a Luma…"
+            ></textarea>
 
-            <div class="assistant-input-row">
+            <button
+                type="submit"
+                id="luma-send"
+                class="luma-send"
+            >
+                Enviar
+            </button>
 
-                <input
-                    type="file"
-                    id="assistant-file"
-                    accept="image/jpeg,image/png,image/webp"
-                    hidden
-                >
+        </div>
 
-                <button
-                    type="button"
-                    id="assistant-attach"
-                    class="attach-button"
-                    aria-label="Adjuntar foto"
-                    title="Adjuntar foto (JPG, PNG o WEBP)"
-                >
-                    📎
-                </button>
+    </form>
 
-                <textarea
-                    id="assistant-input"
-                    rows="1"
-                    maxlength="4000"
-                    placeholder="Escribe tu mensaje…"
-                ></textarea>
+</section>
 
-                <button
-                    type="submit"
-                    id="assistant-send"
-                    class="primary-button"
-                >
-                    Enviar
-                </button>
-
-            </div>
-
-        </form>
-
-    </section>
-
-</div>
-
-@endsection
-
-
-@push('styles')
 
 <style>
 
-    .assistant-page {
-        width: 100%;
+    /* =========================================================
+       BOTÓN FLOTANTE
+    ========================================================== */
+
+    .luma-launcher {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 1000;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 58px;
+        height: 58px;
+
+        border: 0;
+        border-radius: 50%;
+
+        background: #176136;
+
+        color: #ffffff;
+
+        box-shadow: 0 8px 22px rgba(23, 61, 39, .32);
+
+        cursor: pointer;
+
+        transition: transform .15s ease, background .15s ease;
     }
 
 
-    .assistant-card {
+    .luma-launcher[hidden] {
+        display: none;
+    }
+
+
+    .luma-launcher:hover {
+        background: #104c2a;
+
+        transform: translateY(-2px);
+    }
+
+
+    .luma-launcher:focus-visible,
+    .luma-icon-button:focus-visible,
+    .luma-suggestion:focus-visible,
+    .luma-send:focus-visible,
+    .luma-attach:focus-visible {
+        outline: 3px solid #8cc9a2;
+        outline-offset: 2px;
+    }
+
+
+    /* =========================================================
+       PANEL
+    ========================================================== */
+
+    .luma-panel {
+        position: fixed;
+        right: 24px;
+        bottom: 96px;
+        z-index: 1001;
+
         display: flex;
         flex-direction: column;
 
-        height: calc(100vh - 170px);
-        min-height: 480px;
+        width: 380px;
+        height: min(560px, calc(100vh - 120px));
 
         background: #ffffff;
 
         border: 1px solid #e0e8e2;
-        border-radius: 14px;
+        border-radius: 16px;
+
+        box-shadow: 0 18px 48px rgba(23, 61, 39, .22);
 
         overflow: hidden;
     }
 
 
-    /* =========================================================
-       ENCABEZADO
-    ========================================================== */
-
-    .assistant-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-
-        gap: 15px;
-
-        padding: 16px 20px;
-
-        border-bottom: 1px solid #e0e8e2;
+    .luma-panel[hidden] {
+        display: none;
     }
 
 
-    .assistant-header h2 {
-        margin: 0;
-
-        color: #173d27;
-
-        font-size: 17px;
-    }
-
-
-    .assistant-header p {
-        margin: 5px 0 0;
-
-        color: #78837c;
-
-        font-size: 10px;
-    }
-
-
-    .assistant-header-actions {
+    .luma-header {
         display: flex;
         align-items: center;
 
-        gap: 12px;
-    }
+        gap: 10px;
 
-
-    .assistant-remaining {
-        color: #55645b;
-
-        font-size: 10px;
-        white-space: nowrap;
-    }
-
-
-    .primary-button,
-    .secondary-button {
-        min-height: 38px;
-
-        padding: 9px 15px;
-
-        border-radius: 8px;
-
-        cursor: pointer;
-
-        font-size: 11px;
-        font-weight: 700;
-    }
-
-
-    .primary-button {
-        border: 0;
+        padding: 12px 14px;
 
         background: #176136;
 
@@ -290,29 +303,80 @@
     }
 
 
-    .primary-button:hover {
-        background: #104c2a;
-    }
+    .luma-avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
+        width: 34px;
+        height: 34px;
+        flex-shrink: 0;
 
-    .secondary-button {
-        border: 1px solid #cfdcd3;
+        border-radius: 50%;
 
         background: #ffffff;
 
         color: #176136;
+
+        font-weight: 800;
     }
 
 
-    .secondary-button:hover {
-        background: #f1f7f3;
+    .luma-title {
+        display: flex;
+        flex-direction: column;
+
+        flex: 1;
+
+        min-width: 0;
+
+        line-height: 1.2;
     }
 
 
-    .primary-button:disabled,
-    .secondary-button:disabled,
-    .attach-button:disabled {
-        opacity: .55;
+    .luma-title strong {
+        font-size: 14px;
+    }
+
+
+    .luma-title span,
+    .luma-remaining {
+        font-size: 10px;
+
+        opacity: .85;
+    }
+
+
+    .luma-remaining {
+        white-space: nowrap;
+    }
+
+
+    .luma-icon-button {
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+
+        border: 0;
+        border-radius: 8px;
+
+        background: rgba(255, 255, 255, .14);
+
+        color: #ffffff;
+
+        cursor: pointer;
+
+        font-size: 14px;
+    }
+
+
+    .luma-icon-button:hover {
+        background: rgba(255, 255, 255, .26);
+    }
+
+
+    .luma-icon-button:disabled {
+        opacity: .5;
 
         cursor: not-allowed;
     }
@@ -322,15 +386,15 @@
        MENSAJES
     ========================================================== */
 
-    .assistant-messages {
+    .luma-messages {
         flex: 1;
 
         display: flex;
         flex-direction: column;
 
-        gap: 12px;
+        gap: 10px;
 
-        padding: 20px;
+        padding: 14px;
 
         background: #f7faf8;
 
@@ -338,31 +402,29 @@
     }
 
 
-    .assistant-empty {
-        margin: auto;
-
-        max-width: 520px;
+    .luma-empty {
+        margin: auto 0;
 
         color: #55645b;
 
         font-size: 12px;
+        line-height: 1.5;
         text-align: center;
     }
 
 
-    .assistant-suggestions {
+    .luma-suggestions {
         display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
+        flex-direction: column;
 
-        gap: 8px;
+        gap: 6px;
 
-        margin-top: 12px;
+        margin-top: 10px;
     }
 
 
-    .suggestion-button {
-        padding: 9px 13px;
+    .luma-suggestion {
+        padding: 8px 12px;
 
         border: 1px solid #cfdcd3;
         border-radius: 999px;
@@ -377,26 +439,26 @@
     }
 
 
-    .suggestion-button:hover {
+    .luma-suggestion:hover {
         background: #eaf4ed;
     }
 
 
-    .chat-bubble {
-        max-width: min(680px, 85%);
+    .luma-bubble {
+        max-width: 88%;
 
-        padding: 11px 14px;
+        padding: 9px 12px;
 
         border-radius: 12px;
 
-        font-size: 12.5px;
-        line-height: 1.55;
+        font-size: 12px;
+        line-height: 1.5;
 
         overflow-wrap: anywhere;
     }
 
 
-    .chat-bubble.user {
+    .luma-bubble.user {
         align-self: flex-end;
 
         background: #176136;
@@ -407,7 +469,7 @@
     }
 
 
-    .chat-bubble.assistant {
+    .luma-bubble.assistant {
         align-self: flex-start;
 
         background: #ffffff;
@@ -420,33 +482,33 @@
     }
 
 
-    .chat-bubble.pending {
+    .luma-bubble.pending {
         color: #78837c;
 
         font-style: italic;
     }
 
 
-    .chat-bubble ul {
+    .luma-bubble ul {
         margin: 6px 0;
 
         padding-left: 18px;
     }
 
 
-    .chat-bubble-image {
+    .luma-bubble-image {
         display: block;
 
-        max-width: 220px;
-        max-height: 220px;
+        max-width: 180px;
+        max-height: 180px;
 
-        margin-bottom: 8px;
+        margin-bottom: 6px;
 
         border-radius: 8px;
     }
 
 
-    .chat-bubble-tag {
+    .luma-bubble-tag {
         display: block;
 
         margin-bottom: 4px;
@@ -461,11 +523,10 @@
        AVISOS Y FORMULARIO
     ========================================================== */
 
-    .assistant-notice {
-        margin: 0 20px;
-        margin-top: 12px;
+    .luma-notice {
+        margin: 10px 14px 0;
 
-        padding: 10px 12px;
+        padding: 8px 10px;
 
         border: 1px solid #f0d2a8;
         border-radius: 8px;
@@ -478,20 +539,20 @@
     }
 
 
-    .assistant-form {
-        padding: 14px 20px 18px;
+    .luma-form {
+        padding: 10px 14px 14px;
 
         border-top: 1px solid #e0e8e2;
     }
 
 
-    .assistant-preview {
+    .luma-preview {
         display: flex;
         align-items: center;
 
-        gap: 10px;
+        gap: 8px;
 
-        margin-bottom: 10px;
+        margin-bottom: 8px;
 
         color: #55645b;
 
@@ -499,9 +560,14 @@
     }
 
 
-    .assistant-preview img {
-        width: 48px;
-        height: 48px;
+    .luma-preview[hidden] {
+        display: none;
+    }
+
+
+    .luma-preview img {
+        width: 40px;
+        height: 40px;
 
         border-radius: 8px;
 
@@ -509,7 +575,17 @@
     }
 
 
-    .preview-remove {
+    .luma-preview span {
+        flex: 1;
+
+        overflow: hidden;
+
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+
+    .luma-preview-remove {
         border: 0;
 
         background: transparent;
@@ -522,18 +598,17 @@
     }
 
 
-    .assistant-input-row {
+    .luma-input-row {
         display: flex;
         align-items: flex-end;
 
-        gap: 10px;
+        gap: 8px;
     }
 
 
-    .attach-button {
-        width: 40px;
-        height: 40px;
-
+    .luma-attach {
+        width: 38px;
+        height: 38px;
         flex-shrink: 0;
 
         border: 1px solid #cfdcd3;
@@ -543,63 +618,88 @@
 
         cursor: pointer;
 
-        font-size: 16px;
+        font-size: 15px;
     }
 
 
-    #assistant-input {
+    #luma-input {
         flex: 1;
 
-        min-height: 40px;
-        max-height: 140px;
+        min-width: 0;
+        min-height: 38px;
+        max-height: 120px;
 
-        padding: 10px 12px;
+        padding: 9px 10px;
 
         border: 1px solid #cfdcd3;
         border-radius: 8px;
 
         font-family: inherit;
-        font-size: 12.5px;
+        font-size: 12px;
 
         resize: none;
     }
 
 
-    #assistant-input:focus {
+    #luma-input:focus {
         border-color: #176136;
 
         outline: none;
     }
 
 
+    .luma-send {
+        min-height: 38px;
+
+        padding: 8px 12px;
+
+        border: 0;
+        border-radius: 8px;
+
+        background: #176136;
+
+        color: #ffffff;
+
+        cursor: pointer;
+
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+
+    .luma-send:hover {
+        background: #104c2a;
+    }
+
+
+    .luma-send:disabled,
+    .luma-attach:disabled {
+        opacity: .55;
+
+        cursor: not-allowed;
+    }
+
+
     @media (max-width: 650px) {
 
-        .assistant-card {
-            height: calc(100vh - 140px);
+        .luma-launcher {
+            right: 16px;
+            bottom: 16px;
         }
 
-        .assistant-header {
-            flex-direction: column;
-            align-items: flex-start;
-        }
+        .luma-panel {
+            inset: 0;
 
-        .assistant-messages,
-        .assistant-form {
-            padding-left: 12px;
-            padding-right: 12px;
-        }
+            width: 100%;
+            height: 100%;
 
-        .chat-bubble {
-            max-width: 92%;
+            border: 0;
+            border-radius: 0;
         }
     }
 
 </style>
 
-@endpush
-
-
-@push('scripts')
 
 <script>
 
@@ -612,43 +712,45 @@ document.addEventListener(
                 'lumatek_access_token'
             );
 
+        const launcher = document.getElementById('luma-launcher');
 
-        if (!token) {
-
-            window.location.href =
-                '/login';
-
+        // Sin token no se puede llamar a la API: Luma no se muestra.
+        if (!token || !launcher) {
             return;
         }
 
-
         const HISTORY_KEY = 'lumatek_chat_history';
+        const OPEN_KEY = 'lumatek_luma_open';
         const MAX_MESSAGES = 20;
         const MAX_IMAGE_SIDE = 1568;
 
-        const messagesBox = document.getElementById('assistant-messages');
-        const emptyState = document.getElementById('assistant-empty');
-        const notice = document.getElementById('assistant-notice');
-        const remaining = document.getElementById('assistant-remaining');
-        const form = document.getElementById('assistant-form');
-        const input = document.getElementById('assistant-input');
-        const sendButton = document.getElementById('assistant-send');
-        const resetButton = document.getElementById('assistant-reset');
-        const attachButton = document.getElementById('assistant-attach');
-        const fileInput = document.getElementById('assistant-file');
-        const preview = document.getElementById('assistant-preview');
-        const previewImage = document.getElementById('assistant-preview-image');
-        const previewName = document.getElementById('assistant-preview-name');
-        const previewRemove = document.getElementById('assistant-preview-remove');
+        const panel = document.getElementById('luma-panel');
+        const closeButton = document.getElementById('luma-close');
+        const messagesBox = document.getElementById('luma-messages');
+        const emptyState = document.getElementById('luma-empty');
+        const notice = document.getElementById('luma-notice');
+        const remaining = document.getElementById('luma-remaining');
+        const form = document.getElementById('luma-form');
+        const input = document.getElementById('luma-input');
+        const sendButton = document.getElementById('luma-send');
+        const resetButton = document.getElementById('luma-reset');
+        const attachButton = document.getElementById('luma-attach');
+        const fileInput = document.getElementById('luma-file');
+        const preview = document.getElementById('luma-preview');
+        const previewImage = document.getElementById('luma-preview-image');
+        const previewName = document.getElementById('luma-preview-name');
+        const previewRemove = document.getElementById('luma-preview-remove');
 
         let history = loadHistory();
         let selectedImage = null;
         let sending = false;
 
+        launcher.hidden = false;
+
 
         /*
         |--------------------------------------------------------------------------
-        | Historial local (sin imágenes)
+        | Almacenamiento local (sin imágenes)
         |--------------------------------------------------------------------------
         */
 
@@ -679,9 +781,83 @@ document.addEventListener(
                 );
 
             } catch (error) {
-                // Sin almacenamiento disponible: la conversación vive solo en esta pestaña.
+                // Sin almacenamiento disponible: la conversación vive solo en esta página.
             }
         }
+
+
+        function rememberOpen(value) {
+
+            try {
+
+                sessionStorage.setItem(OPEN_KEY, value ? '1' : '0');
+
+            } catch (error) {
+                // Opcional: solo recuerda si el panel estaba abierto.
+            }
+        }
+
+
+        function wasOpen() {
+
+            try {
+
+                return sessionStorage.getItem(OPEN_KEY) === '1';
+
+            } catch (error) {
+
+                return false;
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Abrir y cerrar
+        |--------------------------------------------------------------------------
+        */
+
+        function openPanel(focus) {
+
+            panel.hidden = false;
+            launcher.setAttribute('aria-expanded', 'true');
+
+            rememberOpen(true);
+            scrollToBottom();
+
+            if (focus) {
+                input.focus();
+            }
+        }
+
+
+        function closePanel() {
+
+            panel.hidden = true;
+            launcher.setAttribute('aria-expanded', 'false');
+
+            rememberOpen(false);
+            launcher.focus();
+        }
+
+
+        launcher.addEventListener('click', function () {
+
+            panel.hidden
+                ? openPanel(true)
+                : closePanel();
+        });
+
+
+        closeButton.addEventListener('click', closePanel);
+
+
+        document.addEventListener('keydown', function (event) {
+
+            if (event.key === 'Escape' && !panel.hidden) {
+                closePanel();
+            }
+        });
 
 
         /*
@@ -760,7 +936,7 @@ document.addEventListener(
 
             const element = document.createElement('div');
 
-            element.className = 'chat-bubble ' + role;
+            element.className = 'luma-bubble ' + role;
 
             if (options && options.pending) {
                 element.classList.add('pending');
@@ -772,7 +948,7 @@ document.addEventListener(
 
                 image.src = options.imageUrl;
                 image.alt = 'Foto enviada';
-                image.className = 'chat-bubble-image';
+                image.className = 'luma-bubble-image';
 
                 element.appendChild(image);
 
@@ -780,7 +956,7 @@ document.addEventListener(
 
                 const tag = document.createElement('span');
 
-                tag.className = 'chat-bubble-tag';
+                tag.className = 'luma-bubble-tag';
                 tag.textContent = '📷 imagen enviada';
 
                 element.appendChild(tag);
@@ -801,7 +977,7 @@ document.addEventListener(
         function render() {
 
             messagesBox
-                .querySelectorAll('.chat-bubble')
+                .querySelectorAll('.luma-bubble')
                 .forEach(function (element) {
                     element.remove();
                 });
@@ -1038,7 +1214,7 @@ document.addEventListener(
                 imageUrl: image ? image.url : null,
             });
 
-            const pendingBubble = bubble('assistant', 'Analizando…', {
+            const pendingBubble = bubble('assistant', 'Luma está pensando…', {
                 pending: true,
             });
 
@@ -1062,6 +1238,7 @@ document.addEventListener(
                     sessionStorage.removeItem('lumatek_access_token');
                     sessionStorage.removeItem('lumatek_user');
                     sessionStorage.removeItem(HISTORY_KEY);
+                    sessionStorage.removeItem(OPEN_KEY);
 
                     window.location.href = '/login';
 
@@ -1147,7 +1324,7 @@ document.addEventListener(
         function autoResize() {
 
             input.style.height = 'auto';
-            input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
         }
 
 
@@ -1161,7 +1338,7 @@ document.addEventListener(
         */
 
         document
-            .querySelectorAll('.suggestion-button')
+            .querySelectorAll('.luma-suggestion')
             .forEach(function (button) {
 
                 button.addEventListener('click', function () {
@@ -1196,9 +1373,11 @@ document.addEventListener(
 
 
         render();
+
+        if (wasOpen()) {
+            openPanel(false);
+        }
     }
 );
 
 </script>
-
-@endpush

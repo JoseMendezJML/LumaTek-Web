@@ -687,24 +687,6 @@
     </span>
 </a>
 
-            {{-- ASISTENTE --}}
-
-<a
-    href="{{ route('assistant.index') }}"
-    class="
-        sidebar-link
-        {{ request()->routeIs('assistant.*') ? 'active' : '' }}
-    "
->
-    <span class="sidebar-icon">
-        A
-    </span>
-
-    <span>
-        Asistente
-    </span>
-</a>
-
 
 @if(auth()->user()?->role?->name === 'company_admin')
 
@@ -1165,6 +1147,10 @@
                 'lumatek_chat_history'
             );
 
+            sessionStorage.removeItem(
+                'lumatek_luma_open'
+            );
+
             window.location.href =
                 '/login';
 
@@ -1220,6 +1206,10 @@
 
 
 @stack('scripts')
+
+@if(auth()->user()?->company_id)
+    @include('assistant.partials.widget')
+@endif
 
 </body>
 

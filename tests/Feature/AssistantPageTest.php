@@ -11,25 +11,28 @@ class AssistantPageTest extends TestCase
     use CreatesGreenhouseFixtures;
     use UsesInMemoryDatabase;
 
-    public function test_guest_is_redirected(): void
-    {
-        $this->get('/assistant')->assertRedirect('/login');
-    }
-
-    public function test_user_sees_page_and_menu_link(): void
+    public function test_luma_widget_is_on_company_pages(): void
     {
         $this->actingAs($this->user($this->company()));
 
-        $this->get('/assistant')
-            ->assertOk()
-            ->assertSee('Asistente LumaTek')
-            ->assertSee(route('assistant.index'));
+        foreach (['/dashboard', '/greenhouses', '/alerts'] as $page) {
+            $this->get($page)
+                ->assertOk()
+                ->assertSee('id="luma-launcher"', false)
+                ->assertSee('Luma');
+        }
     }
 
-    public function test_menu_links_to_assistant_from_other_pages(): void
+    public function test_luma_widget_is_not_on_guest_pages(): void
+    {
+        $this->get('/login')->assertOk()->assertDontSee('id="luma-launcher"', false);
+    }
+
+    public function test_assistant_page_and_menu_link_were_removed(): void
     {
         $this->actingAs($this->user($this->company()));
 
-        $this->get('/dashboard')->assertOk()->assertSee(route('assistant.index'));
+        $this->get('/assistant')->assertNotFound();
+        $this->get('/dashboard')->assertDontSee('/assistant', false);
     }
 }
