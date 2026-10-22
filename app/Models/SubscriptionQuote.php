@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Database\ImmutableQueryBuilder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SubscriptionQuote extends Model
@@ -25,5 +26,15 @@ class SubscriptionQuote extends Model
     public function confirmation(): HasOne
     {
         return $this->hasOne(SubscriptionManualConfirmation::class, 'quote_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
     }
 }

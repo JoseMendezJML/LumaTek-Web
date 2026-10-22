@@ -1,5 +1,11 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsureCompanyAdmin;
+use App\Http\Middleware\EnsureCompanyOwner;
+use App\Http\Middleware\EnsurePlanAccess;
+use App\Http\Middleware\EnsureSuperadmin;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -8,29 +14,27 @@ return Application::configure(
     basePath: dirname(__DIR__)
 )
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        api: __DIR__ . '/../routes/api.php',
-        commands: __DIR__ . '/../routes/console.php',
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
         $middleware->alias([
-            'platform.admin' => \App\Http\Middleware\EnsureSuperadmin::class,
+            'company.owner' => EnsureCompanyOwner::class,
+            'platform.admin' => EnsureSuperadmin::class,
 
-            'active.user' =>
-            \App\Http\Middleware\EnsureActiveUser::class,
+            'active.user' => EnsureActiveUser::class,
 
-            'company.admin' =>
-            \App\Http\Middleware\EnsureCompanyAdmin::class,
+            'company.admin' => EnsureCompanyAdmin::class,
 
-            'plan.access' =>
-            \App\Http\Middleware\EnsurePlanAccess::class,
+            'plan.access' => EnsurePlanAccess::class,
         ]);
 
         $middleware->appendToPriorityList(
-            \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
-            \App\Http\Middleware\EnsureActiveUser::class,
+            AuthenticatesRequests::class,
+            EnsureActiveUser::class,
         );
     })
     ->withExceptions(function (Exceptions $exceptions): void {

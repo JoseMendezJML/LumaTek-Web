@@ -717,6 +717,13 @@
                 Sistema
             </div>
 
+            @if(auth()->user()?->is_company_owner && auth()->user()?->role?->name === 'company_admin')
+                <a href="{{ route('subscription.index') }}" class="sidebar-link {{ request()->routeIs('subscription.*') ? 'active' : '' }}">
+                    <span class="sidebar-icon" aria-hidden="true">P</span>
+                    <span>Mi suscripción</span>
+                </a>
+            @endif
+
 
             @if(auth()->user()?->role?->name === 'company_admin')
 
