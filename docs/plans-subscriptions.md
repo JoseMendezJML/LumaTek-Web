@@ -1,5 +1,10 @@
 # Planes y suscripciones: etapa 1
 
+La etapa posterior de contratación y renovación manual está documentada en
+[manual-pro-subscriptions.md](manual-pro-subscriptions.md). El flujo público usa
+cotizaciones persistidas; la descripción de `create()` aquí sigue correspondiendo
+a la entrada interna compatible que captura el catálogo actual.
+
 ## Catalogo y condiciones contratadas
 
 `plans.price_monthly` conserva su significado. `price_yearly` es nullable: null
