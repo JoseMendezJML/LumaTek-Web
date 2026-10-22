@@ -27,4 +27,9 @@ class SubscriptionManualConfirmation extends Model
     {
         return $this->belongsTo(SubscriptionContract::class, 'contract_id');
     }
+
+    public function confirmer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
+    }
 }

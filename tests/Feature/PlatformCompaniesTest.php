@@ -263,6 +263,8 @@ class PlatformCompaniesTest extends TestCase
     #[DataProvider('companyRoles')]
     public function test_reactivating_previously_inactive_company_revokes_all_old_credentials(string $role): void
     {
+        // Credential snapshots must not depend on crossing a wall-clock second.
+        $this->freezeTime();
         $company = $this->company();
         $user = $this->user($role, $company);
         $inactive = $this->user('employee', $company, 'inactive');
