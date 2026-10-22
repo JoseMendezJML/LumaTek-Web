@@ -201,7 +201,7 @@ class PlatformAccessTest extends TestCase
 
     public function test_bootstrap_command_creates_only_first_platform_account(): void
     {
-        $this->bootstrapCommand()->expectsConfirmation('I verified this email belongs to the authorized platform operator. Create the first superadmin?', 'yes')->assertSuccessful();
+        $this->bootstrapCommand()->expectsConfirmation(__('platform.superadmin.confirm', ['email' => 'operator@example.test']), 'yes')->assertSuccessful();
         $user = User::where('email', 'operator@example.test')->firstOrFail();
         $this->assertNull($user->company_id);
         $this->assertSame('superadmin', $user->role->name);
@@ -213,14 +213,14 @@ class PlatformAccessTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 0);
         $this->postJson('/login', ['email' => $user->email, 'password' => 'Example-Platform-123!'])->assertOk();
         $this->get('/platform')->assertOk();
-        $this->artisan('platform:create-superadmin')->expectsOutput('A superadmin already exists. This bootstrap command cannot create another.')->assertFailed();
+        $this->artisan('platform:create-superadmin')->expectsOutput(__('platform.superadmin.already_exists'))->assertFailed();
         $this->assertDatabaseCount('users', 1);
     }
 
     public function test_bootstrap_command_rejects_noninteractive_and_cancelled_creation(): void
     {
         $this->artisan('platform:create-superadmin', ['--no-interaction' => true])->assertFailed();
-        $this->bootstrapCommand()->expectsConfirmation('I verified this email belongs to the authorized platform operator. Create the first superadmin?', 'no')->assertFailed();
+        $this->bootstrapCommand()->expectsConfirmation(__('platform.superadmin.confirm', ['email' => 'operator@example.test']), 'no')->assertFailed();
         $this->assertDatabaseCount('users', 0);
     }
 
@@ -243,10 +243,10 @@ class PlatformAccessTest extends TestCase
     public function test_bootstrap_rejects_weak_or_unconfirmed_passwords(string $password, string $confirmation): void
     {
         $this->artisan('platform:create-superadmin')
-            ->expectsQuestion('Name', 'Operator')
-            ->expectsQuestion('Email', 'operator@example.test')
-            ->expectsQuestion('Password (16+ characters)', $password)
-            ->expectsQuestion('Confirm password', $confirmation)
+            ->expectsQuestion(__('platform.superadmin.name'), 'Operator')
+            ->expectsQuestion(__('platform.superadmin.email'), 'operator@example.test')
+            ->expectsQuestion(__('platform.superadmin.password'), $password)
+            ->expectsQuestion(__('platform.superadmin.password_confirmation'), $confirmation)
             ->assertFailed();
         $this->assertDatabaseCount('users', 0);
     }
@@ -295,10 +295,10 @@ class PlatformAccessTest extends TestCase
     private function bootstrapCommand()
     {
         return $this->artisan('platform:create-superadmin')
-            ->expectsQuestion('Name', 'Platform operator')
-            ->expectsQuestion('Email', 'operator@example.test')
-            ->expectsQuestion('Password (16+ characters)', 'Example-Platform-123!')
-            ->expectsQuestion('Confirm password', 'Example-Platform-123!');
+            ->expectsQuestion(__('platform.superadmin.name'), 'Platform operator')
+            ->expectsQuestion(__('platform.superadmin.email'), 'operator@example.test')
+            ->expectsQuestion(__('platform.superadmin.password'), 'Example-Platform-123!')
+            ->expectsQuestion(__('platform.superadmin.password_confirmation'), 'Example-Platform-123!');
     }
 
     private function company(): Company

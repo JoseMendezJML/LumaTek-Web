@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
@@ -13,36 +14,54 @@ class CreateSuperadmin extends Command
 {
     protected $signature = 'platform:create-superadmin';
 
-    protected $description = 'Create the first platform account through a trusted interactive terminal.';
+    protected $description = 'Crea el primer superadministrador desde una terminal interactiva autorizada.';
 
     public function handle(): int
     {
         if (! $this->input->isInteractive()) {
-            $this->error('An interactive terminal is required.');
+            $this->error(__('platform.superadmin.interactive_required'));
 
             return self::FAILURE;
         }
+
+        try {
+            return $this->createInteractively();
+        } catch (QueryException) {
+            // La excepción SQL puede contener parámetros de la cuenta: no
+            // mostrarla ni enviarla a los registros de la aplicación.
+            $this->error(__('platform.superadmin.persistence_failed'));
+
+            return self::FAILURE;
+        }
+    }
+
+    private function createInteractively(): int
+    {
         if (User::whereHas('role', fn ($query) => $query->where('name', 'superadmin'))->exists()) {
-            $this->error('A superadmin already exists. This bootstrap command cannot create another.');
+            $this->error(__('platform.superadmin.already_exists'));
 
             return self::FAILURE;
         }
         if (! Role::where('name', 'superadmin')->exists()) {
-            $this->error('The superadmin role must already exist.');
+            $this->error(__('platform.superadmin.role_missing'));
 
             return self::FAILURE;
         }
 
         $data = [
-            'name' => trim((string) $this->ask('Name')),
-            'email' => strtolower(trim((string) $this->ask('Email'))),
+            'name' => trim((string) $this->ask(__('platform.superadmin.name'))),
+            'email' => strtolower(trim((string) $this->ask(__('platform.superadmin.email')))),
             // No visible-input fallback, command-line password or default password.
-            'password' => $this->secret('Password (16+ characters)', false),
-            'password_confirmation' => $this->secret('Confirm password', false),
+            'password' => $this->secret(__('platform.superadmin.password'), false),
+            'password_confirmation' => $this->secret(__('platform.superadmin.password_confirmation'), false),
         ];
         $validator = Validator::make($data, [
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:150', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:150', function ($attribute, $value, $fail): void {
+                if ($this->emailExists($value)) {
+                    $fail(__('platform.superadmin.email_exists'));
+                }
+            }],
             'password' => ['required', 'confirmed', Password::min(16)->mixedCase()->numbers()->symbols()],
         ]);
         if ($validator->fails()) {
@@ -52,15 +71,23 @@ class CreateSuperadmin extends Command
 
             return self::FAILURE;
         }
-        if (! $this->confirm('I verified this email belongs to the authorized platform operator. Create the first superadmin?', false)) {
+        if (! $this->confirm(__('platform.superadmin.confirm', ['email' => $data['email']]), false)) {
+            $this->info(__('platform.superadmin.cancelled'));
+
             return self::FAILURE;
         }
 
-        DB::transaction(function () use ($data): void {
+        $error = DB::transaction(function () use ($data): ?string {
             // Serialize concurrent bootstrap attempts on the existing role row.
-            $role = Role::where('name', 'superadmin')->lockForUpdate()->firstOrFail();
+            $role = Role::where('name', 'superadmin')->lockForUpdate()->first();
+            if (! $role) {
+                return __('platform.superadmin.role_missing');
+            }
             if (User::where('role_id', $role->id)->exists()) {
-                throw new \RuntimeException('A superadmin already exists.');
+                return __('platform.superadmin.already_exists');
+            }
+            if ($this->emailExists($data['email'])) {
+                return __('platform.superadmin.email_exists');
             }
             $user = new User([
                 'company_id' => null,
@@ -74,9 +101,22 @@ class CreateSuperadmin extends Command
             ]);
             $user->email_verified_at = now();
             $user->save();
+
+            return null;
         });
-        $this->info('Platform account created. Sign in through /login.');
+        if ($error !== null) {
+            $this->error($error);
+
+            return self::FAILURE;
+        }
+        $this->info(__('platform.superadmin.created'));
 
         return self::SUCCESS;
+    }
+
+    private function emailExists(string $email): bool
+    {
+        // La identidad por correo no debe depender de la intercalación de la BD.
+        return User::whereRaw('LOWER(email) = ?', [$email])->exists();
     }
 }
