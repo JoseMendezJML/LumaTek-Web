@@ -9,6 +9,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Reglas compartidas del inicio de sesión con Google (web y móvil).
@@ -21,6 +22,9 @@ class GoogleAccountService
 {
     public const LINKED_TO_OTHER_GOOGLE_ACCOUNT =
         'Este correo ya está vinculado a otra cuenta de Google.';
+
+    public const EMAIL_MISMATCH =
+        'El correo actual de tu cuenta no coincide con el correo verificado por Google. Inicia sesión con tu correo y contraseña.';
 
     /**
      * Busca primero por cuenta de Google y después por correo.
@@ -40,8 +44,13 @@ class GoogleAccountService
      */
     public function loginBlockReason(
         User $user,
-        string $googleId
+        string $googleId,
+        string $verifiedEmail
     ): ?array {
+
+        if (strcasecmp(trim($user->email), trim($verifiedEmail)) !== 0) {
+            return [self::EMAIL_MISMATCH, 409];
+        }
 
         if ($user->google_id && $user->google_id !== $googleId) {
             return [self::LINKED_TO_OTHER_GOOGLE_ACCOUNT, 409];
@@ -66,7 +75,7 @@ class GoogleAccountService
             if ($user->plan_restricted) {
                 return [
                     'Tu cuenta está restringida por el plan actual de la empresa. '
-                        . 'Contacta al propietario o renueva el plan Pro.',
+                        .'Contacta al propietario o renueva el plan Pro.',
                     403,
                 ];
             }
@@ -76,25 +85,32 @@ class GoogleAccountService
     }
 
     /**
-     * Vincula la cuenta de Google y marca el correo como verificado,
-     * porque Google ya comprobó que pertenece al usuario.
+     * Revalida la identidad bajo bloqueo antes de vincular o verificar.
      */
     public function link(
         User $user,
-        string $googleId
+        string $googleId,
+        string $verifiedEmail
     ): User {
+        return DB::transaction(function () use ($user, $googleId, $verifiedEmail) {
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
 
-        if (!$user->google_id) {
+            if (strcasecmp(trim($user->email), trim($verifiedEmail)) !== 0) {
+                throw ValidationException::withMessages(['email' => self::EMAIL_MISMATCH]);
+            }
+
+            if ($user->google_id && $user->google_id !== $googleId) {
+                throw ValidationException::withMessages(['email' => self::LINKED_TO_OTHER_GOOGLE_ACCOUNT]);
+            }
+
             $user->google_id = $googleId;
-        }
+            if (! $user->hasVerifiedEmail()) {
+                $user->email_verified_at = now();
+            }
+            $user->save();
 
-        if (!$user->hasVerifiedEmail()) {
-            $user->email_verified_at = now();
-        }
-
-        $user->save();
-
-        return $user;
+            return $user;
+        });
     }
 
     /**

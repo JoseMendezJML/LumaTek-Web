@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
@@ -23,8 +24,7 @@ class MobileGoogleAuthController extends Controller
 {
     public function __construct(
         private readonly GoogleAccountService $accounts
-    ) {
-    }
+    ) {}
 
     public function login(
         Request $request
@@ -43,7 +43,6 @@ class MobileGoogleAuthController extends Controller
             ],
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | Validar el id_token con Google
@@ -55,7 +54,7 @@ class MobileGoogleAuthController extends Controller
                 $request->id_token
             );
 
-        if (!$payload) {
+        if (! $payload) {
             return response()->json([
                 'message' => 'No fue posible validar tu cuenta de Google.',
             ], 401);
@@ -71,7 +70,6 @@ class MobileGoogleAuthController extends Controller
         $name =
             $payload['name'] ?? $email;
 
-
         /*
         |--------------------------------------------------------------------------
         | Usuario existente
@@ -84,7 +82,7 @@ class MobileGoogleAuthController extends Controller
         if ($user) {
 
             $blocked =
-                $this->accounts->loginBlockReason($user, $googleId);
+                $this->accounts->loginBlockReason($user, $googleId, $email);
 
             if ($blocked) {
                 return response()->json([
@@ -92,11 +90,14 @@ class MobileGoogleAuthController extends Controller
                 ], $blocked[1]);
             }
 
-            return $this->tokenResponse(
-                $this->accounts->link($user, $googleId)
-            );
-        }
+            try {
+                $user = $this->accounts->link($user, $googleId, $email);
+            } catch (ValidationException $error) {
+                return response()->json(['message' => $error->errors()['email'][0]], 409);
+            }
 
+            return $this->tokenResponse($user);
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -104,7 +105,7 @@ class MobileGoogleAuthController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if (!$request->filled('company_name')) {
+        if (! $request->filled('company_name')) {
             return response()->json([
                 'code' => 'company_required',
                 'message' => 'Escribe el nombre de tu empresa para crear tu cuenta.',
@@ -149,7 +150,7 @@ class MobileGoogleAuthController extends Controller
             return null;
         }
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return null;
         }
 
@@ -164,8 +165,8 @@ class MobileGoogleAuthController extends Controller
             in_array($payload['aud'] ?? null, $allowedClients, true)
             && in_array($payload['iss'] ?? null, ['accounts.google.com', 'https://accounts.google.com'], true)
             && ($payload['email_verified'] ?? null) === 'true'
-            && !empty($payload['sub'])
-            && !empty($payload['email']);
+            && ! empty($payload['sub'])
+            && ! empty($payload['email']);
 
         return $isValid ? $payload : null;
     }

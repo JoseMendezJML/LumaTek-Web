@@ -41,21 +41,21 @@ class SubscriptionContractService
                 if ($existing->company_id !== $company->id || $existing->plan_id !== $plan->id
                     || $existing->billing_period !== $period || $existing->origin !== $origin
                     || ! $existing->starts_at->equalTo($startsAt) || ! $existing->ends_at->equalTo($endsAt)) {
-                    throw ValidationException::withMessages(['requestKey' => 'The request key already identifies different contracted terms.']);
+                    throw ValidationException::withMessages(['requestKey' => __('subscriptions.different_terms')]);
                 }
 
                 return Subscription::whereKey($existing->subscription_id)->where('company_id', $company->id)->firstOrFail();
             }
             $plan = Plan::whereKey($plan->id)->lockForUpdate()->firstOrFail();
             if ($company->status !== 'active' || (! $quote && ! $plan->is_active)) {
-                throw ValidationException::withMessages(['plan' => 'The company and catalog plan must be active for a new contract.']);
+                throw ValidationException::withMessages(['plan' => __('subscriptions.inactive')]);
             }
             $overlap = $company->subscriptions()->where('status', 'active')
                 ->whereHas('plan', fn ($catalog) => $catalog->where('slug', '!=', 'free'))
                 ->where(fn ($dates) => $dates->whereNull('starts_at')->orWhere('starts_at', '<', $endsAt))
                 ->where(fn ($dates) => $dates->whereNull('ends_at')->orWhere('ends_at', '>', $startsAt))->exists();
             if ($overlap) {
-                throw ValidationException::withMessages(['startsAt' => 'The requested period overlaps an existing paid subscription.']);
+                throw ValidationException::withMessages(['startsAt' => __('subscriptions.overlap')]);
             }
             $subscription = new Subscription([
                 'company_id' => $company->id, 'plan_id' => $plan->id,
@@ -86,7 +86,7 @@ class SubscriptionContractService
             $existing = SubscriptionQuote::where('company_id', $company->id)->where('request_key', $requestKey)->first();
             if ($existing) {
                 if ($existing->billing_period !== $period || $existing->requested_by !== $actor->id) {
-                    throw ValidationException::withMessages(['request_key' => 'This key identifies another quote request.']);
+                    throw ValidationException::withMessages(['request_key' => __('subscriptions.different_quote')]);
                 }
 
                 return $existing;
@@ -96,7 +96,7 @@ class SubscriptionContractService
                 $this->unsafeStart();
             }
             $plan = Plan::where('slug', 'pro')->lockForUpdate()->firstOrFail();
-            abort_unless($plan->is_active, 422, 'Pro is unavailable for new quotes.');
+            abort_unless($plan->is_active, 422, __('subscriptions.unavailable'));
             $amount = $plan->{$period === 'monthly' ? 'price_monthly' : 'price_yearly'};
             Validator::make(['amount' => $amount, 'currency' => $plan->currency], [
                 'amount' => ['required', 'numeric', 'min:0', 'max:99999999.99'], 'currency' => ['required', 'in:MXN'],
@@ -133,7 +133,7 @@ class SubscriptionContractService
             abort_unless($company->status === 'active', 403);
             $confirmedAt = now()->startOfSecond();
             if ($confirmedAt->greaterThanOrEqualTo($quote->expires_at)) {
-                throw ValidationException::withMessages(['quote' => 'Quote expired. Request a new quote.']);
+                throw ValidationException::withMessages(['quote' => __('subscriptions.expired')]);
             }
             app(SubscriptionContractIntegrity::class)->assertSubscriptions($company->id);
             if ($this->proPeriods($company)->whereNull('ends_at')->exists()) {
@@ -161,6 +161,6 @@ class SubscriptionContractService
 
     private function unsafeStart(): never
     {
-        throw ValidationException::withMessages(['subscription' => 'An open-ended Pro period prevents a safe new start.']);
+        throw ValidationException::withMessages(['subscription' => __('subscriptions.unsafe_start')]);
     }
 }

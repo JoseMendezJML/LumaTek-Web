@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
@@ -24,8 +25,7 @@ class GoogleAuthController extends Controller
 
     public function __construct(
         private readonly GoogleAccountService $accounts
-    ) {
-    }
+    ) {}
 
     /*
     |--------------------------------------------------------------------------
@@ -53,7 +53,7 @@ class GoogleAuthController extends Controller
             ) !== 0
         ) {
             return redirect()->to(
-                $appUrl . '/auth/google/redirect'
+                $appUrl.'/auth/google/redirect'
             );
         }
 
@@ -89,7 +89,6 @@ class GoogleAuthController extends Controller
             );
         }
 
-
         $googleId =
             (string) $googleUser->getId();
 
@@ -119,7 +118,6 @@ class GoogleAuthController extends Controller
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | Usuario existente: buscar por cuenta de Google o por correo
@@ -132,18 +130,20 @@ class GoogleAuthController extends Controller
         if ($user) {
 
             $blocked =
-                $this->accounts->loginBlockReason($user, $googleId);
+                $this->accounts->loginBlockReason($user, $googleId, $email);
 
             if ($blocked) {
                 return $this->backToLogin($blocked[0]);
             }
 
-            return $this->finishLogin(
-                $request,
-                $this->accounts->link($user, $googleId)
-            );
-        }
+            try {
+                $user = $this->accounts->link($user, $googleId, $email);
+            } catch (ValidationException $error) {
+                return $this->backToLogin($error->errors()['email'][0]);
+            }
 
+            return $this->finishLogin($request, $user);
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -176,7 +176,7 @@ class GoogleAuthController extends Controller
         $pending =
             $request->session()->get(self::PENDING_KEY);
 
-        if (!$pending) {
+        if (! $pending) {
             return redirect()->route('login');
         }
 
@@ -199,7 +199,7 @@ class GoogleAuthController extends Controller
         $pending =
             $request->session()->get(self::PENDING_KEY);
 
-        if (!$pending) {
+        if (! $pending) {
             return redirect()->route('login');
         }
 
@@ -212,8 +212,7 @@ class GoogleAuthController extends Controller
                 ],
             ],
             [
-                'company_name.required' =>
-                    'El nombre de la empresa es obligatorio.',
+                'company_name.required' => 'El nombre de la empresa es obligatorio.',
             ]
         );
 

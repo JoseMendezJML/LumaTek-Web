@@ -9,6 +9,11 @@ use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Lang;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(
     basePath: dirname(__DIR__)
@@ -39,12 +44,38 @@ return Application::configure(
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
+        // Conserva estados, claves y cabeceras; localiza solo mensajes públicos
+        // del framework. Los detalles técnicos siguen disponibles en los logs.
+        $exceptions->respond(function (Response $response): Response {
+            if ($response instanceof JsonResponse) {
+                $data = $response->getData(true);
+                $message = $data['message'] ?? null;
+                $status = $response->getStatusCode();
+
+                if ($status === 404) {
+                    $data['message'] = __('Not Found');
+                } elseif ($status === 405) {
+                    $data['message'] = __('Method Not Allowed');
+                } elseif ($message === '' && isset(Response::$statusTexts[$status])) {
+                    $data['message'] = Lang::hasForLocale('http.'.$status)
+                        ? __('http.'.$status)
+                        : __('http.client_error');
+                } elseif (is_string($message) && Lang::hasForLocale($message)) {
+                    $data['message'] = __($message);
+                }
+
+                $response->setData($data);
+            }
+
+            return $response;
+        });
+
         // El asistente responde el throttle con el mismo formato que su límite diario.
         $exceptions->render(function (
-            \Illuminate\Http\Exceptions\ThrottleRequestsException $error,
-            \Illuminate\Http\Request $request
+            ThrottleRequestsException $error,
+            Request $request
         ) {
-            if (!$request->routeIs('api.chat.send')) {
+            if (! $request->routeIs('api.chat.send')) {
                 return null;
             }
 
