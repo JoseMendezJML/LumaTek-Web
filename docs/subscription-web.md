@@ -87,14 +87,19 @@ Asunto y cuerpo se codifican con RFC 3986 (UTF-8, espacios como `%20` y saltos C
 No se aceptan importes o identidades del navegador para generar el enlace.
 
 El destinatario se centraliza en `config/subscriptions.php`, clave
-`subscriptions.quote_contact_email`, mediante `PRO_QUOTE_CONTACT_EMAIL`. El valor
-inicial de pruebas es `administracion.lumatek@gmail.com`. Un operador podrá cambiar
-esa variable en el entorno autorizado; esta implementación no modifica `.env`.
-Asignar una cadena vacía desactiva los enlaces. Si el valor está ausente en la
-configuración, vacío o no es una dirección válida, se muestran instrucciones para
-contactar a administración por el canal habitual, sin generar un enlace inválido.
-Si se utiliza configuración cacheada, su actualización posterior requiere el
-procedimiento habitual de reconstrucción en ese entorno, fuera de este cambio local.
+`subscriptions.quote_contact_email`, mediante `PRO_QUOTE_CONTACT_EMAIL`. No existe
+ningún destinatario predeterminado: si la variable no está configurada, su valor
+es una cadena vacía y no se generan enlaces de correo. Un operador debe configurar
+explícitamente en el entorno autorizado una dirección verificada y autorizada por
+LumaTek antes de habilitar el botón. Esta implementación no modifica `.env`.
+Eliminar la variable o asignarle una cadena vacía desactiva los enlaces. Si el
+valor está ausente, vacío o no es una dirección válida, se muestra «El contacto por
+correo no está disponible temporalmente», junto con instrucciones para contactar
+a administración por el canal habitual, sin generar un enlace inválido.
+Si se utiliza configuración cacheada, al aplicar esta corrección debe reconstruirse
+mediante el procedimiento habitual del entorno autorizado para eliminar cualquier
+destinatario anterior. También debe reconstruirse después de cambiar la variable;
+esta implementación local no ejecuta esas operaciones.
 
 El usuario debe tener una aplicación de correo o un manejador `mailto:` configurado
 en su escritorio o dispositivo móvil. Debe revisar y enviar el mensaje desde ella:

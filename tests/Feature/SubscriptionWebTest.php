@@ -119,8 +119,39 @@ class SubscriptionWebTest extends TestCase
         $owner = $this->actor();
         $this->quote($owner);
         $this->web($owner)->get('/subscription')->assertOk()->assertSee('Pendiente')
-            ->assertSee('El contacto por correo no está disponible')->assertSee('canal de contacto habitual')
+            ->assertSee('El contacto por correo no está disponible temporalmente')->assertSee('canal de contacto habitual')
             ->assertDontSee('Solicitar instrucciones por correo')->assertDontSee('mailto:', false);
+    }
+
+    public function test_missing_environment_contact_defaults_to_empty_and_never_generates_a_mailto(): void
+    {
+        // Change only this test process's environment; never read or write .env.
+        $key = 'PRO_QUOTE_CONTACT_EMAIL';
+        $previousEnv = $_ENV[$key] ?? null;
+        $previousServer = $_SERVER[$key] ?? null;
+        $previousProcess = getenv($key);
+        unset($_ENV[$key], $_SERVER[$key]);
+        putenv($key);
+        try {
+            $settings = require config_path('subscriptions.php');
+            $this->assertSame('', $settings['quote_contact_email']);
+            config(['subscriptions.quote_contact_email' => $settings['quote_contact_email']]);
+            $owner = $this->actor();
+            $this->quote($owner);
+            $this->web($owner)->get('/subscription')->assertOk()
+                ->assertSee('El contacto por correo no está disponible temporalmente')
+                ->assertDontSee('Solicitar instrucciones por correo')->assertDontSee('mailto:', false);
+        } finally {
+            if ($previousEnv !== null) {
+                $_ENV[$key] = $previousEnv;
+            }
+            if ($previousServer !== null) {
+                $_SERVER[$key] = $previousServer;
+            }
+            if ($previousProcess !== false) {
+                putenv($key.'='.$previousProcess);
+            }
+        }
     }
 
     public function test_contact_only_appears_for_pending_quotes_until_exact_expiration(): void

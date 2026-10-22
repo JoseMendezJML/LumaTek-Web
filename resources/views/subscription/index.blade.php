@@ -86,7 +86,7 @@
                         <a class="subscription-contact-button" href="{{ $contactLinks[$quote->id] }}" aria-describedby="contact-help-{{ $quote->id }}">Solicitar instrucciones por correo</a>
                         <p id="contact-help-{{ $quote->id }}">El botón prepara el correo en tu aplicación de correo. Revisa el mensaje y envíalo desde esa aplicación; LumaTek no lo envía automáticamente.</p>
                     @else
-                        <p>El contacto por correo no está disponible. Solicita las instrucciones de pago a administración mediante tu canal de contacto habitual.</p>
+                        <p>El contacto por correo no está disponible temporalmente. Solicita las instrucciones de pago a administración mediante tu canal de contacto habitual.</p>
                     @endif
                 @endif
             </article>
