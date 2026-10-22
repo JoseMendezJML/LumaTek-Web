@@ -9,26 +9,30 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('roles')->insert([
+        DB::table('roles')->upsert(
             [
-                'name' => 'superadmin',
-                'description' => 'Administrador general de la plataforma LumaTek.',
-                'created_at' => now(),
-                'updated_at' => now(),
+                [
+                    'name' => 'superadmin',
+                    'description' => 'Administrador general de la plataforma LumaTek.',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'name' => 'company_admin',
+                    'description' => 'Administrador de una empresa registrada en LumaTek.',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'name' => 'employee',
+                    'description' => 'Empleado con permisos limitados dentro de una empresa.',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
             ],
-            [
-                'name' => 'company_admin',
-                'description' => 'Administrador de una empresa registrada en LumaTek.',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'name' => 'employee',
-                'description' => 'Empleado con permisos limitados dentro de una empresa.',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+            ['name'],
+            ['description', 'updated_at']
+        );
 
         $this->call([
             PlanSeeder::class,
