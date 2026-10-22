@@ -687,6 +687,24 @@
     </span>
 </a>
 
+            {{-- ASISTENTE --}}
+
+<a
+    href="{{ route('assistant.index') }}"
+    class="
+        sidebar-link
+        {{ request()->routeIs('assistant.*') ? 'active' : '' }}
+    "
+>
+    <span class="sidebar-icon">
+        A
+    </span>
+
+    <span>
+        Asistente
+    </span>
+</a>
+
 
 @if(auth()->user()?->role?->name === 'company_admin')
 
@@ -1141,6 +1159,10 @@
 
             sessionStorage.removeItem(
                 'lumatek_user'
+            );
+
+            sessionStorage.removeItem(
+                'lumatek_chat_history'
             );
 
             window.location.href =

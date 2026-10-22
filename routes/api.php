@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ManualSubscriptionController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AmbientHumidityController;
@@ -522,4 +523,18 @@ Route::middleware([
         '/reports/pdf',
         [ReportController::class, 'pdf']
     )->name('api.reports.pdf');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Asistente (compartido por la web y la app móvil)
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post(
+        '/chat',
+        [ChatController::class, 'send']
+    )
+        ->middleware('throttle:10,1')
+        ->name('api.chat.send');
 });
