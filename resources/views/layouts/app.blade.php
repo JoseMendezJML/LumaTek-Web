@@ -1143,6 +1143,14 @@
                 'lumatek_user'
             );
 
+            sessionStorage.removeItem(
+                'lumatek_chat_history'
+            );
+
+            sessionStorage.removeItem(
+                'lumatek_luma_open'
+            );
+
             window.location.href =
                 '/login';
 
@@ -1198,6 +1206,10 @@
 
 
 @stack('scripts')
+
+@if(auth()->user()?->company_id)
+    @include('assistant.partials.widget')
+@endif
 
 </body>
 
