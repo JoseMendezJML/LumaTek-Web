@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Proxies confiables
+    |--------------------------------------------------------------------------
+    |
+    | IPs separadas por coma (o "*") de los proxies que pueden enviar
+    | encabezados X-Forwarded-*. Usar "*" solo detrás de un túnel o
+    | balanceador que no permita conexiones directas a la aplicación,
+    | porque de lo contrario cualquiera podría falsificar su IP.
+    |
+    */
+
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
