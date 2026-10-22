@@ -20,7 +20,6 @@ Artisan::command('inspire', function () {
     'Display an inspiring quote'
 );
 
-
 /*
 |--------------------------------------------------------------------------
 | Procesamiento de riego automático
@@ -38,3 +37,9 @@ Schedule::command(
 )
     ->everyMinute()
     ->withoutOverlapping();
+
+// Independent of irrigation processing; each company commits separately.
+Schedule::command('subscriptions:sync-restrictions')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();

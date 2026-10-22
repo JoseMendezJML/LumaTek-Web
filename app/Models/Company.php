@@ -2,14 +2,23 @@
 
 namespace App\Models;
 
+use App\Services\SubscriptionContractIntegrity;
+use Closure;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class Company extends Model
 {
     use HasFactory;
+
+    private bool $syncingRestrictions = false;
+
+    private ?Plan $restrictionPlan = null;
+
+    private string $restrictionPlanIdentity = '';
 
     protected $fillable = [
         'name',
@@ -51,7 +60,6 @@ class Company extends Model
         );
     }
 
-
     /**
      * SuscripciÃ³n activa actual de la empresa.
      */
@@ -63,22 +71,57 @@ class Company extends Model
 
     public function effectivePlan(): ?Plan
     {
-        app(\App\Services\SubscriptionContractIntegrity::class)->assertSubscriptions($this->id);
+        return $this->resolveEffectivePlan()['plan'];
+    }
+
+    private function resolveEffectivePlan(): array
+    {
+        app(SubscriptionContractIntegrity::class)->assertSubscriptions($this->id);
         $subscription = $this->activeSubscription()->with('contract')->first();
         if ($subscription) {
             // Never fall back to editable catalog limits for a contracted period.
-            return $subscription->contract->effectivePlan();
+            return ['plan' => $subscription->contract->effectivePlan(), 'identity' => 'contract:'.$subscription->contract->id];
         }
 
-        return Plan::where('slug', 'free')->where('is_active', true)->first();
+        $plan = Plan::where('slug', 'free')->where('is_active', true)->first();
+
+        return ['plan' => $plan, 'identity' => 'fallback-free:'.$plan?->id];
     }
 
+    // Shared by the scheduler and existing controller entry points. Nested cascades
+    // reuse this context, so one transaction resolves one plan under one company lock.
+    public function withPlanRestrictionLock(Closure $callback): mixed
+    {
+        if ($this->syncingRestrictions) {
+            return $callback($this->restrictionPlan, $this->restrictionPlanIdentity);
+        }
+
+        return DB::transaction(function () use ($callback) {
+            self::whereKey($this->id)->lockForUpdate()->firstOrFail();
+            $resolved = $this->resolveEffectivePlan();
+            $this->restrictionPlan = $resolved['plan'];
+            $this->restrictionPlanIdentity = $resolved['identity'];
+            $this->syncingRestrictions = true;
+            try {
+                return $callback($this->restrictionPlan, $this->restrictionPlanIdentity);
+            } finally {
+                $this->syncingRestrictions = false;
+                $this->restrictionPlan = null;
+                $this->restrictionPlanIdentity = '';
+            }
+        }, 3);
+    }
 
     public function syncGreenhousePlanRestrictions(): void
     {
-        $plan = $this->effectivePlan();
+        if (! $this->syncingRestrictions) {
+            $this->withPlanRestrictionLock(fn () => $this->syncGreenhousePlanRestrictions());
 
-        if (!$plan) {
+            return;
+        }
+        $plan = $this->restrictionPlan;
+
+        if (! $plan) {
             return;
         }
 
@@ -133,189 +176,223 @@ class Company extends Model
     }
 
     public function syncZonePlanRestrictions(): void
-{
-    $plan = $this->effectivePlan();
+    {
+        if (! $this->syncingRestrictions) {
+            $this->withPlanRestrictionLock(fn () => $this->syncZonePlanRestrictions());
 
-    if (!$plan) {
-        return;
-    }
+            return;
+        }
+        $plan = $this->restrictionPlan;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Sincronizar primero los invernaderos
-    |--------------------------------------------------------------------------
-    */
-
-    $this->syncGreenhousePlanRestrictions();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Quitar restricciones anteriores de las zonas
-    |--------------------------------------------------------------------------
-    |
-    | Esto permite recuperar las zonas cuando la empresa renueva Pro.
-    |
-    */
-
-    Zone::query()
-        ->whereHas(
-            'greenhouse',
-            function ($query) {
-                $query->where(
-                    'company_id',
-                    $this->id
-                );
-            }
-        )
-        ->update([
-            'plan_restricted' => false,
-        ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Obtener invernaderos activos
-    |--------------------------------------------------------------------------
-    */
-
-    $greenhouses = $this
-        ->greenhouses()
-        ->where('status', 'active')
-        ->orderBy('id')
-        ->get();
-
-    foreach ($greenhouses as $greenhouse) {
-
-        /*
-        |--------------------------------------------------------------------------
-        | Invernadero restringido
-        |--------------------------------------------------------------------------
-        |
-        | Si todo el invernadero estÃ¡ restringido, sus zonas activas tambiÃ©n.
-        |
-        */
-
-        if ($greenhouse->plan_restricted) {
-
-            $greenhouse
-                ->zones()
-                ->where('status', 'active')
-                ->update([
-                    'plan_restricted' => true,
-                ]);
-
-            continue;
+        if (! $plan) {
+            return;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Zonas activas del invernadero disponible
+        | Sincronizar primero los invernaderos
         |--------------------------------------------------------------------------
         */
 
-        $activeZones = $greenhouse
-            ->zones()
+        $this->syncGreenhousePlanRestrictions();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Quitar restricciones anteriores de las zonas
+        |--------------------------------------------------------------------------
+        |
+        | Esto permite recuperar las zonas cuando la empresa renueva Pro.
+        |
+        */
+
+        Zone::query()
+            ->whereHas(
+                'greenhouse',
+                function ($query) {
+                    $query->where(
+                        'company_id',
+                        $this->id
+                    );
+                }
+            )
+            ->update([
+                'plan_restricted' => false,
+            ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Obtener invernaderos activos
+        |--------------------------------------------------------------------------
+        */
+
+        $greenhouses = $this
+            ->greenhouses()
             ->where('status', 'active')
             ->orderBy('id')
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Zonas que exceden el lÃ­mite del plan
-        |--------------------------------------------------------------------------
-        */
+        foreach ($greenhouses as $greenhouse) {
 
-        $restrictedIds = $activeZones
-            ->skip($plan->max_zones_per_greenhouse)
-            ->pluck('id');
+            /*
+            |--------------------------------------------------------------------------
+            | Invernadero restringido
+            |--------------------------------------------------------------------------
+            |
+            | Si todo el invernadero estÃ¡ restringido, sus zonas activas tambiÃ©n.
+            |
+            */
 
-        if ($restrictedIds->isEmpty()) {
-            continue;
+            if ($greenhouse->plan_restricted) {
+
+                $greenhouse
+                    ->zones()
+                    ->where('status', 'active')
+                    ->update([
+                        'plan_restricted' => true,
+                    ]);
+
+                continue;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Zonas activas del invernadero disponible
+            |--------------------------------------------------------------------------
+            */
+
+            $activeZones = $greenhouse
+                ->zones()
+                ->where('status', 'active')
+                ->orderBy('id')
+                ->get();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Zonas que exceden el lÃ­mite del plan
+            |--------------------------------------------------------------------------
+            */
+
+            $restrictedIds = $activeZones
+                ->skip($plan->max_zones_per_greenhouse)
+                ->pluck('id');
+
+            if ($restrictedIds->isEmpty()) {
+                continue;
+            }
+
+            $greenhouse
+                ->zones()
+                ->whereIn('id', $restrictedIds)
+                ->update([
+                    'plan_restricted' => true,
+                ]);
         }
-
-        $greenhouse
-            ->zones()
-            ->whereIn('id', $restrictedIds)
-            ->update([
-                'plan_restricted' => true,
-            ]);
     }
-}
 
     public function syncSensorPlanRestrictions(): void
-{
-    $plan = $this->effectivePlan();
+    {
+        if (! $this->syncingRestrictions) {
+            $this->withPlanRestrictionLock(fn () => $this->syncSensorPlanRestrictions());
 
-    if (!$plan) {
-        return;
-    }
+            return;
+        }
+        $plan = $this->restrictionPlan;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Sincronizar primero invernaderos y zonas
-    |--------------------------------------------------------------------------
-    */
-
-    $this->syncZonePlanRestrictions();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Quitar restricciones anteriores de sensores
-    |--------------------------------------------------------------------------
-    |
-    | Esto permite recuperar los sensores si la empresa renueva Pro.
-    |
-    */
-
-    Sensor::query()
-        ->whereHas(
-            'device.zone.greenhouse',
-            function ($query) {
-                $query->where(
-                    'company_id',
-                    $this->id
-                );
-            }
-        )
-        ->update([
-            'plan_restricted' => false,
-        ]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Obtener zonas activas de la empresa
-    |--------------------------------------------------------------------------
-    */
-
-    $zones = Zone::query()
-        ->where('status', 'active')
-        ->whereHas(
-            'greenhouse',
-            function ($query) {
-                $query->where(
-                    'company_id',
-                    $this->id
-                );
-            }
-        )
-        ->with('greenhouse')
-        ->orderBy('id')
-        ->get();
-
-    foreach ($zones as $zone) {
+        if (! $plan) {
+            return;
+        }
 
         /*
         |--------------------------------------------------------------------------
-        | Zona o invernadero restringido
+        | Sincronizar primero invernaderos y zonas
         |--------------------------------------------------------------------------
         */
 
-        if (
-            $zone->plan_restricted
-            ||
-            $zone->greenhouse->plan_restricted
-        ) {
+        $this->syncZonePlanRestrictions();
 
-            Sensor::query()
+        /*
+        |--------------------------------------------------------------------------
+        | Quitar restricciones anteriores de sensores
+        |--------------------------------------------------------------------------
+        |
+        | Esto permite recuperar los sensores si la empresa renueva Pro.
+        |
+        */
+
+        Sensor::query()
+            ->whereHas(
+                'device.zone.greenhouse',
+                function ($query) {
+                    $query->where(
+                        'company_id',
+                        $this->id
+                    );
+                }
+            )
+            ->update([
+                'plan_restricted' => false,
+            ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Obtener zonas activas de la empresa
+        |--------------------------------------------------------------------------
+        */
+
+        $zones = Zone::query()
+            ->where('status', 'active')
+            ->whereHas(
+                'greenhouse',
+                function ($query) {
+                    $query->where(
+                        'company_id',
+                        $this->id
+                    );
+                }
+            )
+            ->with('greenhouse')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($zones as $zone) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Zona o invernadero restringido
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $zone->plan_restricted
+                ||
+                $zone->greenhouse->plan_restricted
+            ) {
+
+                Sensor::query()
+                    ->where('status', 'active')
+                    ->whereHas(
+                        'device',
+                        function ($query) use ($zone) {
+                            $query->where(
+                                'zone_id',
+                                $zone->id
+                            );
+                        }
+                    )
+                    ->update([
+                        'plan_restricted' => true,
+                    ]);
+
+                continue;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Sensores activos de la zona
+            |--------------------------------------------------------------------------
+            */
+
+            $activeSensors = Sensor::query()
                 ->where('status', 'active')
                 ->whereHas(
                     'device',
@@ -326,60 +403,41 @@ class Company extends Model
                         );
                     }
                 )
+                ->orderBy('id')
+                ->get();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Sensores que exceden el lÃ­mite del plan
+            |--------------------------------------------------------------------------
+            */
+
+            $restrictedIds = $activeSensors
+                ->skip($plan->max_sensors_per_zone)
+                ->pluck('id');
+
+            if ($restrictedIds->isEmpty()) {
+                continue;
+            }
+
+            Sensor::query()
+                ->whereIn('id', $restrictedIds)
                 ->update([
                     'plan_restricted' => true,
                 ]);
-
-            continue;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Sensores activos de la zona
-        |--------------------------------------------------------------------------
-        */
-
-        $activeSensors = Sensor::query()
-            ->where('status', 'active')
-            ->whereHas(
-                'device',
-                function ($query) use ($zone) {
-                    $query->where(
-                        'zone_id',
-                        $zone->id
-                    );
-                }
-            )
-            ->orderBy('id')
-            ->get();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Sensores que exceden el lÃ­mite del plan
-        |--------------------------------------------------------------------------
-        */
-
-        $restrictedIds = $activeSensors
-            ->skip($plan->max_sensors_per_zone)
-            ->pluck('id');
-
-        if ($restrictedIds->isEmpty()) {
-            continue;
-        }
-
-        Sensor::query()
-            ->whereIn('id', $restrictedIds)
-            ->update([
-                'plan_restricted' => true,
-            ]);
     }
-}
 
     public function syncUserPlanRestrictions(): void
     {
-        $plan = $this->effectivePlan();
+        if (! $this->syncingRestrictions) {
+            $this->withPlanRestrictionLock(fn () => $this->syncUserPlanRestrictions());
 
-        if (!$plan) {
+            return;
+        }
+        $plan = $this->restrictionPlan;
+
+        if (! $plan) {
             return;
         }
 
@@ -404,7 +462,7 @@ class Company extends Model
     |
     */
 
-        $owner = $this
+        $ownerCount = $this
             ->users()
             ->where(
                 'status',
@@ -414,12 +472,10 @@ class Company extends Model
                 'is_company_owner',
                 true
             )
-            ->first();
+            ->count();
 
         $availableUsers =
-            $owner
-            ? 1
-            : 0;
+            $ownerCount;
 
         /*
     |--------------------------------------------------------------------------
@@ -451,16 +507,16 @@ class Company extends Model
 
         $allowedAdmins =
             $additionalAdmins
-            ->take(
-                $plan->max_additional_admins
-            );
+                ->take(
+                    $plan->max_additional_admins
+                );
 
         $restrictedAdminIds =
             $additionalAdmins
-            ->skip(
-                $plan->max_additional_admins
-            )
-            ->pluck('id');
+                ->skip(
+                    $plan->max_additional_admins
+                )
+                ->pluck('id');
 
         if ($restrictedAdminIds->isNotEmpty()) {
 
@@ -515,10 +571,10 @@ class Company extends Model
 
         $restrictedEmployeeIds =
             $employees
-            ->skip(
-                $remainingSlots
-            )
-            ->pluck('id');
+                ->skip(
+                    $remainingSlots
+                )
+                ->pluck('id');
 
         if ($restrictedEmployeeIds->isNotEmpty()) {
 
@@ -535,126 +591,126 @@ class Company extends Model
     }
 
     public function isUserRestrictedByPlan(User $user): bool
-{
-    if ($user->company_id !== $this->id) {
-        return true;
-    }
+    {
+        if ($user->company_id !== $this->id) {
+            return true;
+        }
 
-    /*
-    |--------------------------------------------------------------------------
-    | El propietario siempre conserva acceso
-    |--------------------------------------------------------------------------
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | El propietario siempre conserva acceso
+        |--------------------------------------------------------------------------
+        */
 
-    if ($user->is_company_owner) {
+        if ($user->is_company_owner) {
+            return false;
+        }
+
+        $plan = $this->effectivePlan();
+
+        if (! $plan) {
+            return true;
+        }
+
+        $user->loadMissing('role');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Administrador adicional
+        |--------------------------------------------------------------------------
+        */
+
+        if ($user->role?->name === 'company_admin') {
+
+            $adminPosition = $this
+                ->users()
+                ->where('status', 'active')
+                ->where('is_company_owner', false)
+                ->whereHas(
+                    'role',
+                    function ($query) {
+                        $query->where(
+                            'name',
+                            'company_admin'
+                        );
+                    }
+                )
+                ->where(
+                    'id',
+                    '<=',
+                    $user->id
+                )
+                ->count();
+
+            return $adminPosition
+                > $plan->max_additional_admins;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Empleados
+        |--------------------------------------------------------------------------
+        */
+
+        if ($user->role?->name === 'employee') {
+
+            $ownerCount = $this
+                ->users()
+                ->where('status', 'active')
+                ->where('is_company_owner', true)
+                ->count();
+
+            $activeAdditionalAdmins = $this
+                ->users()
+                ->where('status', 'active')
+                ->where('is_company_owner', false)
+                ->whereHas(
+                    'role',
+                    function ($query) {
+                        $query->where(
+                            'name',
+                            'company_admin'
+                        );
+                    }
+                )
+                ->count();
+
+            $allowedAdmins = min(
+                $activeAdditionalAdmins,
+                $plan->max_additional_admins
+            );
+
+            $employeeSlots = max(
+                0,
+                $plan->max_users
+                - $ownerCount
+                - $allowedAdmins
+            );
+
+            $employeePosition = $this
+                ->users()
+                ->where('status', 'active')
+                ->where('is_company_owner', false)
+                ->whereHas(
+                    'role',
+                    function ($query) {
+                        $query->where(
+                            'name',
+                            'employee'
+                        );
+                    }
+                )
+                ->where(
+                    'id',
+                    '<=',
+                    $user->id
+                )
+                ->count();
+
+            return $employeePosition
+                > $employeeSlots;
+        }
+
         return false;
     }
-
-    $plan = $this->effectivePlan();
-
-    if (!$plan) {
-        return true;
-    }
-
-    $user->loadMissing('role');
-
-    /*
-    |--------------------------------------------------------------------------
-    | Administrador adicional
-    |--------------------------------------------------------------------------
-    */
-
-    if ($user->role?->name === 'company_admin') {
-
-        $adminPosition = $this
-            ->users()
-            ->where('status', 'active')
-            ->where('is_company_owner', false)
-            ->whereHas(
-                'role',
-                function ($query) {
-                    $query->where(
-                        'name',
-                        'company_admin'
-                    );
-                }
-            )
-            ->where(
-                'id',
-                '<=',
-                $user->id
-            )
-            ->count();
-
-        return $adminPosition
-            > $plan->max_additional_admins;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Empleados
-    |--------------------------------------------------------------------------
-    */
-
-    if ($user->role?->name === 'employee') {
-
-        $ownerCount = $this
-            ->users()
-            ->where('status', 'active')
-            ->where('is_company_owner', true)
-            ->count();
-
-        $activeAdditionalAdmins = $this
-            ->users()
-            ->where('status', 'active')
-            ->where('is_company_owner', false)
-            ->whereHas(
-                'role',
-                function ($query) {
-                    $query->where(
-                        'name',
-                        'company_admin'
-                    );
-                }
-            )
-            ->count();
-
-        $allowedAdmins = min(
-            $activeAdditionalAdmins,
-            $plan->max_additional_admins
-        );
-
-        $employeeSlots = max(
-            0,
-            $plan->max_users
-            - $ownerCount
-            - $allowedAdmins
-        );
-
-        $employeePosition = $this
-            ->users()
-            ->where('status', 'active')
-            ->where('is_company_owner', false)
-            ->whereHas(
-                'role',
-                function ($query) {
-                    $query->where(
-                        'name',
-                        'employee'
-                    );
-                }
-            )
-            ->where(
-                'id',
-                '<=',
-                $user->id
-            )
-            ->count();
-
-        return $employeePosition
-            > $employeeSlots;
-    }
-
-    return false;
-}
 }
