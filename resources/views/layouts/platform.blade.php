@@ -61,6 +61,7 @@
         #platform-message { color: #9b2424; }
         @media(max-width: 600px) { .platform-header { padding: 16px; gap: 16px; } .platform-header nav { flex-basis: 100%; } }
     </style>
+    @stack('styles')
 </head>
 <body>
     <header class="platform-header">
@@ -71,6 +72,7 @@
             <a href="{{ route('platform.dashboard') }}" @if(request()->routeIs('platform.dashboard')) aria-current="page" @endif>Inicio de plataforma</a>
             <a href="{{ route('platform.companies.index') }}" @if(request()->routeIs('platform.companies.*')) aria-current="page" @endif>Empresas</a>
             <a href="{{ route('platform.plans.index') }}" @if(request()->routeIs('platform.plans.*')) aria-current="page" @endif>Planes</a>
+            <a href="{{ route('platform.subscriptions.index') }}" @if(request()->routeIs('platform.subscriptions.*')) aria-current="page" @endif>Solicitudes Pro</a>
         </nav>
         <span>{{ auth()->user()->name }}</span>
         <form id="platform-logout" method="POST" action="{{ route('platform.logout') }}">

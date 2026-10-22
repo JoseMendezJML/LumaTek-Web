@@ -717,6 +717,13 @@
                 Sistema
             </div>
 
+            @if(auth()->user()?->is_company_owner && auth()->user()?->role?->name === 'company_admin')
+                <a href="{{ route('subscription.index') }}" class="sidebar-link {{ request()->routeIs('subscription.*') ? 'active' : '' }}">
+                    <span class="sidebar-icon" aria-hidden="true">P</span>
+                    <span>Mi suscripción</span>
+                </a>
+            @endif
+
 
             @if(auth()->user()?->role?->name === 'company_admin')
 
@@ -1136,6 +1143,14 @@
                 'lumatek_user'
             );
 
+            sessionStorage.removeItem(
+                'lumatek_chat_history'
+            );
+
+            sessionStorage.removeItem(
+                'lumatek_luma_open'
+            );
+
             window.location.href =
                 '/login';
 
@@ -1191,6 +1206,10 @@
 
 
 @stack('scripts')
+
+@if(auth()->user()?->company_id)
+    @include('assistant.partials.widget')
+@endif
 
 </body>
 

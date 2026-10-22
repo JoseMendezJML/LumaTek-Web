@@ -30,10 +30,17 @@ class SubscriptionContract extends Model
     {
         $subscription = Subscription::findOrFail($subscription->getKey());
         $plan = Plan::whereKey($subscription->plan_id)->lockForUpdate()->firstOrFail();
+        $quote = isset($context['quote_id']) ? SubscriptionQuote::findOrFail($context['quote_id']) : null;
+        if ($quote && ($quote->company_id !== $subscription->company_id || $quote->plan_id !== $subscription->plan_id
+            || $quote->billing_period !== ($context['billing_period'] ?? null)
+            || ($context['request_key'] ?? null) !== 'manual-quote:'.$quote->id)) {
+            throw new \LogicException('Quote does not match subscription contract context.');
+        }
+        $source = $quote ?? $plan;
         $period = $context['billing_period'] ?? null;
-        $amount = $period ? $plan->{$period === 'monthly' ? 'price_monthly' : 'price_yearly'} : null;
+        $amount = $quote ? $quote->amount : ($period ? $plan->{$period === 'monthly' ? 'price_monthly' : 'price_yearly'} : null);
         if ($period) {
-            Validator::make(['amount' => $amount, 'currency' => $plan->currency], [
+            Validator::make(['amount' => $amount, 'currency' => $source->currency], [
                 'amount' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
                 'currency' => ['required', 'in:MXN'],
             ])->validate();
@@ -43,10 +50,10 @@ class SubscriptionContract extends Model
             'subscription_id' => $subscription->id, 'company_id' => $subscription->company_id, 'plan_id' => $plan->id,
             'request_key' => $context['request_key'] ?? null,
             'origin' => $context['origin'] ?? 'compatibility',
-            'amount' => $amount, 'currency' => $period ? $plan->currency : null, 'billing_period' => $period,
+            'amount' => $amount, 'currency' => $period ? $source->currency : null, 'billing_period' => $period,
             'starts_at' => $subscription->starts_at, 'ends_at' => $subscription->ends_at,
-            'plan_name' => $plan->name, 'plan_slug' => $plan->slug,
-            ...$plan->only(self::LIMITS), 'recorded_at' => now(),
+            'plan_name' => $quote ? $quote->plan_name : $plan->name, 'plan_slug' => $quote ? $quote->plan_slug : $plan->slug,
+            ...$source->only(self::LIMITS), 'recorded_at' => now(),
         ]);
         $contract->capturing = true;
         try {

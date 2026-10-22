@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\Chat\ChatAssistant;
+use App\Services\Chat\ClaudeChatAssistant;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Event;
@@ -15,7 +17,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(ChatAssistant::class, fn () => new ClaudeChatAssistant());
     }
 
     /**

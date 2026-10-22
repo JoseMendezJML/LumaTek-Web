@@ -92,4 +92,12 @@ class Subscription extends Model
             return $saved;
         });
     }
+
+    public function withQuoteContext(SubscriptionQuote $quote, string $origin): static
+    {
+        $this->withContractContext($quote->billing_period, $origin, 'manual-quote:'.$quote->id);
+        $this->contractContext['quote_id'] = $quote->id;
+
+        return $this;
+    }
 }

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
+use App\Http\Controllers\Api\ManualSubscriptionController;
 use App\Http\Controllers\Api\MobileGoogleAuthController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AmbientHumidityController;
@@ -20,6 +22,13 @@ use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\CompanySettingsController;
 use App\Http\Controllers\ReportController;
+
+// Billing access remains available without Pro; confirmation records external manual verification.
+Route::middleware(['auth:api', 'active.user'])->group(function () {
+    Route::post('/company/pro/quotes', [ManualSubscriptionController::class, 'quote']);
+    Route::post('/platform/pro/quotes/{quote}/confirm', [ManualSubscriptionController::class, 'confirm'])
+        ->middleware('platform.admin');
+});
 
 
 /*
@@ -523,4 +532,18 @@ Route::middleware([
         '/reports/pdf',
         [ReportController::class, 'pdf']
     )->name('api.reports.pdf');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Asistente (compartido por la web y la app móvil)
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post(
+        '/chat',
+        [ChatController::class, 'send']
+    )
+        ->middleware('throttle:10,1')
+        ->name('api.chat.send');
 });
