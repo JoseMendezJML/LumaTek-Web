@@ -19,6 +19,8 @@
         @yield('title', 'LumaTek')
     </title>
 
+    @include('partials.favicon')
+
     <link
         rel="stylesheet"
         href="{{ asset('css/panel.css') }}"

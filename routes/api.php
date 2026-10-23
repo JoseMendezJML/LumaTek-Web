@@ -4,6 +4,7 @@ use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AmbientHumidityController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ChatController;
+use App\Http\Controllers\Api\CompanySubscriptionController;
 use App\Http\Controllers\Api\IotController;
 use App\Http\Controllers\Api\ManualSubscriptionController;
 use App\Http\Controllers\Api\MobileGoogleAuthController;
@@ -25,9 +26,14 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+
 // Billing access remains available without Pro; confirmation records external manual verification.
 Route::middleware(['auth:api', 'active.user'])->group(function () {
     Route::post('/company/pro/quotes', [ManualSubscriptionController::class, 'quote']);
+    // "Mi suscripción" para la app móvil: mismos permisos que la página web.
+    Route::get('/company/subscription', [CompanySubscriptionController::class, 'show'])
+        ->middleware('company.owner')
+        ->name('api.company.subscription');
     Route::post('/platform/pro/quotes/{quote}/confirm', [ManualSubscriptionController::class, 'confirm'])
         ->middleware('platform.admin');
 });
