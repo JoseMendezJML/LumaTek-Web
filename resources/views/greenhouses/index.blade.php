@@ -262,7 +262,7 @@
     .greenhouses-grid {
     display: grid;
     grid-template-columns:
-        repeat(auto-fit, minmax(560px, 1fr));
+        repeat(auto-fit, minmax(min(560px, 100%), 1fr));
     gap: 18px;
 }
 
