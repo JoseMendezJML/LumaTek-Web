@@ -693,7 +693,8 @@ public function pdf(Request $request): Response
 
         $history = app(\App\Services\MeasurementHistory::class);
         $companyId = auth('api')->user()->company_id;
-        return $history->summary($history->query($companyId, $metric, $startDate, $endDate, ['greenhouse_id' => $greenhouseId]))
+        // Reports aggregate the complete period in SQL, independently of the history page limit.
+        return $history->summary($history->query($companyId, $metric, $startDate, $endDate, ['greenhouse_id' => $greenhouseId], maxDays: null))
             + ['type' => $metric, 'label' => $this->metricLabel($metric)];
     }
 

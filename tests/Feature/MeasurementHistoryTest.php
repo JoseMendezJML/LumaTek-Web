@@ -124,6 +124,39 @@ class MeasurementHistoryTest extends TestCase
         $this->getJson('/api/history?metric=soil_humidity')->assertOk()->assertJsonPath('summary.total_readings', 0)->assertJsonCount(0, 'data');
     }
 
+    public function test_annual_and_multiyear_reports_keep_full_period_statistics_and_pdf(): void
+    {
+        $r = $this->fixture();
+        Reading::create(['sensor_id' => $r['sensor']->id, 'value' => 10, 'source' => 'simulation', 'recorded_at' => '2026-01-02 12:00:00']);
+        Reading::create(['sensor_id' => $r['sensor']->id, 'value' => 99, 'source' => 'simulation', 'recorded_at' => '2024-12-31 12:00:00']);
+        Reading::create(['sensor_id' => $r['sensor']->id, 'value' => 99, 'source' => 'simulation', 'recorded_at' => '2027-01-01 12:00:00']);
+        $this->raw($r);
+        $this->resources($this->company());
+        foreach (['2026-01-01', '2025-01-01'] as $start) {
+            $query = http_build_query(['greenhouse_id' => $r['greenhouse']->id, 'start_date' => $start, 'end_date' => '2026-12-31']);
+            $this->getJson('/api/reports?'.$query)->assertOk()
+                ->assertJsonPath('report.metrics.soil_humidity.total_readings', 3)
+                ->assertJsonPath('report.metrics.soil_humidity.unit', 'mixed')
+                ->assertJsonPath('report.metrics.soil_humidity.average', null)
+                ->assertJsonPath('report.metrics.soil_humidity.by_unit.0.unit', '%')
+                ->assertJsonPath('report.metrics.soil_humidity.by_unit.0.total_readings', 2)
+                ->assertJsonPath('report.metrics.soil_humidity.by_unit.0.average', 17.5)
+                ->assertJsonPath('report.metrics.soil_humidity.by_unit.1.unit', 'raw')
+                ->assertJsonPath('report.metrics.soil_humidity.by_unit.1.average', 3184)
+                ->assertJsonPath('report.metrics.temperature.total_readings', 0);
+            $this->get('/api/reports/pdf?'.$query, ['Accept' => 'application/pdf'])->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        }
+        $this->getJson('/api/history?metric=soil_humidity&start_date=2026-01-01&end_date=2026-12-31')->assertStatus(422);
+        $this->getJson('/api/reports?greenhouse_id='.$r['greenhouse']->id.'&start_date=2026-12-31&end_date=2026-01-01')->assertStatus(422);
+    }
+
+    public function test_unlimited_report_query_still_rejects_reversed_dates(): void
+    {
+        $r = $this->fixture();
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        app(MeasurementHistory::class)->query($r['company']->id, 'soil_humidity', now(), now()->subDay(), maxDays: null);
+    }
+
     public function test_pro_history_and_reports_respect_company_isolation(): void
     {
         $r = $this->fixture();

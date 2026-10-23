@@ -11,9 +11,12 @@ use Illuminate\Validation\ValidationException;
 
 class MeasurementHistory
 {
-    public function query(int $companyId, string $metric, Carbon $start, Carbon $end, array $filters = []): Builder
+    public function query(int $companyId, string $metric, Carbon $start, Carbon $end, array $filters = [], ?int $maxDays = 93): Builder
     {
-        if ($start->gt($end) || $start->diffInDays($end) > 93) {
+        if ($start->gt($end)) {
+            throw ValidationException::withMessages(['end_date' => 'La fecha final debe ser posterior o igual a la inicial.']);
+        }
+        if ($maxDays !== null && $start->diffInDays($end) > $maxDays) {
             throw ValidationException::withMessages(['end_date' => 'Selecciona un período válido de hasta 93 días.']);
         }
         $streams = [];

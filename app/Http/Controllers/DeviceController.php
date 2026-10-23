@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Zone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class DeviceController extends Controller
 {
@@ -246,7 +247,8 @@ class DeviceController extends Controller
 
             'connection_type' => [
                 'required',
-                'in:wifi',
+                // Preserve a legacy connection on edits without enabling new non-Wi-Fi IoT devices.
+                Rule::in(array_intersect(['wifi', 'ethernet', 'lora', 'simulation'], ['wifi', $device->connection_type])),
             ],
 
         ], [
