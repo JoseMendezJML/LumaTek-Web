@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\Platform\CompanyController;
@@ -11,6 +12,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingController::class)
     ->name('landing');
+
+// Descarga de la app móvil: destino del QR de la portada.
+Route::get('/app', AppDownloadController::class)
+    ->name('app.download');
 
 Route::view('/login', 'auth.login')
     ->name('login');
