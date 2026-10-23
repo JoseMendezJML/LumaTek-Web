@@ -83,9 +83,16 @@
 
         .sidebar-brand img {
             display: block;
-            max-width: 170px;
-            max-height: 52px;
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 200px;
+            height: auto;
             object-fit: contain;
+
+            /* El logo es verde con fondo transparente: tarjeta blanca para el menú oscuro */
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: #ffffff;
         }
 
         /* =========================================================

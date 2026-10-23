@@ -1119,9 +1119,15 @@
         }
 
         .footer-brand img {
-    width: 165px;
-    max-height: 55px;
+    box-sizing: border-box;
+    width: 190px;
+    height: auto;
     object-fit: contain;
+
+    /* El logo es verde con fondo transparente: tarjeta blanca sobre el pie oscuro */
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #ffffff;
 }
 
         .footer-brand p {
