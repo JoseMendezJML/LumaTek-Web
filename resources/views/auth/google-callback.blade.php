@@ -6,6 +6,8 @@
     <meta name="robots" content="noindex">
 
     <title>Iniciando sesión | LumaTek</title>
+
+    @include('partials.favicon')
 </head>
 <body>
 

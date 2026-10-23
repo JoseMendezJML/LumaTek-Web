@@ -8,11 +8,8 @@
 
     <title>@yield('title', 'LumaTek')</title>
 
-    <link
-        rel="icon"
-        type="image/png"
-        href="{{ asset('images/lumatek-icon.png') }}"
-    >
+    @include('partials.favicon')
+
 
     <link
         rel="stylesheet"
