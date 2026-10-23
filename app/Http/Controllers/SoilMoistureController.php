@@ -92,6 +92,10 @@ class SoilMoistureController extends Controller
             ], 403);
         }
 
+        if ($sensor->unit !== '%') {
+            return response()->json(['message' => 'Este endpoint acepta porcentajes calibrados; no admite valores RAW.'], 422);
+        }
+
         if ($greenhouse->plan_restricted) {
 
             return response()->json([
@@ -213,23 +217,17 @@ class SoilMoistureController extends Controller
                             ?? now(),
 
                         'source' =>
-                        $validated['source']
-                            ?? 'simulation',
+                        'simulation',
                     ]);
 
 
                 /*
                 |--------------------------------------------------------------------------
-                | Actualizar última conexión del dispositivo
+                | La captura manual no actualiza la comunicación IoT
                 |--------------------------------------------------------------------------
                 */
 
-                $sensor
-                    ->device
-                    ->update([
-                        'last_connection_at' =>
-                        $reading->recorded_at,
-                    ]);
+
 
 
                 /*
@@ -305,46 +303,7 @@ class SoilMoistureController extends Controller
                         |--------------------------------------------------------------------------
                         */
 
-                        $alert =
-                            Alert::query()
-                            ->where(
-                                'sensor_id',
-                                $sensor->id
-                            )
-                            ->where(
-                                'type',
-                                'low_soil_humidity'
-                            )
-                            ->where(
-                                'status',
-                                'active'
-                            )
-                            ->first();
-
-
-                        if (!$alert) {
-
-                            $alert =
-                                $sensor
-                                ->alerts()
-                                ->create([
-                                    'reading_id' =>
-                                    $reading->id,
-
-                                    'type' =>
-                                    'low_soil_humidity',
-
-                                    'severity' =>
-                                    'warning',
-
-                                    'message' =>
-                                    'La humedad del suelo está por debajo del umbral mínimo configurado.',
-
-                                    'status' =>
-                                    'active',
-                                ]);
-                        }
-
+                        $alert = app(\App\Services\ReadingAlertEvaluator::class)->evaluate($sensor, $reading);
 
                         /*
                         |--------------------------------------------------------------------------
@@ -376,9 +335,7 @@ class SoilMoistureController extends Controller
                             'high';
 
 
-                        $this->resolveLowHumidityAlerts(
-                            $sensor
-                        );
+                        app(\App\Services\ReadingAlertEvaluator::class)->evaluate($sensor, $reading);
                     }
 
 
@@ -392,9 +349,7 @@ class SoilMoistureController extends Controller
                             'medium';
 
 
-                        $this->resolveLowHumidityAlerts(
-                            $sensor
-                        );
+                        app(\App\Services\ReadingAlertEvaluator::class)->evaluate($sensor, $reading);
                     }
                 }
 
@@ -891,268 +846,41 @@ class SoilMoistureController extends Controller
         }
 
 
-        $latestReading =
-            $sensor->latestReading;
-
-
-        $threshold =
-            $greenhouse
-            ->thresholds
-            ->firstWhere(
-                'variable',
-                'soil_humidity'
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Sin lecturas
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$latestReading) {
-
-            return response()->json([
-                'data' => [
-
-                    'sensor_id' =>
-                    $sensor->id,
-
-                    'sensor_name' =>
-                    $sensor->name,
-
-                    'humidity' =>
-                    null,
-
-                    'unit' =>
-                    '%',
-
-                    'level' =>
-                    null,
-
-                    'level_label' =>
-                    'Sin datos',
-
-                    'connection_status' =>
-                    'no_data',
-
-                    'connection_label' =>
-                    'Sin datos',
-
-                    'recorded_at' =>
-                    null,
-
-                    'minutes_since_last_reading' =>
-                    null,
-
-                    'threshold' =>
-                    $this->formatThreshold(
-                        $threshold
-                    ),
-                ],
-            ]);
+        {
+            $metric = app(\App\Services\GreenhouseSnapshotService::class)->soilMetricForSensor($sensor);
+            return response()->json(['data' => [
+                'sensor_id' => $metric['sensor_id'], 'sensor_name' => $metric['sensor_name'],
+                'humidity' => $metric['value'], 'unit' => $metric['unit'],
+                'level' => $metric['unit'] === 'raw' || $metric['value'] === null ? null : $metric['status'], 'level_label' => $metric['status_label'],
+                'connection_status' => $metric['connection_status'], 'connection_label' => $metric['connection_label'],
+                'recorded_at' => $metric['recorded_at'], 'threshold' => $metric['unit'] === 'raw' ? null : $this->formatThreshold($greenhouse->thresholds->firstWhere('variable', 'soil_humidity')),
+                'measurement_is_stale' => $metric['measurement_is_stale'] ?? false, 'measurement_label' => $metric['measurement_label'] ?? null,
+                'last_authenticated_communication_at' => $metric['last_authenticated_communication_at'] ?? null,
+                'source' => $metric['source'] ?? null, 'source_label' => $metric['source_label'] ?? 'Sin lecturas',
+                'provenance' => $metric['provenance'] ?? null,
+                'minutes_since_last_reading' => $metric['recorded_at'] === null ? null :
+                    (int) \Carbon\Carbon::parse($metric['recorded_at'])->diffInMinutes(now()),
+            ]]);
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Conexión
-        |--------------------------------------------------------------------------
-        */
-
-        $isDisconnected =
-            $latestReading
-            ->recorded_at
-            ->lt(
-                now()->subMinutes(10)
-            );
-
-
-        $humidity =
-            (float) $latestReading->value;
-
-
-        $level =
-            $this->calculateLevel(
-                $humidity,
-                $threshold
-            );
-
-
-        return response()->json([
-            'data' => [
-
-                'sensor_id' =>
-                $sensor->id,
-
-                'sensor_name' =>
-                $sensor->name,
-
-                'humidity' =>
-                round(
-                    $humidity,
-                    1
-                ),
-
-                'unit' =>
-                '%',
-
-                'level' =>
-                $level,
-
-                'level_label' =>
-                $this->levelLabel(
-                    $level
-                ),
-
-                'connection_status' =>
-                $isDisconnected
-                    ? 'disconnected'
-                    : 'connected',
-
-                'connection_label' =>
-                $isDisconnected
-                    ? 'Sin conexión'
-                    : 'Conectado',
-
-                'recorded_at' =>
-                $latestReading
-                    ->recorded_at
-                    ->toDateTimeString(),
-
-                'minutes_since_last_reading' =>
-                (int) $latestReading
-                    ->recorded_at
-                    ->diffInMinutes(
-                        now()
-                    ),
-
-                'threshold' =>
-                $this->formatThreshold(
-                    $threshold
-                ),
-            ],
-        ]);
     }
 
 
     /**
      * Historial de las últimas 24 horas de un sensor.
      */
-    public function history(
-        Sensor $sensor
-    ): JsonResponse {
-
+    public function history(Request $request, Sensor $sensor): JsonResponse
+    {
         $user = auth('api')->user();
-
-
-        if (
-            $sensor->sensor_type
-            !== 'soil_humidity'
-        ) {
-
-            return response()->json([
-                'message' =>
-                'El sensor seleccionado no es de humedad del suelo.',
-            ], 422);
-        }
-
-
-        $sensor->load(
-            'device.zone.greenhouse'
-        );
-
-
-        $greenhouse =
-            $sensor
-            ->device
-            ->zone
-            ->greenhouse;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Aislamiento por empresa
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $greenhouse->company_id
-            !== $user->company_id
-        ) {
-
-            return response()->json([
-                'message' =>
-                'No tienes permiso para consultar este sensor.',
-            ], 403);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Últimas 24 horas
-        |--------------------------------------------------------------------------
-        */
-
-        $readings =
-            $sensor
-            ->readings()
-            ->where(
-                'recorded_at',
-                '>=',
-                now()->subHours(24)
-            )
-            ->orderBy(
-                'recorded_at'
-            )
-            ->get()
-            ->map(
-                function ($reading) {
-
-                    return [
-                        'id' =>
-                        $reading->id,
-
-                        'humidity' =>
-                        round(
-                            (float) $reading->value,
-                            1
-                        ),
-
-                        'unit' =>
-                        '%',
-
-                        'recorded_at' =>
-                        $reading
-                            ->recorded_at
-                            ->toDateTimeString(),
-
-                        'source' =>
-                        $reading->source,
-                    ];
-                }
-            );
-
-
-        return response()->json([
-            'data' => [
-
-                'sensor_id' =>
-                $sensor->id,
-
-                'sensor_name' =>
-                $sensor->name,
-
-                'period_hours' =>
-                24,
-
-                'total_readings' =>
-                $readings->count(),
-
-                'readings' =>
-                $readings,
-            ],
-        ]);
+        $owner = $sensor->device->zone->greenhouse;
+        abort_unless($owner->company_id === $user->company_id, 403);
+        $user->company->syncSensorPlanRestrictions();
+        $input = $request->validate(['unit' => ['nullable', 'in:raw,%'], 'page' => ['sometimes', 'integer', 'between:1,100000'], 'per_page' => ['sometimes', 'integer', 'between:1,500']]);
+        $history = app(\App\Services\MeasurementHistory::class);
+        $result = $history->page($history->query($user->company_id, 'soil_humidity', now()->subDay(), now(), $input + ['sensor_id' => $sensor->id]), $input['page'] ?? 1, $input['per_page'] ?? 200);
+        $rows = array_map(fn ($row) => $row + ['humidity' => $row['value']], $result['data']);
+        return response()->json(['data' => ['sensor_id' => $sensor->id, 'sensor_name' => $sensor->name, 'period_hours' => 24, 'total_readings' => $result['summary']['total_readings'],
+            'readings' => $rows, 'summary' => $result['summary'], 'pagination' => $result['pagination']]]);
     }
 
 
@@ -1242,411 +970,47 @@ class SoilMoistureController extends Controller
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Buscar sensor
-        |--------------------------------------------------------------------------
-        */
+        $metric = app(\App\Services\GreenhouseSnapshotService::class)->soilMetricForGreenhouse($greenhouse);
+        $threshold = $metric['unit'] === 'raw' ? null : $greenhouse->thresholds()
+            ->where('variable', 'soil_humidity')->first();
 
-        $sensor =
-            Sensor::query()
-            ->where(
-                'sensor_type',
-                'soil_humidity'
-            )
-            ->where(
-                'status',
-                'active'
-            )
-            ->where(
-                'plan_restricted',
-                false
-            )
-            ->whereHas(
-                'device',
-                function ($query) {
-
-                    $query->where(
-                        'status',
-                        'active'
-                    );
-                }
-            )
-            ->whereHas(
-                'device.zone',
-                function ($query) use ($greenhouse) {
-
-                    $query
-                        ->where(
-                            'greenhouse_id',
-                            $greenhouse->id
-                        )
-                        ->where(
-                            'status',
-                            'active'
-                        )
-                        ->where(
-                            'plan_restricted',
-                            false
-                        );
-                }
-            )
-            ->with([
-                'latestReading',
-            ])
-            ->first();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Sin sensor
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$sensor) {
-
-            return response()->json([
-                'data' => [
-
-                    'sensor_id' =>
-                    null,
-
-                    'sensor_name' =>
-                    null,
-
-                    'humidity' =>
-                    null,
-
-                    'unit' =>
-                    '%',
-
-                    'level' =>
-                    null,
-
-                    'level_label' =>
-                    'Sin sensor',
-
-                    'connection_status' =>
-                    'no_sensor',
-
-                    'connection_label' =>
-                    'Sin sensor',
-
-                    'recorded_at' =>
-                    null,
-
-                    'minutes_since_last_reading' =>
-                    null,
-
-                    'threshold' =>
-                    null,
-                ],
-            ]);
-        }
-
-
-        $threshold =
-            $greenhouse
-            ->thresholds()
-            ->where(
-                'variable',
-                'soil_humidity'
-            )
-            ->first();
-
-
-        $latestReading =
-            $sensor->latestReading;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Sensor sin lecturas
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$latestReading) {
-
-            return response()->json([
-                'data' => [
-
-                    'sensor_id' =>
-                    $sensor->id,
-
-                    'sensor_name' =>
-                    $sensor->name,
-
-                    'humidity' =>
-                    null,
-
-                    'unit' =>
-                    '%',
-
-                    'level' =>
-                    null,
-
-                    'level_label' =>
-                    'Sin datos',
-
-                    'connection_status' =>
-                    'no_data',
-
-                    'connection_label' =>
-                    'Sin datos',
-
-                    'recorded_at' =>
-                    null,
-
-                    'minutes_since_last_reading' =>
-                    null,
-
-                    'threshold' =>
-                    $this->formatThreshold(
-                        $threshold
-                    ),
-                ],
-            ]);
-        }
-
-
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Conexión
-        |--------------------------------------------------------------------------
-        */
-
-        $isDisconnected =
-            $latestReading
-            ->recorded_at
-            ->lt(
-                now()->subMinutes(10)
-            );
-
-
-        $humidity =
-            (float) $latestReading->value;
-
-
-        $level =
-            $this->calculateLevel(
-                $humidity,
-                $threshold
-            );
-
-
-        return response()->json([
-            'data' => [
-
-                'sensor_id' =>
-                $sensor->id,
-
-                'sensor_name' =>
-                $sensor->name,
-
-                'humidity' =>
-                round(
-                    $humidity,
-                    1
-                ),
-
-                'unit' =>
-                '%',
-
-                'level' =>
-                $level,
-
-                'level_label' =>
-                $this->levelLabel(
-                    $level
-                ),
-
-                'connection_status' =>
-                $isDisconnected
-                    ? 'disconnected'
-                    : 'connected',
-
-                'connection_label' =>
-                $isDisconnected
-                    ? 'Sin conexión'
-                    : 'Conectado',
-
-                'recorded_at' =>
-                $latestReading
-                    ->recorded_at
-                    ->toDateTimeString(),
-
-                'minutes_since_last_reading' =>
-                (int) $latestReading
-                    ->recorded_at
-                    ->diffInMinutes(
-                        now()
-                    ),
-
-                'threshold' =>
-                $this->formatThreshold(
-                    $threshold
-                ),
-            ],
-        ]);
+        return response()->json(['data' => [
+            'sensor_id' => $metric['sensor_id'],
+            'sensor_name' => $metric['sensor_name'],
+            'humidity' => $metric['value'],
+            'unit' => $metric['unit'],
+            'level' => $metric['value'] === null ? null : ($metric['status'] === 'normal' ? 'medium' : $metric['status']),
+            'level_label' => $metric['connection_status'] === 'no_sensor' ? 'Sin sensor' : $metric['status_label'],
+            'connection_status' => $metric['connection_status'],
+            'connection_label' => $metric['connection_label'],
+            'measurement_is_stale' => $metric['measurement_is_stale'] ?? false, 'measurement_label' => $metric['measurement_label'] ?? null,
+                'last_authenticated_communication_at' => $metric['last_authenticated_communication_at'] ?? null,
+                'source' => $metric['source'] ?? null,
+            'source_label' => $metric['source_label'] ?? 'Sin lecturas',
+            'recorded_at' => $metric['recorded_at'],
+            'minutes_since_last_reading' => $metric['recorded_at'] === null ? null :
+                (int) \Carbon\Carbon::parse($metric['recorded_at'])->diffInMinutes(now()),
+            'threshold' => $this->formatThreshold($threshold),
+        ]]);
     }
 
 
     /**
      * Historial de humedad del suelo de un invernadero.
      */
-    public function historyByGreenhouse(
-        Greenhouse $greenhouse
-    ): JsonResponse {
-
+    public function historyByGreenhouse(Request $request, Greenhouse $greenhouse): JsonResponse
+    {
         $user = auth('api')->user();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Aislamiento por empresa
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $greenhouse->company_id
-            !== $user->company_id
-        ) {
-
-            return response()->json([
-                'message' =>
-                'No tienes permiso para consultar este invernadero.',
-            ], 403);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Buscar sensor
-        |--------------------------------------------------------------------------
-        */
-
-        $sensor =
-            Sensor::query()
-            ->where(
-                'sensor_type',
-                'soil_humidity'
-            )
-            ->where(
-                'status',
-                'active'
-            )
-            ->whereHas(
-                'device.zone',
-                function ($query) use ($greenhouse) {
-
-                    $query->where(
-                        'greenhouse_id',
-                        $greenhouse->id
-                    );
-                }
-            )
-            ->first();
-
-
-        if (!$sensor) {
-
-            return response()->json([
-                'data' => [
-
-                    'sensor_id' =>
-                    null,
-
-                    'sensor_name' =>
-                    null,
-
-                    'period_hours' =>
-                    24,
-
-                    'total_readings' =>
-                    0,
-
-                    'readings' =>
-                    [],
-                ],
-            ]);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Últimas 24 horas
-        |--------------------------------------------------------------------------
-        */
-
-        $readings =
-            $sensor
-            ->readings()
-            ->where(
-                'recorded_at',
-                '>=',
-                now()->subHours(24)
-            )
-            ->orderBy(
-                'recorded_at'
-            )
-            ->get()
-            ->map(
-                function ($reading) {
-
-                    return [
-                        'id' =>
-                        $reading->id,
-
-                        'humidity' =>
-                        round(
-                            (float) $reading->value,
-                            1
-                        ),
-
-                        'unit' =>
-                        '%',
-
-                        'recorded_at' =>
-                        $reading
-                            ->recorded_at
-                            ->toDateTimeString(),
-
-                        'source' =>
-                        $reading->source,
-                    ];
-                }
-            );
-
-
-        return response()->json([
-            'data' => [
-
-                'sensor_id' =>
-                $sensor->id,
-
-                'sensor_name' =>
-                $sensor->name,
-
-                'period_hours' =>
-                24,
-
-                'total_readings' =>
-                $readings->count(),
-
-                'readings' =>
-                $readings,
-            ],
-        ]);
+        $owner = $greenhouse;
+        abort_unless($owner->company_id === $user->company_id, 403);
+        $user->company->syncSensorPlanRestrictions();
+        $input = $request->validate(['unit' => ['nullable', 'in:raw,%'], 'page' => ['sometimes', 'integer', 'between:1,100000'], 'per_page' => ['sometimes', 'integer', 'between:1,500']]);
+        $history = app(\App\Services\MeasurementHistory::class);
+        $result = $history->page($history->query($user->company_id, 'soil_humidity', now()->subDay(), now(), $input + ['greenhouse_id' => $greenhouse->id]), $input['page'] ?? 1, $input['per_page'] ?? 200);
+        $rows = array_map(fn ($row) => $row + ['humidity' => $row['value']], $result['data']);
+        return response()->json(['data' => ['greenhouse_id' => $greenhouse->id, 'period_hours' => 24, 'total_readings' => $result['summary']['total_readings'],
+            'readings' => $rows, 'summary' => $result['summary'], 'pagination' => $result['pagination']]]);
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | MÉTODOS AUXILIARES
-    |--------------------------------------------------------------------------
-    */
 
 
     /**

@@ -1,27 +1,29 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\ChatController;
-use App\Http\Controllers\Api\ManualSubscriptionController;
-use App\Http\Controllers\Api\MobileGoogleAuthController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\AmbientHumidityController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
+use App\Http\Controllers\Api\IotController;
+use App\Http\Controllers\Api\ManualSubscriptionController;
+use App\Http\Controllers\Api\MobileGoogleAuthController;
+use App\Http\Controllers\CompanySettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\GreenhouseController;
+use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\IrrigationController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SensorController;
 use App\Http\Controllers\SoilMoistureController;
 use App\Http\Controllers\TemperatureController;
+use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\ZoneIrrigationSettingController;
+use App\Http\Middleware\EnsureManualReadingAccess;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HistoryController;
-use App\Http\Controllers\UserManagementController;
-use App\Http\Controllers\CompanySettingsController;
-use App\Http\Controllers\ReportController;
 
 // Billing access remains available without Pro; confirmation records external manual verification.
 Route::middleware(['auth:api', 'active.user'])->group(function () {
@@ -29,7 +31,6 @@ Route::middleware(['auth:api', 'active.user'])->group(function () {
     Route::post('/platform/pro/quotes/{quote}/confirm', [ManualSubscriptionController::class, 'confirm'])
         ->middleware('platform.admin');
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -42,12 +43,10 @@ Route::post(
     [AuthController::class, 'register']
 )->name('api.register');
 
-
 Route::post(
     '/login',
     [AuthController::class, 'login']
 )->name('api.login');
-
 
 Route::post(
     '/auth/google',
@@ -55,7 +54,6 @@ Route::post(
 )
     ->middleware('throttle:10,1')
     ->name('api.auth.google');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -68,12 +66,10 @@ Route::post(
     [AuthController::class, 'forgotPassword']
 )->name('password.email');
 
-
 Route::post(
     '/password/reset',
     [AuthController::class, 'resetPassword']
 )->name('password.update');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -91,7 +87,6 @@ Route::get(
 
         $user = User::findOrFail($id);
 
-
         abort_unless(
             hash_equals(
                 (string) $hash,
@@ -102,22 +97,17 @@ Route::get(
             403
         );
 
-
         if ($user->hasVerifiedEmail()) {
 
             return response()->json([
-                'message' =>
-                'El correo electrónico ya estaba verificado.',
+                'message' => 'El correo electrónico ya estaba verificado.',
             ]);
         }
 
-
         $user->markEmailAsVerified();
 
-
         return response()->json([
-            'message' =>
-            'Correo electrónico verificado correctamente.',
+            'message' => 'Correo electrónico verificado correctamente.',
         ]);
     }
 )
@@ -126,7 +116,6 @@ Route::get(
         'throttle:6,1',
     ])
     ->name('verification.verify');
-
 
 /*
 |--------------------------------------------------------------------------
@@ -140,7 +129,6 @@ Route::middleware([
     'plan.access',
 ])->group(function () {
 
-
     /*
     |--------------------------------------------------------------------------
     | Invernaderos
@@ -152,7 +140,6 @@ Route::middleware([
         [GreenhouseController::class, 'index']
     )->name('greenhouses.index');
 
-
     Route::post(
         '/greenhouses',
         [GreenhouseController::class, 'store']
@@ -160,12 +147,10 @@ Route::middleware([
         ->middleware('company.admin')
         ->name('greenhouses.store');
 
-
     Route::get(
         '/greenhouses/{greenhouse}',
         [GreenhouseController::class, 'show']
     )->name('greenhouses.show');
-
 
     Route::put(
         '/greenhouses/{greenhouse}',
@@ -173,7 +158,6 @@ Route::middleware([
     )
         ->middleware('company.admin')
         ->name('greenhouses.update');
-
 
     Route::patch(
         '/greenhouses/{greenhouse}',
@@ -188,7 +172,6 @@ Route::middleware([
         ->middleware('company.admin')
         ->name('greenhouses.status');
 
-
     /*
     |--------------------------------------------------------------------------
     | Temperatura
@@ -198,20 +181,17 @@ Route::middleware([
     Route::post(
         '/sensors/{sensor}/temperature',
         [TemperatureController::class, 'store']
-    )->name('temperature.store');
-
+    )->middleware(EnsureManualReadingAccess::class)->name('temperature.store');
 
     Route::get(
         '/sensors/{sensor}/temperature/current',
         [TemperatureController::class, 'current']
     )->name('temperature.current');
 
-
     Route::get(
         '/greenhouses/{greenhouse}/temperature/current',
         [TemperatureController::class, 'currentByGreenhouse']
     )->name('greenhouses.temperature.current');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -222,32 +202,27 @@ Route::middleware([
     Route::post(
         '/sensors/{sensor}/soil-moisture',
         [SoilMoistureController::class, 'store']
-    )->name('soil-moisture.store');
-
+    )->middleware(EnsureManualReadingAccess::class)->name('soil-moisture.store');
 
     Route::get(
         '/sensors/{sensor}/soil-moisture/current',
         [SoilMoistureController::class, 'current']
     )->name('soil-moisture.current');
 
-
     Route::get(
         '/sensors/{sensor}/soil-moisture/history',
         [SoilMoistureController::class, 'history']
     )->name('soil-moisture.history');
-
 
     Route::get(
         '/greenhouses/{greenhouse}/soil-moisture/current',
         [SoilMoistureController::class, 'currentByGreenhouse']
     )->name('greenhouses.soil-moisture.current');
 
-
     Route::get(
         '/greenhouses/{greenhouse}/soil-moisture/history',
         [SoilMoistureController::class, 'historyByGreenhouse']
     )->name('greenhouses.soil-moisture.history');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -258,20 +233,17 @@ Route::middleware([
     Route::post(
         '/sensors/{sensor}/ambient-humidity',
         [AmbientHumidityController::class, 'store']
-    )->name('ambient-humidity.store');
-
+    )->middleware(EnsureManualReadingAccess::class)->name('ambient-humidity.store');
 
     Route::get(
         '/sensors/{sensor}/ambient-humidity/current',
         [AmbientHumidityController::class, 'current']
     )->name('ambient-humidity.current');
 
-
     Route::get(
         '/greenhouses/{greenhouse}/ambient-humidity/current',
         [AmbientHumidityController::class, 'currentByGreenhouse']
     )->name('greenhouses.ambient-humidity.current');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -284,24 +256,20 @@ Route::middleware([
         [ZoneController::class, 'index']
     )->name('greenhouses.zones.index');
 
-
     Route::post(
         '/greenhouses/{greenhouse}/zones',
         [ZoneController::class, 'store']
     )->middleware('company.admin')->name('greenhouses.zones.store');
-
 
     Route::put(
         '/zones/{zone}',
         [ZoneController::class, 'update']
     )->middleware('company.admin')->name('zones.update');
 
-
     Route::patch(
         '/zones/{zone}/status',
         [ZoneController::class, 'changeStatus']
     )->middleware('company.admin')->name('zones.status');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -314,24 +282,20 @@ Route::middleware([
         [DeviceController::class, 'index']
     )->name('zones.devices.index');
 
-
     Route::post(
         '/zones/{zone}/devices',
         [DeviceController::class, 'store']
     )->middleware('company.admin')->name('zones.devices.store');
-
 
     Route::put(
         '/devices/{device}',
         [DeviceController::class, 'update']
     )->middleware('company.admin')->name('devices.update');
 
-
     Route::patch(
         '/devices/{device}/status',
         [DeviceController::class, 'changeStatus']
     )->middleware('company.admin')->name('devices.status');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -344,24 +308,20 @@ Route::middleware([
         [SensorController::class, 'index']
     )->name('devices.sensors.index');
 
-
     Route::post(
         '/devices/{device}/sensors',
         [SensorController::class, 'store']
     )->middleware('company.admin')->name('devices.sensors.store');
-
 
     Route::put(
         '/sensors/{sensor}',
         [SensorController::class, 'update']
     )->middleware('company.admin')->name('sensors.update');
 
-
     Route::patch(
         '/sensors/{sensor}/status',
         [SensorController::class, 'changeStatus']
     )->middleware('company.admin')->name('sensors.status');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -374,18 +334,15 @@ Route::middleware([
         [AlertController::class, 'index']
     )->name('api.alerts.index');
 
-
     Route::patch(
         '/alerts/{alert}/acknowledge',
         [AlertController::class, 'acknowledge']
     )->name('alerts.acknowledge');
 
-
     Route::patch(
         '/alerts/{alert}/resolve',
         [AlertController::class, 'resolve']
     )->name('alerts.resolve');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -398,7 +355,6 @@ Route::middleware([
         [DashboardController::class, 'index']
     )->name('dashboard.index');
 
-
     /*
     |--------------------------------------------------------------------------
     | Riego manual e historial
@@ -410,12 +366,10 @@ Route::middleware([
         [IrrigationController::class, 'index']
     )->name('api.irrigation.index');
 
-
     Route::get(
         '/irrigation-events/{irrigationEvent}',
         [IrrigationController::class, 'show']
     )->name('api.irrigation.show');
-
 
     Route::post(
         '/zones/{zone}/irrigation/start',
@@ -427,18 +381,15 @@ Route::middleware([
         [IrrigationController::class, 'startManualByGreenhouse']
     )->name('api.irrigation.greenhouse.start');
 
-
     Route::patch(
         '/irrigation-events/{irrigationEvent}/complete',
         [IrrigationController::class, 'complete']
     )->name('api.irrigation.complete');
 
-
     Route::patch(
         '/irrigation-events/{irrigationEvent}/cancel',
         [IrrigationController::class, 'cancel']
     )->name('api.irrigation.cancel');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -451,24 +402,23 @@ Route::middleware([
         [ZoneIrrigationSettingController::class, 'show']
     )->name('api.irrigation-settings.show');
 
-
     Route::put(
         '/zones/{zone}/irrigation-setting',
         [ZoneIrrigationSettingController::class, 'update']
     )->middleware('company.admin')->name('api.irrigation-settings.update');
-
 
     Route::put(
         '/greenhouses/{greenhouse}/irrigation-setting',
         [ZoneIrrigationSettingController::class, 'updateByGreenhouse']
     )->middleware('company.admin')->name('api.irrigation-settings.greenhouse.update');
 
+    Route::get('/sensors/{sensor}/history', [HistoryController::class, 'sensor']);
+
     Route::get('/history', [HistoryController::class, 'index'])
         ->name('api.history.index');
 
     Route::get('/history/irrigations', [HistoryController::class, 'irrigations'])
         ->name('api.history.irrigations');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -481,18 +431,15 @@ Route::middleware([
         [UserManagementController::class, 'index']
     )->name('api.users.index');
 
-
     Route::post(
         '/users',
         [UserManagementController::class, 'store']
     )->name('api.users.store');
 
-
     Route::put(
         '/users/{user}',
         [UserManagementController::class, 'update']
     )->name('api.users.update');
-
 
     Route::patch(
         '/users/{user}/status',
@@ -510,12 +457,10 @@ Route::middleware([
         [CompanySettingsController::class, 'show']
     )->name('api.company.settings.show');
 
-
     Route::put(
         '/company/settings',
         [CompanySettingsController::class, 'update']
     )->name('api.company.settings.update');
-
 
     /*
 |--------------------------------------------------------------------------
@@ -533,7 +478,6 @@ Route::middleware([
         [ReportController::class, 'pdf']
     )->name('api.reports.pdf');
 
-
     /*
     |--------------------------------------------------------------------------
     | Asistente (compartido por la web y la app móvil)
@@ -547,3 +491,14 @@ Route::middleware([
         ->middleware('throttle:10,1')
         ->name('api.chat.send');
 });
+
+// Device credentials are independent of personal JWTs.
+Route::post('/iot/pairings', [IotController::class, 'challenge'])->middleware('throttle:6,1');
+Route::post('/iot/pairings/exchange', [IotController::class, 'exchange'])->middleware('throttle:6,1');
+Route::get('/iot/config', [IotController::class, 'config'])->middleware('throttle:60,1');
+Route::middleware(['auth:api', 'active.user', 'plan.access', 'company.admin', 'throttle:6,1'])->group(function () {
+    Route::post('/devices/{device}/pairing', [IotController::class, 'approve']);
+    Route::delete('/devices/{device}/pairing', [IotController::class, 'revoke']);
+});
+
+Route::post('/iot/readings', [IotController::class, 'readings'])->middleware('throttle:60,1');

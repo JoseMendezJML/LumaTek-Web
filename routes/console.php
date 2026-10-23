@@ -43,3 +43,8 @@ Schedule::command('subscriptions:sync-restrictions')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
+
+// Opt-in only: no historical summary task is registered by default.
+if (config('measurement_summaries.schedule_enabled', false)) {
+    Schedule::command('history:summarize --allow-persistent')->everyTenMinutes()->withoutOverlapping();
+}

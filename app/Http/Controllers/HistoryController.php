@@ -21,176 +21,34 @@ class HistoryController extends Controller
         }
 
         $validated = $request->validate([
-            'greenhouse_id' => ['nullable', 'integer'],
-            'zone_id' => ['nullable', 'integer'],
-            'metric' => [
-                'nullable',
-                'in:temperature,soil_humidity,ambient_humidity',
-            ],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date'],
+            'greenhouse_id' => ['nullable', 'integer'], 'zone_id' => ['nullable', 'integer'], 'sensor_id' => ['nullable', 'integer'],
+            'metric' => ['nullable', 'in:temperature,soil_humidity,ambient_humidity'],
+            'unit' => ['nullable', 'in:raw,%,°C,unknown'], 'start_date' => ['nullable', 'date'], 'end_date' => ['nullable', 'date'],
+            'page' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'per_page' => ['sometimes', 'integer', 'between:1,500'],
         ]);
-
+        $user->company->syncSensorPlanRestrictions();
         $metric = $validated['metric'] ?? 'temperature';
+        $start = isset($validated['start_date']) ? Carbon::parse($validated['start_date'])->startOfDay() : now()->subDays(7)->startOfDay();
+        $end = isset($validated['end_date']) ? Carbon::parse($validated['end_date'])->endOfDay() : now()->endOfDay();
+        $history = app(\App\Services\MeasurementHistory::class);
+        $query = $history->query($user->company_id, $metric, $start, $end, $validated);
+        $result = $history->page($query, $validated['page'] ?? 1, $validated['per_page'] ?? 25);
+        $result['chart'] = app(\App\Services\MeasurementChart::class)->period($query, $start, $end, $result['summary']['total_readings']);
+        $result['chart_scope'] = 'full_period';
 
-        $startDate = isset($validated['start_date'])
-            ? Carbon::parse($validated['start_date'])->startOfDay()
-            : now()->subDays(7)->startOfDay();
-
-        $endDate = isset($validated['end_date'])
-            ? Carbon::parse($validated['end_date'])->endOfDay()
-            : now()->endOfDay();
-
-        if ($startDate->greaterThan($endDate)) {
-            return response()->json([
-                'message' => 'La fecha inicial no puede ser mayor que la fecha final.',
-            ], 422);
-        }
-
-        $query = Reading::query()
-            ->with([
-                'sensor.device.zone.greenhouse',
-            ])
-            ->whereBetween('recorded_at', [
-                $startDate,
-                $endDate,
-            ])
-            ->whereHas('sensor', function ($sensorQuery) use ($metric) {
-                $sensorQuery->where(
-                    'sensor_type',
-                    $metric
-                );
-            })
-            ->whereHas(
-                'sensor.device.zone.greenhouse',
-                function ($greenhouseQuery) use ($user) {
-                    $greenhouseQuery->where(
-                        'company_id',
-                        $user->company_id
-                    );
-                }
-            );
-
-        if (!empty($validated['greenhouse_id'])) {
-            $greenhouseId = $validated['greenhouse_id'];
-
-            $query->whereHas(
-                'sensor.device.zone',
-                function ($zoneQuery) use ($greenhouseId) {
-                    $zoneQuery->where(
-                        'greenhouse_id',
-                        $greenhouseId
-                    );
-                }
-            );
-        }
-
-        if (!empty($validated['zone_id'])) {
-            $zoneId = $validated['zone_id'];
-
-            $query->whereHas(
-                'sensor.device',
-                function ($deviceQuery) use ($zoneId) {
-                    $deviceQuery->where(
-                        'zone_id',
-                        $zoneId
-                    );
-                }
-            );
-        }
-
-        $readings = $query
-            ->orderBy('recorded_at')
-            ->get();
-
-        $values = $readings
-            ->pluck('value')
-            ->map(
-                fn ($value) => (float) $value
-            );
-
-        $summary = [
-            'total_readings' => $values->count(),
-
-            'minimum' => $values->isNotEmpty()
-                ? round($values->min(), 2)
-                : null,
-
-            'maximum' => $values->isNotEmpty()
-                ? round($values->max(), 2)
-                : null,
-
-            'average' => $values->isNotEmpty()
-                ? round($values->avg(), 2)
-                : null,
-        ];
-
-        $data = $readings->map(function ($reading) {
-            $sensor = $reading->sensor;
-            $device = $sensor?->device;
-            $zone = $device?->zone;
-            $greenhouse = $zone?->greenhouse;
-
-            return [
-                'id' => $reading->id,
-
-                'value' => (float) $reading->value,
-
-                'recorded_at' => optional(
-                    $reading->recorded_at
-                )->format('Y-m-d H:i:s'),
-
-                'source' => $reading->source,
-
-                'sensor' => $sensor ? [
-                    'id' => $sensor->id,
-                    'name' => $sensor->name,
-                    'code' => $sensor->sensor_code,
-                    'type' => $sensor->sensor_type,
-                    'unit' => $sensor->unit,
-                ] : null,
-
-                'device' => $device ? [
-                    'id' => $device->id,
-                    'name' => $device->name,
-                    'code' => $device->device_code,
-                ] : null,
-
-                'zone' => $zone ? [
-                    'id' => $zone->id,
-                    'name' => $zone->name,
-                ] : null,
-
-                'greenhouse' => $greenhouse ? [
-                    'id' => $greenhouse->id,
-                    'name' => $greenhouse->name,
-                ] : null,
-            ];
-        });
-
-        return response()->json([
+        return response()->json($result + [
             'message' => 'Historial obtenido correctamente.',
-
-            'filters' => [
-                'greenhouse_id' => $validated['greenhouse_id'] ?? null,
-                'zone_id' => $validated['zone_id'] ?? null,
-                'metric' => $metric,
-                'start_date' => $startDate->format('Y-m-d'),
-                'end_date' => $endDate->format('Y-m-d'),
-            ],
-
-            'metric' => [
-                'type' => $metric,
-                'label' => $this->metricLabel($metric),
-                'unit' => $this->metricUnit($metric),
-            ],
-
-            'summary' => $summary,
-
-            'data' => $data,
+            'filters' => $validated + ['metric' => $metric, 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString()],
+            'metric' => ['type' => $metric, 'label' => $this->metricLabel($metric), 'unit' => $result['summary']['unit'] ?? $this->metricUnit($metric)],
         ]);
     }
 
+    public function sensor(Request $request, \App\Models\Sensor $sensor): JsonResponse
+    {
+        abort_unless($sensor->device->zone->greenhouse->company_id === auth('api')->user()->company_id, 403);
+        $request->merge(['sensor_id' => $sensor->id, 'metric' => $request->input('metric', $sensor->sensor_type)]);
+        return $this->index($request);
+    }
 
     public function irrigations(Request $request): JsonResponse
     {

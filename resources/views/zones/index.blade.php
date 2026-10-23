@@ -15,6 +15,16 @@
 
 <div class="zones-page">
 
+    @if($canManageResources)
+        <section class="panel-card" aria-label="Instalación IoT">
+            <div class="panel-card-header">
+                <div><h2>Instalación IoT</h2><p>Guía para registrar, instalar y vincular equipos ESP32 compatibles.</p></div>
+                <a class="action-button action-main" href="{{ route('iot.installation') }}">Abrir guía de instalación</a>
+            </div>
+        </section>
+    @endif
+
+
     <div
         id="zone-message"
         class="panel-message"
@@ -363,15 +373,14 @@
                         <div class="panel-form-group">
 
                             <label for="device-code">
-                                Código *
+                                Identificador automático
                             </label>
 
                             <input
                                 type="text"
                                 id="device-code"
                                 maxlength="100"
-                                placeholder="Ej. ESP32-001"
-                                required
+                                placeholder="Se genera automáticamente" readonly
                             >
 
                             <span class="form-help">
@@ -387,34 +396,9 @@
                                 Tipo de dispositivo *
                             </label>
 
-                            <select
-                                id="device-type"
-                                required
-                            >
-                                <option value="">
-                                    Selecciona un tipo
-                                </option>
-
-                                <option value="ESP32">
-                                    ESP32
-                                </option>
-
-                                <option value="Gateway">
-                                    Gateway
-                                </option>
-
-                                <option value="Controlador">
-                                    Controlador
-                                </option>
-
-                                <option value="Nodo IoT">
-                                    Nodo IoT
-                                </option>
-
-                                <option value="Otro">
-                                    Otro
-                                </option>
-                            </select>
+                            <select id="device-type" required><option value="ESP32">ESP32 DevKit V1</option></select>
+                            <label for="device-interval">Intervalo de medición (segundos)</label>
+                            <input id="device-interval" type="number" min="10" max="3600" value="60" required>
 
                         </div>
 
@@ -425,30 +409,7 @@
                                 Tipo de conexión *
                             </label>
 
-                            <select
-                                id="connection-type"
-                                required
-                            >
-                                <option value="">
-                                    Selecciona una conexión
-                                </option>
-
-                                <option value="wifi">
-                                    WiFi
-                                </option>
-
-                                <option value="ethernet">
-                                    Ethernet
-                                </option>
-
-                                <option value="lora">
-                                    LoRa
-                                </option>
-
-                                <option value="simulation">
-                                    Simulación
-                                </option>
-                            </select>
+                            <select id="connection-type" required><option value="wifi">WiFi</option></select>
 
                         </div>
 
@@ -544,7 +505,7 @@
                 <h2>Sensores</h2>
 
                 <p>
-                    Administra los sensores conectados a
+                    Administra los sensores registrados en
                     <strong id="sensor-device-name"></strong>.
                 </p>
 
@@ -665,12 +626,14 @@
                                 Modelo
                             </label>
 
-                            <input
-                                type="text"
-                                id="sensor-model"
-                                maxlength="150"
-                                placeholder="Ej. DHT22"
-                            >
+                            <select id="sensor-model" required><option value="DHT22">DHT22</option><option value="analog_soil">Humedad del suelo analógica</option></select>
+                            <label for="sensor-pin">Pin GPIO</label>
+                            <select id="sensor-pin" required><option value="4">GPIO4 (DHT22)</option><option>32</option><option>33</option><option>34</option><option>35</option><option>36</option><option>39</option></select>
+                            <label for="sensor-dry">Calibración seco (ADC 0–4095)</label>
+                            <input id="sensor-dry" type="number" min="0" max="4095">
+                            <label for="sensor-wet">Calibración mojado (ADC 0–4095)</label>
+                            <input id="sensor-wet" type="number" min="0" max="4095">
+                            <span class="form-help">Deja ambos valores vacíos para RAW; completa ambos para porcentajes. DHT22 permite temperatura y humedad en GPIO4.</span>
 
                         </div>
 
@@ -2256,7 +2219,7 @@
 
                 <div class="info-row">
 
-                    <span>Tipo</span>
+                    <span>Estado IoT</span><strong>${escapeHtml(device.connection_label ?? 'Sin datos')}</strong></div><div class="info-row"><span>Última comunicación IoT autenticada</span><strong>${escapeHtml(device.last_connection_at ?? "Sin comunicación")}</strong></div><div class="info-row"><span>Última lectura física</span><strong>${escapeHtml(device.last_reading_at ?? 'Sin lecturas físicas')}</strong></div><div class="info-row"><span>Última lectura manual/simulada</span><strong>${escapeHtml(device.last_manual_reading_at ?? 'Sin lecturas manuales')}</strong></div><div class="info-row"><span>Tipo</span>
 
                     <strong>
                         ${escapeHtml(device.device_type)}
@@ -2308,6 +2271,8 @@
                 </button>
 
                 @if($canManageResources)
+                <button type="button" class="action-button pair-device">Vincular / renovar</button>
+                <button type="button" class="action-button revoke-device">Revocar</button>
                 <button
                     type="button"
                     class="action-button edit-device"
@@ -2358,6 +2323,27 @@
             );
 
 
+        card.querySelector('.pair-device')?.addEventListener('click', async () => {
+            const pairing_id = prompt('ID del desafío mostrado por el ESP32 local:');
+            if (!pairing_id) return;
+            const operator_proof = prompt('Prueba privada mostrada por ese ESP32 (no su código público):');
+            if (!operator_proof) return;
+            try {
+                const response = await fetch(`/api/devices/${device.id}/pairing`, {method: 'POST', headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`}, body: JSON.stringify({pairing_id, operator_proof})});
+                const result = await response.json();
+                alert(result.message ?? (response.ok ? 'Autorizado' : 'No se pudo vincular'));
+                await loadDevices();
+            } catch { alert('No se pudo contactar con el servidor.'); }
+        });
+        card.querySelector('.revoke-device')?.addEventListener('click', async () => {
+            if (!confirm('¿Revocar la credencial y cancelar vinculaciones pendientes? Para renovar será necesario otro desafío local.')) return;
+            try {
+                const response = await fetch(`/api/devices/${device.id}/pairing`, {method: 'DELETE', headers: {'Accept': 'application/json', 'Authorization': `Bearer ${token}`}});
+                const result = await response.json();
+                alert(result.message ?? 'No se pudo revocar');
+                await loadDevices();
+            } catch { alert('No se pudo contactar con el servidor.'); }
+        });
         devicesList.appendChild(card);
     }
 
@@ -2391,6 +2377,8 @@
                         .trim()
                         .toUpperCase(),
 
+                board_model: 'esp32_devkit_v1',
+                measurement_interval: Number(document.getElementById('device-interval').value),
                 device_type:
                     deviceType.value,
 
@@ -2499,6 +2487,7 @@
 
         deviceCode.value =
             device.device_code ?? '';
+        document.getElementById('device-interval').value = device.measurement_interval ?? 60;
 
         deviceType.value =
             device.device_type ?? '';
@@ -2854,11 +2843,10 @@
 `;
 
 
-if (sensor.latest_reading) {
-
-    const reading =
-        sensor.latest_reading;
-
+const reading = [sensor.latest_reading, sensor.latest_raw_reading]
+    .filter(item => item && item.measurement_type === sensor.sensor_type)
+    .sort((a, b) => Date.parse(b.recorded_at) - Date.parse(a.recorded_at) || Date.parse(b.received_at) - Date.parse(a.received_at) || (b.unit === 'raw' ? 1 : -1))[0];
+if (reading) {
     latestReadingHtml = `
         <div class="latest-reading">
 
@@ -2874,8 +2862,10 @@ if (sensor.latest_reading) {
                 ${Number(
                     reading.value
                 ).toFixed(1)}
-                ${escapeHtml(sensor.unit)}
+                ${escapeHtml(reading.unit ?? 'unknown')}
             </strong>
+            <small>${escapeHtml(reading.source_label ?? 'Origen no verificado')}</small>
+            <small>${escapeHtml(sensor.connection_label ?? 'Sin datos')} - ${escapeHtml(sensor.measurement_details?.measurement_label ?? '')}</small>
 
             <small>
                 ${escapeHtml(
@@ -3016,6 +3006,7 @@ if (sensor.latest_reading) {
 
 
             <div class="actions-row">
+                <a class="action-button" href="/history?sensor_id=${sensor.id}&metric=${sensor.sensor_type}">Historial</a>
 
                 @if($canManageResources)
                 <button
@@ -3100,6 +3091,8 @@ if (sensor.latest_reading) {
                     sensorModel.value.trim()
                     || null,
 
+                pin: Number(document.getElementById('sensor-pin').value),
+                calibration: document.getElementById('sensor-dry').value !== '' || document.getElementById('sensor-wet').value !== '' ? {dry: document.getElementById('sensor-dry').value, wet: document.getElementById('sensor-wet').value} : null,
                 position_x:
                     sensorPositionX.value !== ''
                         ? Number(
@@ -3227,6 +3220,9 @@ if (sensor.latest_reading) {
 
         sensorModel.value =
             sensor.model ?? '';
+        document.getElementById('sensor-pin').value = sensor.pin ?? 4;
+        document.getElementById('sensor-dry').value = sensor.calibration?.dry ?? '';
+        document.getElementById('sensor-wet').value = sensor.calibration?.wet ?? '';
 
         sensorPositionX.value =
             sensor.position_x ?? '';

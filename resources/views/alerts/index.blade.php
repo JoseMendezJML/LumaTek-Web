@@ -1118,6 +1118,7 @@
 
                         <span>
                             Lectura que generó la alerta
+                            · ${escapeHtml(reading.source_label ?? 'Origen no verificado')}
                         </span>
 
                         <strong>

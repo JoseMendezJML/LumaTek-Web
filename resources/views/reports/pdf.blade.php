@@ -701,8 +701,7 @@
                                 2
                             )
                         }}
-                        %
-
+                        {{ $report['metrics']['soil_humidity']['unit'] === 'mixed' ? '' : ($report['metrics']['soil_humidity']['unit'] ?? '') }}
                     @else
 
                         —
@@ -736,8 +735,7 @@
                                             2
                                         )
                                     }}
-                                    %
-
+                                    {{ $report['metrics']['soil_humidity']['unit'] === 'mixed' ? '' : ($report['metrics']['soil_humidity']['unit'] ?? '') }}
                                 @else
 
                                     —
@@ -769,8 +767,7 @@
                                             2
                                         )
                                     }}
-                                    %
-
+                                    {{ $report['metrics']['soil_humidity']['unit'] === 'mixed' ? '' : ($report['metrics']['soil_humidity']['unit'] ?? '') }}
                                 @else
 
                                     —
@@ -829,8 +826,7 @@
                                 2
                             )
                         }}
-                        %
-
+                        {{ $report['metrics']['ambient_humidity']['unit'] === 'mixed' ? '' : ($report['metrics']['ambient_humidity']['unit'] ?? '') }}
                     @else
 
                         —
@@ -864,8 +860,7 @@
                                             2
                                         )
                                     }}
-                                    %
-
+                                    {{ $report['metrics']['ambient_humidity']['unit'] === 'mixed' ? '' : ($report['metrics']['ambient_humidity']['unit'] ?? '') }}
                                 @else
 
                                     —
@@ -897,8 +892,7 @@
                                             2
                                         )
                                     }}
-                                    %
-
+                                    {{ $report['metrics']['ambient_humidity']['unit'] === 'mixed' ? '' : ($report['metrics']['ambient_humidity']['unit'] ?? '') }}
                                 @else
 
                                     —
@@ -1465,6 +1459,19 @@
 
 </div>
 
+
+<h3>Mediciones por unidad histórica</h3>
+<p>No se combinan RAW y porcentajes. Las estadísticas incluyen el período completo.</p>
+<table class="metric-small-table" width="100%">
+<tr><th>Variable</th><th>Unidad</th><th>Lecturas</th><th>Mínimo</th><th>Máximo</th><th>Promedio</th><th>Procedencia</th></tr>
+@foreach($report['metrics'] as $metric)
+@foreach($metric['by_unit'] ?? [] as $group)
+<tr><td>{{ $metric['label'] }}</td><td>{{ $group['unit'] }}</td><td>{{ $group['total_readings'] }}</td>
+<td>{{ $group['minimum'] }}</td><td>{{ $group['maximum'] }}</td><td>{{ $group['average'] }}</td>
+<td>IoT físico: {{ $group['provenance_counts']['physical_iot'] }}; manual/simulado: {{ $group['provenance_counts']['manual_or_simulated'] }}; no verificado: {{ $group['provenance_counts']['unverified_iot'] }}</td></tr>
+@endforeach
+@endforeach
+</table>
 </body>
 
 </html>

@@ -154,22 +154,16 @@ class TemperatureController extends Controller
                             ?? now(),
 
                         'source' =>
-                        $validated['source']
-                            ?? 'simulation',
+                        'simulation',
                     ]);
 
                 /*
                 |--------------------------------------------------------------------------
-                | Actualizar última conexión del dispositivo
+                | La captura manual no actualiza la comunicación IoT
                 |--------------------------------------------------------------------------
                 */
 
-                $sensor
-                    ->device
-                    ->update([
-                        'last_connection_at' =>
-                        $reading->recorded_at,
-                    ]);
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -185,120 +179,7 @@ class TemperatureController extends Controller
                         'temperature'
                     );
 
-                $alert = null;
-
-                if ($threshold) {
-
-                    $temperature =
-                        (float) $reading->value;
-
-                    $minimum =
-                        $threshold->min_value !== null
-                        ? (float) $threshold->min_value
-                        : null;
-
-                    $maximum =
-                        $threshold->max_value !== null
-                        ? (float) $threshold->max_value
-                        : null;
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Temperatura superior al máximo
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if (
-                        $maximum !== null
-                        && $temperature > $maximum
-                    ) {
-
-                        $alert =
-                            $sensor
-                            ->alerts()
-                            ->create([
-                                'reading_id' =>
-                                $reading->id,
-
-                                'type' =>
-                                'high_temperature',
-
-                                'severity' =>
-                                'warning',
-
-                                'message' =>
-                                'La temperatura superó el límite máximo configurado.',
-
-                                'status' =>
-                                'active',
-                            ]);
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Temperatura inferior al mínimo
-                    |--------------------------------------------------------------------------
-                    */ elseif (
-                        $minimum !== null
-                        && $temperature < $minimum
-                    ) {
-
-                        $alert =
-                            $sensor
-                            ->alerts()
-                            ->create([
-                                'reading_id' =>
-                                $reading->id,
-
-                                'type' =>
-                                'low_temperature',
-
-                                'severity' =>
-                                'warning',
-
-                                'message' =>
-                                'La temperatura está por debajo del límite mínimo configurado.',
-
-                                'status' =>
-                                'active',
-                            ]);
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Temperatura normal
-                    |--------------------------------------------------------------------------
-                    |
-                    | Si el sensor vuelve a un rango normal,
-                    | resolvemos sus alertas térmicas activas.
-                    |
-                    */ else {
-
-                        Alert::query()
-                            ->where(
-                                'sensor_id',
-                                $sensor->id
-                            )
-                            ->whereIn(
-                                'type',
-                                [
-                                    'high_temperature',
-                                    'low_temperature',
-                                ]
-                            )
-                            ->where(
-                                'status',
-                                'active'
-                            )
-                            ->update([
-                                'status' =>
-                                'resolved',
-
-                                'resolved_at' =>
-                                now(),
-                            ]);
-                    }
-                }
+                $alert = app(\App\Services\ReadingAlertEvaluator::class)->evaluate($sensor, $reading);
 
                 return [
                     'reading' => $reading,
@@ -507,16 +388,10 @@ class TemperatureController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | CA05 - Sin conexión después de 10 minutos
+        | Estado según procedencia e intervalo del dispositivo
         |--------------------------------------------------------------------------
         */
 
-        $isDisconnected =
-            $latestReading
-            ->recorded_at
-            ->lt(
-                now()->subMinutes(10)
-            );
 
         return response()->json([
             'data' => [
@@ -539,17 +414,18 @@ class TemperatureController extends Controller
                 ),
 
                 'unit' =>
-                '°C',
+                $latestReading?->unit ?? $sensor->unit,
 
                 'connection_status' =>
-                $isDisconnected
-                    ? 'disconnected'
-                    : 'connected',
+                $latestReading->connectionStatus($sensor->device->measurement_interval, $sensor),
 
                 'connection_label' =>
-                $isDisconnected
-                    ? 'Sin conexión'
-                    : 'Conectado',
+                $latestReading->connectionLabel($sensor->device->measurement_interval, $sensor),
+
+                ...$latestReading->connectionDetails($sensor),
+                'source' => $latestReading->source,
+                'provenance' => $latestReading->provenance,
+                'source_label' => $latestReading->source_label,
 
                 'recorded_at' =>
                 $latestReading
@@ -765,12 +641,6 @@ class TemperatureController extends Controller
     |--------------------------------------------------------------------------
     */
 
-        $isDisconnected =
-            $latestReading
-            ->recorded_at
-            ->lt(
-                now()->subMinutes(10)
-            );
 
         /*
     |--------------------------------------------------------------------------
@@ -818,17 +688,18 @@ class TemperatureController extends Controller
                 ),
 
                 'unit' =>
-                '°C',
+                $latestReading?->unit ?? $sensor->unit,
 
                 'connection_status' =>
-                $isDisconnected
-                    ? 'disconnected'
-                    : 'connected',
+                $latestReading->connectionStatus($sensor->device->measurement_interval, $sensor),
 
                 'connection_label' =>
-                $isDisconnected
-                    ? 'Sin conexión'
-                    : 'Conectado',
+                $latestReading->connectionLabel($sensor->device->measurement_interval, $sensor),
+
+                ...$latestReading->connectionDetails($sensor),
+                'source' => $latestReading->source,
+                'provenance' => $latestReading->provenance,
+                'source_label' => $latestReading->source_label,
 
                 'recorded_at' =>
                 $latestReading

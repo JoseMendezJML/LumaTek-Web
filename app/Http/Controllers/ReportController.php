@@ -96,6 +96,10 @@ class ReportController extends Controller
             ], 422);
         }
 
+        $user->company->syncSensorPlanRestrictions();
+        $greenhouse->refresh();
+        abort_if($greenhouse->plan_restricted, 403);
+
         /*
         |--------------------------------------------------------------------------
         | Resumen de variables ambientales
@@ -687,84 +691,10 @@ public function pdf(Request $request): Response
         Carbon $endDate
     ): array {
 
-        $readings = Reading::query()
-            ->whereBetween(
-                'recorded_at',
-                [
-                    $startDate,
-                    $endDate,
-                ]
-            )
-            ->whereHas(
-                'sensor',
-                function ($query) use ($metric) {
-                    $query->where(
-                        'sensor_type',
-                        $metric
-                    );
-                }
-            )
-            ->whereHas(
-                'sensor.device.zone',
-                function ($query) use ($greenhouseId) {
-                    $query->where(
-                        'greenhouse_id',
-                        $greenhouseId
-                    );
-                }
-            )
-            ->get([
-                'value',
-            ]);
-
-        $values = $readings
-            ->pluck('value')
-            ->map(
-                fn ($value) =>
-                    (float) $value
-            );
-
-        return [
-            'type' =>
-                $metric,
-
-            'label' =>
-                $this->metricLabel(
-                    $metric
-                ),
-
-            'unit' =>
-                $this->metricUnit(
-                    $metric
-                ),
-
-            'total_readings' =>
-                $values->count(),
-
-            'average' =>
-                $values->isNotEmpty()
-                    ? round(
-                        $values->avg(),
-                        2
-                    )
-                    : null,
-
-            'minimum' =>
-                $values->isNotEmpty()
-                    ? round(
-                        $values->min(),
-                        2
-                    )
-                    : null,
-
-            'maximum' =>
-                $values->isNotEmpty()
-                    ? round(
-                        $values->max(),
-                        2
-                    )
-                    : null,
-        ];
+        $history = app(\App\Services\MeasurementHistory::class);
+        $companyId = auth('api')->user()->company_id;
+        return $history->summary($history->query($companyId, $metric, $startDate, $endDate, ['greenhouse_id' => $greenhouseId]))
+            + ['type' => $metric, 'label' => $this->metricLabel($metric)];
     }
 
 

@@ -13,6 +13,7 @@ class Sensor extends Model
     use HasFactory;
 
     protected $fillable = [
+        'pin', 'calibration',
         'device_id',
         'name',
         'sensor_code',
@@ -26,6 +27,8 @@ class Sensor extends Model
     ];
 
     protected $casts = [
+        'pin' => 'integer',
+        'calibration' => 'array',
         'position_x' => 'decimal:2',
         'position_y' => 'decimal:2',
         'plan_restricted' => 'boolean',
@@ -62,6 +65,19 @@ class Sensor extends Model
     /**
      * Alertas relacionadas con el sensor.
      */
+    public function rawReadings(): HasMany
+    {
+        return $this->hasMany(RawSensorReading::class);
+    }
+
+    public function latestRawReading(): HasOne
+    {
+        return $this->hasOne(RawSensorReading::class)->ofMany(
+            ['recorded_at' => 'max', 'id' => 'max'],
+            fn ($query) => $query->where('source', 'iot')->where('unit', 'raw')
+        );
+    }
+
     public function alerts(): HasMany
     {
         return $this->hasMany(Alert::class);

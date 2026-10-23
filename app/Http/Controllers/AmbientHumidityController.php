@@ -165,22 +165,16 @@ class AmbientHumidityController extends Controller
                             ?? now(),
 
                         'source' =>
-                        $validated['source']
-                            ?? 'simulation',
+                        'simulation',
                     ]);
 
                 /*
                 |--------------------------------------------------------------------------
-                | Actualizar última conexión
+                | La captura manual no actualiza la comunicación IoT
                 |--------------------------------------------------------------------------
                 */
 
-                $sensor
-                    ->device
-                    ->update([
-                        'last_connection_at' =>
-                        $reading->recorded_at,
-                    ]);
+
 
                 /*
                 |--------------------------------------------------------------------------
@@ -196,95 +190,9 @@ class AmbientHumidityController extends Controller
                         'ambient_humidity'
                     );
 
-                $humidity =
-                    (float) $reading->value;
-
-                $alert =
-                    null;
-
-                $status =
-                    'normal';
-
-                if ($threshold) {
-
-                    $maximum =
-                        $threshold->max_value !== null
-                        ? (float) $threshold->max_value
-                        : null;
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CA04 - Humedad superior al máximo
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if (
-                        $maximum !== null
-                        && $humidity > $maximum
-                    ) {
-
-                        $status =
-                            'high';
-
-                        /*
-                        | Evitamos crear varias alertas activas
-                        | por la misma condición.
-                        */
-
-                        $alert =
-                            Alert::query()
-                            ->where(
-                                'sensor_id',
-                                $sensor->id
-                            )
-                            ->where(
-                                'type',
-                                'high_ambient_humidity'
-                            )
-                            ->where(
-                                'status',
-                                'active'
-                            )
-                            ->first();
-
-                        if (!$alert) {
-
-                            $alert =
-                                $sensor
-                                ->alerts()
-                                ->create([
-                                    'reading_id' =>
-                                    $reading->id,
-
-                                    'type' =>
-                                    'high_ambient_humidity',
-
-                                    'severity' =>
-                                    'warning',
-
-                                    'message' =>
-                                    'La humedad ambiental superó el umbral máximo configurado.',
-
-                                    'status' =>
-                                    'active',
-                                ]);
-                        }
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Valor dentro del rango permitido
-                    |--------------------------------------------------------------------------
-                    */ else {
-
-                        $status =
-                            'normal';
-
-                        $this->resolveHighHumidityAlerts(
-                            $sensor
-                        );
-                    }
-                }
+                $humidity = (float) $reading->value;
+                $status = $threshold && $threshold->max_value !== null && $humidity > (float) $threshold->max_value ? 'high' : 'normal';
+                $alert = app(\App\Services\ReadingAlertEvaluator::class)->evaluate($sensor, $reading);
 
                 return [
                     'reading' =>
@@ -530,12 +438,6 @@ class AmbientHumidityController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $isDisconnected =
-            $latestReading
-            ->recorded_at
-            ->lt(
-                now()->subMinutes(10)
-            );
 
         $humidity =
             (float) $latestReading->value;
@@ -561,7 +463,7 @@ class AmbientHumidityController extends Controller
                 ),
 
                 'unit' =>
-                '%',
+                $latestReading?->unit ?? $sensor->unit,
 
                 'status' =>
                 $status,
@@ -572,14 +474,15 @@ class AmbientHumidityController extends Controller
                     : 'Normal',
 
                 'connection_status' =>
-                $isDisconnected
-                    ? 'disconnected'
-                    : 'connected',
+                $latestReading->connectionStatus($sensor->device->measurement_interval, $sensor),
 
                 'connection_label' =>
-                $isDisconnected
-                    ? 'Sin conexión'
-                    : 'Conectado',
+                $latestReading->connectionLabel($sensor->device->measurement_interval, $sensor),
+
+                ...$latestReading->connectionDetails($sensor),
+                'source' => $latestReading->source,
+                'provenance' => $latestReading->provenance,
+                'source_label' => $latestReading->source_label,
 
                 'recorded_at' =>
                 $latestReading
@@ -872,12 +775,6 @@ class AmbientHumidityController extends Controller
                 $threshold
             );
 
-        $isDisconnected =
-            $latestReading
-            ->recorded_at
-            ->lt(
-                now()->subMinutes(10)
-            );
 
         return response()->json([
             'data' => [
@@ -894,7 +791,7 @@ class AmbientHumidityController extends Controller
                 ),
 
                 'unit' =>
-                '%',
+                $latestReading?->unit ?? $sensor->unit,
 
                 'status' =>
                 $status,
@@ -905,14 +802,15 @@ class AmbientHumidityController extends Controller
                     : 'Normal',
 
                 'connection_status' =>
-                $isDisconnected
-                    ? 'disconnected'
-                    : 'connected',
+                $latestReading->connectionStatus($sensor->device->measurement_interval, $sensor),
 
                 'connection_label' =>
-                $isDisconnected
-                    ? 'Sin conexión'
-                    : 'Conectado',
+                $latestReading->connectionLabel($sensor->device->measurement_interval, $sensor),
+
+                ...$latestReading->connectionDetails($sensor),
+                'source' => $latestReading->source,
+                'provenance' => $latestReading->provenance,
+                'source_label' => $latestReading->source_label,
 
                 'recorded_at' =>
                 $latestReading

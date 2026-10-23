@@ -99,6 +99,11 @@
 
 
                 <div class="form-group">
+                    <label for="history-sensor">Sensor (ID opcional)</label>
+                    <input id="history-sensor" type="number" min="1" placeholder="Todos los sensores" inputmode="numeric">
+                </div>
+
+                <div class="form-group">
 
                     <label for="history-start-date">
                         Fecha inicial
@@ -126,18 +131,19 @@
                 </div>
 
 
-                <div class="form-group filter-action">
-
-                    <button
-                        type="submit"
-                        id="history-search-button"
-                        class="primary-button"
-                    >
-                        Consultar historial
-                    </button>
-
+                <div class="form-group">
+                    <label for="history-unit">Unidad histórica</label>
+                    <select id="history-unit">
+                        <option value="">Todas (series separadas)</option>
+                        <option value="raw">raw</option>
+                        <option value="%">%</option>
+                        <option value="°C">°C</option>
+                    </select>
                 </div>
-
+            </div>
+            <div class="history-filter-actions">
+                <p>Las unidades y la procedencia se conservan por lectura.</p>
+                <button type="submit" id="history-search-button" class="primary-button">Consultar historial</button>
             </div>
 
         </form>
@@ -297,11 +303,11 @@
             <div>
 
                 <h2>
-                    Registros
+                    Registros paginados
                 </h2>
 
                 <p>
-                    Detalle de las mediciones encontradas.
+                    25 mediciones por página. La gráfica y las estadísticas abarcan el período completo.
                 </p>
 
             </div>
@@ -381,6 +387,14 @@
         </div>
 
     </section>
+    <nav class="history-pagination" aria-label="Paginación de lecturas">
+        <p id="history-pagination" role="status" aria-live="polite"></p>
+        <div class="history-page-buttons">
+            <button type="button" id="history-previous" disabled>Página anterior</button>
+            <button type="button" id="history-next" disabled>Página siguiente</button>
+        </div>
+    </nav>
+
     @include('history.irrigations')
 
 </div>
@@ -617,7 +631,8 @@
         position: relative;
 
         width: 100%;
-        height: 340px;
+        min-height: 280px;
+        height: auto;
     }
 
 
@@ -785,6 +800,37 @@
        RESPONSIVE
     ========================================================== */
 
+    .history-page .form-group { min-width: 0; }
+    .history-page .form-group label { font-size: 12px; }
+    .history-page .form-group input,
+    .history-page .form-group select { min-height: 44px; font-size: 13px; }
+    .history-filter-actions {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 16px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #e5ece7;
+    }
+    .history-filter-actions p { margin: 0; color: #637269; font-size: 12px; }
+    .history-pagination {
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+        gap: 16px; padding: 18px 22px; background: #fff;
+        border: 1px solid #dce5de; border-radius: 12px;
+    }
+    .history-pagination p { flex: 1 1 240px; margin: 0; color: #55645b; font-size: 12px; line-height: 1.6; }
+    .history-page-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+    .history-page-buttons button {
+        min-height: 44px; padding: 10px 16px; background: #fff; border: 1px solid #176136;
+        border-radius: 8px; color: #176136; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .history-page-buttons button:hover:not(:disabled) { background: #edf5ef; }
+    .history-page-buttons button:disabled { color: #7c8880; border-color: #dce5de; background: #f5f7f5; cursor: default; }
+    .history-page button:focus-visible { outline: 3px solid #8ebd9c; outline-offset: 3px; }
+    .history-page .summary-card strong { overflow-wrap: anywhere; }
+    @media (max-width: 650px) {
+        .history-filter-actions { align-items: stretch; flex-direction: column; }
+        .history-pagination { padding: 16px; }
+        .history-page-buttons { width: 100%; }
+        .history-page-buttons button { flex: 1 1 120px; }
+    }
+
     @media (max-width: 1050px) {
 
         .filters-grid {
@@ -810,7 +856,7 @@
 
 
         .chart-container {
-            height: 280px;
+            height: auto;
         }
 
     }
@@ -826,12 +872,21 @@
 
 @push('scripts')
 
+<script src="{{ asset('js/measurement-history.js') }}"></script>
 <script>
 
 document.addEventListener(
     'DOMContentLoaded',
     function () {
 
+        let historyPage = 1;
+        let historyLastPage = 1;
+        document.getElementById('history-previous').addEventListener('click', () => { if (historyPage > 1) { historyPage--; loadHistory(); } });
+        document.getElementById('history-next').addEventListener('click', () => { if (historyPage < historyLastPage) { historyPage++; loadHistory(); } });
+        document.getElementById('history-unit').addEventListener('change', () => { historyPage = 1; loadHistory(); });
+        const initialHistoryFilters = new URLSearchParams(window.location.search);
+        document.getElementById('history-sensor').value = initialHistoryFilters.get('sensor_id') ?? '';
+        if (initialHistoryFilters.has('metric')) document.getElementById('history-metric').value = initialHistoryFilters.get('metric');
         const historyToken =
             sessionStorage.getItem(
                 'lumatek_access_token'
@@ -932,6 +987,8 @@ document.addEventListener(
 
 
         let currentHistoryData = [];
+        let currentChartData = [];
+        let currentChartPeriod = {};
         let currentMetric = {
             label: 'Temperatura',
             unit: '°C',
@@ -1373,6 +1430,11 @@ document.addEventListener(
             }
 
 
+            if (document.getElementById('history-sensor').value) params.set('sensor_id', document.getElementById('history-sensor').value);
+            params.set('page', historyPage);
+            params.set('per_page', 25);
+            const requestedUnit = document.getElementById('history-unit').value;
+            if (requestedUnit) params.set('unit', requestedUnit);
             try {
 
                 const response =
@@ -1418,6 +1480,12 @@ document.addEventListener(
 
                 currentHistoryData =
                     result.data ?? [];
+                historyLastPage = result.pagination?.last_page ?? 1;
+                historyPage = result.pagination?.page ?? historyPage;
+                document.getElementById('history-pagination').textContent = window.LumaMeasurementHistory.paginationText(result.pagination);
+                document.getElementById('history-previous').disabled = historyPage <= 1;
+                document.getElementById('history-next').disabled = historyPage >= historyLastPage;
+
 
 
                 currentMetric =
@@ -1440,9 +1508,12 @@ document.addEventListener(
                 );
 
 
-                drawChart(
-                    currentHistoryData
-                );
+                currentChartData = result.chart?.data ?? [];
+                currentChartPeriod = result.chart ?? {};
+                document.getElementById('chart-subtitle').textContent = result.chart?.reduced
+                    ? 'Gráfica del período completo: muestras reales reducidas (primera, última, mínima y máxima por intervalo). Puntos sin unir para conservar los cortes.'
+                    : 'Gráfica del período completo: mediciones detalladas, independiente de la tabla.';
+                drawChart(currentChartData);
 
 
             } catch (error) {
@@ -1493,25 +1564,19 @@ document.addEventListener(
             document.getElementById(
                 'summary-minimum'
             ).textContent =
-                formatSummaryValue(
-                    summary?.minimum
-                );
+                window.LumaMeasurementHistory.metricText(summary, 'minimum');
 
 
             document.getElementById(
                 'summary-maximum'
             ).textContent =
-                formatSummaryValue(
-                    summary?.maximum
-                );
+                window.LumaMeasurementHistory.metricText(summary, 'maximum');
 
 
             document.getElementById(
                 'summary-average'
             ).textContent =
-                formatSummaryValue(
-                    summary?.average
-                );
+                window.LumaMeasurementHistory.metricText(summary, 'average');
 
 
             document.getElementById(
@@ -1628,8 +1693,7 @@ document.addEventListener(
                                 ).toFixed(2)}
 
                                 ${escapeHtml(
-                                    currentMetric.unit
-                                    ?? ''
+                                    reading.unit ?? reading.sensor?.unit ?? 'unknown'
                                 )}
 
                             </span>
@@ -1685,8 +1749,8 @@ document.addEventListener(
                             <span class="source-badge">
 
                                 ${formatSource(
-                                    reading.source
-                                )}
+                                    reading
+                                )}<small>Recepción: ${escapeHtml(reading.received_at ?? 'Sin fecha acreditada')} - ${reading.metadata_origin === 'legacy_schema' ? 'Unidad inferida del esquema anterior' : 'Metadatos capturados'}</small>
 
                             </span>
 
@@ -1717,177 +1781,13 @@ document.addEventListener(
         }
 
 
-        function drawChart(
-            readings
-        ) {
-
-            if (!readings.length) {
-
-                chartContainer.style.display =
-                    'none';
-
-
-                chartEmpty.style.display =
-                    'block';
-
-
-                return;
-            }
-
-
-            chartContainer.style.display =
-                'block';
-
-
-            chartEmpty.style.display =
-                'none';
-
-
-            const context =
-                chart.getContext(
-                    '2d'
-                );
-
-
-            const containerWidth =
-                chartContainer.clientWidth;
-
-
-            const containerHeight =
-                chartContainer.clientHeight;
-
-
-            const ratio =
-                window.devicePixelRatio
-                || 1;
-
-
-            chart.width =
-                containerWidth
-                * ratio;
-
-
-            chart.height =
-                containerHeight
-                * ratio;
-
-
-            chart.style.width =
-                `${containerWidth}px`;
-
-
-            chart.style.height =
-                `${containerHeight}px`;
-
-
-            context.setTransform(
-                ratio,
-                0,
-                0,
-                ratio,
-                0,
-                0
-            );
-
-
-            context.clearRect(
-                0,
-                0,
-                containerWidth,
-                containerHeight
-            );
-
-
-            const padding = {
-                top: 25,
-                right: 25,
-                bottom: 50,
-                left: 55,
-            };
-
-
-            const width =
-                containerWidth
-                - padding.left
-                - padding.right;
-
-
-            const height =
-                containerHeight
-                - padding.top
-                - padding.bottom;
-
-
-            const values =
-                readings.map(
-                    item =>
-                        Number(
-                            item.value
-                        )
-                );
-
-
-            let minimum =
-                Math.min(
-                    ...values
-                );
-
-
-            let maximum =
-                Math.max(
-                    ...values
-                );
-
-
-            if (minimum === maximum) {
-
-                minimum -= 1;
-                maximum += 1;
-            }
-
-
-            const margin =
-                (
-                    maximum
-                    - minimum
-                )
-                * 0.15;
-
-
-            minimum -= margin;
-            maximum += margin;
-
-
-            drawGrid(
-                context,
-                padding,
-                width,
-                height,
-                minimum,
-                maximum
-            );
-
-
-            drawLine(
-                context,
-                readings,
-                padding,
-                width,
-                height,
-                minimum,
-                maximum
-            );
-
-
-            drawDateLabels(
-                context,
-                readings,
-                padding,
-                width,
-                height
-            );
+        function drawChart(readings) {
+            chartContainer.style.display = readings.length ? 'block' : 'none';
+            chartEmpty.style.display = readings.length ? 'none' : 'block';
+            if (!readings.length) return;
+            chartContainer.style.height = "auto";
+            window.LumaMeasurementHistory.draw(chart, readings, chartContainer.clientWidth, 300, currentChartPeriod);
         }
-
 
         function drawGrid(
             context,
@@ -2344,28 +2244,8 @@ document.addEventListener(
         }
 
 
-        function formatSource(
-            source
-        ) {
-
-            if (
-                source === 'simulation'
-            ) {
-
-                return 'Simulación';
-            }
-
-
-            if (
-                source === 'iot'
-            ) {
-
-                return 'IoT';
-            }
-
-
-            return source
-                ?? '—';
+        function formatSource(reading) {
+            return reading?.source_label ?? 'Origen no verificado';
         }
 
 
@@ -2411,6 +2291,7 @@ document.addEventListener(
             ) {
 
                 event.preventDefault();
+                historyPage = 1;
 
 
                 loadHistory();
@@ -2423,11 +2304,11 @@ document.addEventListener(
             function () {
 
                 if (
-                    currentHistoryData.length
+                    currentChartData.length
                 ) {
 
                     drawChart(
-                        currentHistoryData
+                        currentChartData
                     );
                 }
             }

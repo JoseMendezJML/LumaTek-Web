@@ -384,9 +384,7 @@
                                 Humedad del suelo
                             </h3>
 
-                            <span>
-                                %
-                            </span>
+                            <span id="report-soil-unit">Unidad histórica</span>
 
                         </div>
 
@@ -1629,6 +1627,7 @@
 
 @push('scripts')
 
+<script src="{{ asset('js/measurement-history.js') }}"></script>
 <script>
 
     const reportPdfButton =
@@ -2164,6 +2163,8 @@
         );
 
 
+        document.getElementById('report-soil-unit').textContent = report.metrics?.soil_humidity?.unit === 'mixed' ? 'Unidades separadas' : (report.metrics?.soil_humidity?.unit ?? 'Sin datos');
+
         renderMetric(
             report.metrics?.soil_humidity,
             {
@@ -2242,28 +2243,19 @@
         document.getElementById(
             ids.average
         ).textContent =
-            formatMetricValue(
-                metric?.average,
-                unit
-            );
+            window.LumaMeasurementHistory.metricText(metric, 'average');
 
 
         document.getElementById(
             ids.minimum
         ).textContent =
-            formatMetricValue(
-                metric?.minimum,
-                unit
-            );
+            window.LumaMeasurementHistory.metricText(metric, 'minimum');
 
 
         document.getElementById(
             ids.maximum
         ).textContent =
-            formatMetricValue(
-                metric?.maximum,
-                unit
-            );
+            window.LumaMeasurementHistory.metricText(metric, 'maximum');
 
 
         document.getElementById(

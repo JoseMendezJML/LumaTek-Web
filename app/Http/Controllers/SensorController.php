@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Device;
 use App\Models\Sensor;
+use App\Models\User;
+use App\Services\IotConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +20,7 @@ class SensorController extends Controller
 
         $user = auth('api')->user();
 
-        if (!($user instanceof \App\Models\User)) {
+        if (! ($user instanceof User)) {
             return response()->json([
                 'message' => 'Usuario no autenticado.',
             ], 401);
@@ -44,16 +46,15 @@ class SensorController extends Controller
 
         if (
             $device
-            ->zone
-            ->greenhouse
-            ->company_id
-            !==
-            $user->company_id
+                ->zone
+                ->greenhouse
+                ->company_id
+                !==
+                $user->company_id
         ) {
 
             return response()->json([
-                'message' =>
-                'No tienes permiso para consultar este dispositivo.',
+                'message' => 'No tienes permiso para consultar este dispositivo.',
             ], 403);
         }
 
@@ -67,31 +68,49 @@ class SensorController extends Controller
             ->sensors()
             ->with([
                 'latestReading',
+                'latestRawReading',
             ])
             ->orderBy('name')
             ->get();
 
+        foreach ($sensors as $sensor) {
+            $sensor->setRelation('device', $device);
+            $reading = app(\App\Services\MeasurementHistory::class)->latest($sensor);
+            $sensor->setAttribute('connection_status', $reading ? $reading->connectionStatus($device->measurement_interval, $sensor) : $device->connection_status);
+            $sensor->setAttribute('connection_label', $reading ? $reading->connectionLabel($device->measurement_interval, $sensor) : $device->connection_label);
+            if ($reading) $sensor->setAttribute('measurement_details', $reading->connectionDetails($sensor));
+            $sensor->unsetRelation('device');
+        }
+
         return response()->json([
-            'data' =>
-            $sensors,
+            'data' => $sensors,
         ]);
     }
-
 
     /**
      * Registra un nuevo sensor.
      */
-    public function store(
+    public function store(Request $request, Device $device): JsonResponse
+    {
+        abort_unless($device->zone->greenhouse->company_id === auth('api')->user()->company_id, 403);
+
+        return auth('api')->user()->company->withPlanRestrictionLock(function () use ($request, $device) {
+            $device = Device::whereKey($device->id)->lockForUpdate()->firstOrFail();
+
+            return $this->storeLocked($request, $device);
+        });
+    }
+
+    private function storeLocked(
         Request $request,
         Device $device
     ): JsonResponse {
 
         $user = auth('api')->user();
 
-        if (!($user instanceof \App\Models\User)) {
+        if (! ($user instanceof User)) {
             return response()->json([
-                'message' =>
-                'Usuario no autenticado.',
+                'message' => 'Usuario no autenticado.',
             ], 401);
         }
 
@@ -101,16 +120,15 @@ class SensorController extends Controller
 
         if (
             $device
-            ->zone
-            ->greenhouse
-            ->company_id
-            !==
-            $user->company_id
+                ->zone
+                ->greenhouse
+                ->company_id
+                !==
+                $user->company_id
         ) {
 
             return response()->json([
-                'message' =>
-                'No tienes permiso para modificar este dispositivo.',
+                'message' => 'No tienes permiso para modificar este dispositivo.',
             ], 403);
         }
 
@@ -126,13 +144,12 @@ class SensorController extends Controller
 
         $plan =
             $user
-            ->company
-            ?->effectivePlan();
+                ->company
+                ?->effectivePlan();
 
-        if (!$plan) {
+        if (! $plan) {
             return response()->json([
-                'message' =>
-                'La empresa no tiene un plan activo configurado.',
+                'message' => 'La empresa no tiene un plan activo configurado.',
             ], 422);
         }
 
@@ -141,21 +158,21 @@ class SensorController extends Controller
         );
 
         $activeSensors =
-            \App\Models\Sensor::query()
-            ->whereHas(
-                'device',
-                function ($query) use ($device) {
-                    $query->where(
-                        'zone_id',
-                        $device->zone_id
-                    );
-                }
-            )
-            ->where(
-                'status',
-                'active'
-            )
-            ->count();
+            Sensor::query()
+                ->whereHas(
+                    'device',
+                    function ($query) use ($device) {
+                        $query->where(
+                            'zone_id',
+                            $device->zone_id
+                        );
+                    }
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->count();
 
         if (
             $activeSensors
@@ -163,10 +180,9 @@ class SensorController extends Controller
             $plan->max_sensors_per_zone
         ) {
             return response()->json([
-                'message' =>
-                'Has alcanzado el límite de sensores activos por zona de tu plan '
-                    . $plan->name
-                    . '.',
+                'message' => 'Has alcanzado el límite de sensores activos por zona de tu plan '
+                    .$plan->name
+                    .'.',
             ], 422);
         }
 
@@ -176,26 +192,23 @@ class SensorController extends Controller
         |--------------------------------------------------------------------------
         */
 
-
         if (
             $device
-            ->zone
-            ->greenhouse
-            ->plan_restricted
+                ->zone
+                ->greenhouse
+                ->plan_restricted
         ) {
 
             return response()->json([
-                'message' =>
-                'Este invernadero está restringido por el plan actual. '
-                    . 'Renueva Pro para administrar sus sensores.',
+                'message' => 'Este invernadero está restringido por el plan actual. '
+                    .'Renueva Pro para administrar sus sensores.',
             ], 403);
         }
 
         if ($device->zone->plan_restricted) {
             return response()->json([
-                'message' =>
-                'Esta zona está restringida por el plan actual. '
-                    . 'Renueva Pro para agregar sensores.',
+                'message' => 'Esta zona está restringida por el plan actual. '
+                    .'Renueva Pro para agregar sensores.',
             ], 403);
         }
 
@@ -208,16 +221,14 @@ class SensorController extends Controller
         if ($device->status !== 'active') {
 
             return response()->json([
-                'message' =>
-                'No puedes agregar sensores a un dispositivo inactivo.',
+                'message' => 'No puedes agregar sensores a un dispositivo inactivo.',
             ], 422);
         }
 
         if ($device->zone->status !== 'active') {
 
             return response()->json([
-                'message' =>
-                'No puedes agregar sensores a una zona inactiva.',
+                'message' => 'No puedes agregar sensores a una zona inactiva.',
             ], 422);
         }
 
@@ -246,11 +257,9 @@ class SensorController extends Controller
                 'in:temperature,soil_humidity,ambient_humidity',
             ],
 
-            'model' => [
-                'nullable',
-                'string',
-                'max:150',
-            ],
+            'model' => ['required', 'in:DHT22,analog_soil'],
+            'pin' => ['required', 'integer'],
+            'calibration' => ['nullable', 'array'],
 
             'position_x' => [
                 'nullable',
@@ -264,26 +273,19 @@ class SensorController extends Controller
                 'between:0,100',
             ],
         ], [
-            'name.required' =>
-            'El nombre del sensor es obligatorio.',
+            'name.required' => 'El nombre del sensor es obligatorio.',
 
-            'sensor_code.required' =>
-            'El código del sensor es obligatorio.',
+            'sensor_code.required' => 'El código del sensor es obligatorio.',
 
-            'sensor_code.unique' =>
-            'Ya existe un sensor registrado con ese código.',
+            'sensor_code.unique' => 'Ya existe un sensor registrado con ese código.',
 
-            'sensor_type.required' =>
-            'El tipo de sensor es obligatorio.',
+            'sensor_type.required' => 'El tipo de sensor es obligatorio.',
 
-            'sensor_type.in' =>
-            'El tipo de sensor seleccionado no es válido.',
+            'sensor_type.in' => 'El tipo de sensor seleccionado no es válido.',
 
-            'position_x.between' =>
-            'La posición X debe estar entre 0 y 100.',
+            'position_x.between' => 'La posición X debe estar entre 0 y 100.',
 
-            'position_y.between' =>
-            'La posición Y debe estar entre 0 y 100.',
+            'position_y.between' => 'La posición Y debe estar entre 0 y 100.',
         ]);
 
         /*
@@ -292,9 +294,8 @@ class SensorController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $unit = $this->unitForType(
-            $validated['sensor_type']
-        );
+        $hardware = app(IotConfiguration::class)->validateSensor($device, $validated);
+        $unit = $hardware['unit'];
 
         /*
         |--------------------------------------------------------------------------
@@ -305,58 +306,60 @@ class SensorController extends Controller
         $sensor = $device
             ->sensors()
             ->create([
-                'name' =>
-                trim(
+                'name' => trim(
                     $validated['name']
                 ),
 
-                'sensor_code' =>
-                strtoupper(
+                'sensor_code' => strtoupper(
                     trim(
                         $validated['sensor_code']
                     )
                 ),
 
-                'sensor_type' =>
-                $validated['sensor_type'],
+                'sensor_type' => $validated['sensor_type'],
 
-                'unit' =>
-                $unit,
+                'pin' => $hardware['pin'],
+                'calibration' => $hardware['calibration'],
+                'unit' => $unit,
 
-                'model' =>
-                isset($validated['model'])
+                'model' => isset($validated['model'])
                     && $validated['model'] !== ''
                     ? trim(
                         $validated['model']
                     )
                     : null,
 
-                'position_x' =>
-                $validated['position_x']
+                'position_x' => $validated['position_x']
                     ?? null,
 
-                'position_y' =>
-                $validated['position_y']
+                'position_y' => $validated['position_y']
                     ?? null,
 
-                'status' =>
-                'active',
+                'status' => 'active',
             ]);
 
         return response()->json([
-            'message' =>
-            'Sensor registrado correctamente.',
+            'message' => 'Sensor registrado correctamente.',
 
-            'data' =>
-            $sensor,
+            'data' => $sensor,
         ], 201);
     }
-
 
     /**
      * Actualiza un sensor existente.
      */
-    public function update(
+    public function update(Request $request, Sensor $sensor): JsonResponse
+    {
+        abort_unless($sensor->device->zone->greenhouse->company_id === auth('api')->user()->company_id, 403);
+
+        return auth('api')->user()->company->withPlanRestrictionLock(function () use ($request, $sensor) {
+            Device::whereKey($sensor->device_id)->lockForUpdate()->firstOrFail();
+
+            return $this->updateLocked($request, $sensor->fresh());
+        });
+    }
+
+    private function updateLocked(
         Request $request,
         Sensor $sensor
     ): JsonResponse {
@@ -375,17 +378,16 @@ class SensorController extends Controller
 
         if (
             $sensor
-            ->device
-            ->zone
-            ->greenhouse
-            ->company_id
-            !==
-            $user->company_id
+                ->device
+                ->zone
+                ->greenhouse
+                ->company_id
+                !==
+                $user->company_id
         ) {
 
             return response()->json([
-                'message' =>
-                'No tienes permiso para modificar este sensor.',
+                'message' => 'No tienes permiso para modificar este sensor.',
             ], 403);
         }
 
@@ -406,7 +408,7 @@ class SensorController extends Controller
                 'required',
                 'string',
                 'max:100',
-                'unique:sensors,sensor_code,' . $sensor->id,
+                'unique:sensors,sensor_code,'.$sensor->id,
             ],
 
             'sensor_type' => [
@@ -414,11 +416,9 @@ class SensorController extends Controller
                 'in:temperature,soil_humidity,ambient_humidity',
             ],
 
-            'model' => [
-                'nullable',
-                'string',
-                'max:150',
-            ],
+            'model' => ['required', 'in:DHT22,analog_soil'],
+            'pin' => ['required', 'integer'],
+            'calibration' => ['nullable', 'array'],
 
             'position_x' => [
                 'nullable',
@@ -433,26 +433,19 @@ class SensorController extends Controller
             ],
 
         ], [
-            'name.required' =>
-            'El nombre del sensor es obligatorio.',
+            'name.required' => 'El nombre del sensor es obligatorio.',
 
-            'sensor_code.required' =>
-            'El código del sensor es obligatorio.',
+            'sensor_code.required' => 'El código del sensor es obligatorio.',
 
-            'sensor_code.unique' =>
-            'Ya existe otro sensor registrado con ese código.',
+            'sensor_code.unique' => 'Ya existe otro sensor registrado con ese código.',
 
-            'sensor_type.required' =>
-            'El tipo de sensor es obligatorio.',
+            'sensor_type.required' => 'El tipo de sensor es obligatorio.',
 
-            'sensor_type.in' =>
-            'El tipo de sensor seleccionado no es válido.',
+            'sensor_type.in' => 'El tipo de sensor seleccionado no es válido.',
 
-            'position_x.between' =>
-            'La posición X debe estar entre 0 y 100.',
+            'position_x.between' => 'La posición X debe estar entre 0 y 100.',
 
-            'position_y.between' =>
-            'La posición Y debe estar entre 0 y 100.',
+            'position_y.between' => 'La posición Y debe estar entre 0 y 100.',
         ]);
 
         /*
@@ -461,9 +454,8 @@ class SensorController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $unit = $this->unitForType(
-            $validated['sensor_type']
-        );
+        $hardware = app(IotConfiguration::class)->validateSensor($sensor->device, $validated, $sensor);
+        $unit = $hardware['unit'];
 
         /*
         |--------------------------------------------------------------------------
@@ -472,51 +464,43 @@ class SensorController extends Controller
         */
 
         $sensor->update([
-            'name' =>
-            trim(
+            'name' => trim(
                 $validated['name']
             ),
 
-            'sensor_code' =>
-            strtoupper(
+            'sensor_code' => strtoupper(
                 trim(
                     $validated['sensor_code']
                 )
             ),
 
-            'sensor_type' =>
-            $validated['sensor_type'],
+            'sensor_type' => $validated['sensor_type'],
 
-            'unit' =>
-            $unit,
+            'pin' => $hardware['pin'],
+            'calibration' => $hardware['calibration'],
+            'unit' => $unit,
 
-            'model' =>
-            isset($validated['model'])
+            'model' => isset($validated['model'])
                 && $validated['model'] !== ''
                 ? trim(
                     $validated['model']
                 )
                 : null,
 
-            'position_x' =>
-            $validated['position_x']
+            'position_x' => $validated['position_x']
                 ?? null,
 
-            'position_y' =>
-            $validated['position_y']
+            'position_y' => $validated['position_y']
                 ?? null,
 
         ]);
 
         return response()->json([
-            'message' =>
-            'Sensor actualizado correctamente.',
+            'message' => 'Sensor actualizado correctamente.',
 
-            'data' =>
-            $sensor->fresh(),
+            'data' => $sensor->fresh(),
         ]);
     }
-
 
     /**
      * Activa o desactiva un sensor.
@@ -531,7 +515,7 @@ class SensorController extends Controller
 
         $user = auth('api')->user();
 
-        if (!($user instanceof \App\Models\User)) {
+        if (! ($user instanceof User)) {
             return response()->json([
                 'message' => 'Usuario no autenticado.',
             ], 401);
@@ -549,16 +533,15 @@ class SensorController extends Controller
 
         if (
             $sensor
-            ->device
-            ->zone
-            ->greenhouse
-            ->company_id
-            !==
-            $user->company_id
+                ->device
+                ->zone
+                ->greenhouse
+                ->company_id
+                !==
+                $user->company_id
         ) {
             return response()->json([
-                'message' =>
-                'No tienes permiso para modificar este sensor.',
+                'message' => 'No tienes permiso para modificar este sensor.',
             ], 403);
         }
 
@@ -597,15 +580,14 @@ class SensorController extends Controller
             $validated['status'] === 'active'
             &&
             $sensor
-            ->device
-            ->zone
-            ->greenhouse
-            ->plan_restricted
+                ->device
+                ->zone
+                ->greenhouse
+                ->plan_restricted
         ) {
             return response()->json([
-                'message' =>
-                'Este invernadero está restringido por el plan actual. '
-                    . 'Renueva Pro para activar sus sensores.',
+                'message' => 'Este invernadero está restringido por el plan actual. '
+                    .'Renueva Pro para activar sus sensores.',
             ], 403);
         }
 
@@ -621,9 +603,8 @@ class SensorController extends Controller
             $sensor->device->zone->plan_restricted
         ) {
             return response()->json([
-                'message' =>
-                'Esta zona está restringida por el plan actual. '
-                    . 'Renueva Pro para activar sus sensores.',
+                'message' => 'Esta zona está restringida por el plan actual. '
+                    .'Renueva Pro para activar sus sensores.',
             ], 403);
         }
 
@@ -639,9 +620,8 @@ class SensorController extends Controller
             $sensor->plan_restricted
         ) {
             return response()->json([
-                'message' =>
-                'Este sensor está restringido por el plan actual. '
-                    . 'Renueva Pro para volver a utilizarlo.',
+                'message' => 'Este sensor está restringido por el plan actual. '
+                    .'Renueva Pro para volver a utilizarlo.',
             ], 403);
         }
 
@@ -661,10 +641,9 @@ class SensorController extends Controller
                 ->company
                 ?->effectivePlan();
 
-            if (!$plan) {
+            if (! $plan) {
                 return response()->json([
-                    'message' =>
-                    'La empresa no tiene un plan activo configurado.',
+                    'message' => 'La empresa no tiene un plan activo configurado.',
                 ], 422);
             }
 
@@ -692,10 +671,9 @@ class SensorController extends Controller
                 $plan->max_sensors_per_zone
             ) {
                 return response()->json([
-                    'message' =>
-                    'Has alcanzado el límite de sensores activos por zona de tu plan '
-                        . $plan->name
-                        . '.',
+                    'message' => 'Has alcanzado el límite de sensores activos por zona de tu plan '
+                        .$plan->name
+                        .'.',
                 ], 422);
             }
         }
@@ -712,8 +690,7 @@ class SensorController extends Controller
             $sensor->device->status !== 'active'
         ) {
             return response()->json([
-                'message' =>
-                'No puedes activar el sensor mientras su dispositivo esté inactivo.',
+                'message' => 'No puedes activar el sensor mientras su dispositivo esté inactivo.',
             ], 422);
         }
 
@@ -729,8 +706,7 @@ class SensorController extends Controller
             $sensor->device->zone->status !== 'active'
         ) {
             return response()->json([
-                'message' =>
-                'No puedes activar el sensor mientras su zona esté inactiva.',
+                'message' => 'No puedes activar el sensor mientras su zona esté inactiva.',
             ], 422);
         }
 
@@ -757,8 +733,7 @@ class SensorController extends Controller
         $sensor->refresh();
 
         return response()->json([
-            'message' =>
-            $sensor->status === 'active'
+            'message' => $sensor->status === 'active'
                 ? 'Sensor activado correctamente.'
                 : 'Sensor desactivado correctamente.',
 
@@ -775,17 +750,13 @@ class SensorController extends Controller
 
         return match ($sensorType) {
 
-            'temperature' =>
-            '°C',
+            'temperature' => '°C',
 
-            'soil_humidity' =>
-            '%',
+            'soil_humidity' => '%',
 
-            'ambient_humidity' =>
-            '%',
+            'ambient_humidity' => '%',
 
-            default =>
-            '',
+            default => '',
         };
     }
 }
