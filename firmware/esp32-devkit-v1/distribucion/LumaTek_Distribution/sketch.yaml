@@ -1,0 +1,11 @@
+default_profile: distribution
+profiles:
+  distribution:
+    fqbn: esp32:esp32:esp32
+    platforms:
+      - platform: esp32:esp32 (3.0.7)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - ArduinoJson (7.2.1)
+      - DHT sensor library (1.4.6)
+      - Adafruit Unified Sensor (1.1.15)

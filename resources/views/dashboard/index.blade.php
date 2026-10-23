@@ -528,12 +528,17 @@
         color: #176136;
     }
 
+    .connection-stale { background: #fff4dc; color: #805e12; }
+
     .connection-disconnected {
         background: #fff0f0;
         color: #a22e2e;
     }
 
-    .connection-no-data {
+    .connection-no-data,
+    .connection-no_data,
+    .connection-simulated,
+    .connection-unverified {
         background: #ecefed;
         color: #6e766f;
     }
@@ -566,7 +571,8 @@
         color: #a32f2f;
     }
 
-    .metric-status-no_data {
+    .metric-status-no_data,
+    .metric-status-pending_calibration {
         background: #ecefed;
         color: #6e766f;
     }
@@ -1330,7 +1336,7 @@
             && metric.value !== undefined
                 ? `${Number(
                     metric.value
-                ).toFixed(1)} ${escapeHtml(
+                ).toFixed(metric.unit === 'raw' ? 0 : 1)} ${escapeHtml(
                     metric.unit ?? ''
                 )}`
                 : '--';
@@ -1395,6 +1401,9 @@
 
 
                 <div class="metric-sensor">
+                    ${escapeHtml(metric.source_label ?? '')}
+                    <small>${escapeHtml(metric.measurement_label ?? '')} ${escapeHtml(metric.recorded_at ?? '')}</small>
+
 
                     ${
                         metric.sensor_name
@@ -1505,6 +1514,7 @@
 
 
                     <div class="recent-alert-reading">
+                        <small>${escapeHtml(reading?.source_label ?? 'Origen no verificado')}</small>
 
                         ${
                             reading

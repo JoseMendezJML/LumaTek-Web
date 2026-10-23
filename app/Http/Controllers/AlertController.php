@@ -221,6 +221,8 @@ class AlertController extends Controller
                                     'id' =>
                                         $alert->reading->id,
 
+                                    'provenance' => $alert->reading->provenance,
+                                    'source_label' => $alert->reading->source_label,
                                     'value' =>
                                         (float)
                                         $alert
@@ -251,7 +253,7 @@ class AlertController extends Controller
                                         $sensor->sensor_type,
 
                                     'unit' =>
-                                        $sensor->unit,
+                                        $alert->reading ? ($alert->reading->unit ?? 'unknown') : $sensor->unit,
                                 ]
                                 : null,
 
@@ -342,7 +344,12 @@ class AlertController extends Controller
     /**
      * Marca una alerta activa como atendida.
      */
-    public function acknowledge(
+    public function acknowledge(Alert $alert): JsonResponse
+    {
+        return $this->withAlertLock($alert, fn () => $this->acknowledgeLocked($alert));
+    }
+
+    private function acknowledgeLocked(
         Alert $alert
     ): JsonResponse {
 
@@ -433,7 +440,12 @@ class AlertController extends Controller
     /**
      * Permite resolver manualmente una alerta.
      */
-    public function resolve(
+    public function resolve(Alert $alert): JsonResponse
+    {
+        return $this->withAlertLock($alert, fn () => $this->resolveLocked($alert));
+    }
+
+    private function resolveLocked(
         Alert $alert
     ): JsonResponse {
 
@@ -542,4 +554,19 @@ class AlertController extends Controller
     {
         return Alert::statusLabel($status);
     }
+    private function withAlertLock(Alert $alert, \Closure $callback): JsonResponse
+    {
+        $sensor = $alert->sensor;
+        abort_unless($sensor && $sensor->device->zone->greenhouse->company_id === auth('api')->user()->company_id, 403);
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($alert, $sensor, $callback) {
+            \App\Models\Company::whereKey($sensor->device->zone->greenhouse->company_id)->lockForUpdate()->firstOrFail();
+            \App\Models\Device::whereKey($sensor->device_id)->lockForUpdate()->firstOrFail();
+            \App\Models\Sensor::whereKey($sensor->id)->lockForUpdate()->firstOrFail();
+            $alert->refresh();
+
+            return $callback();
+        }, 3);
+    }
+
 }

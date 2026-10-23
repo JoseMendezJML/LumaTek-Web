@@ -108,6 +108,10 @@ Route::middleware([
 
     Route::middleware('company.admin')->group(function () {
 
+        Route::get('/iot/installation', [App\Http\Controllers\IotInstallationController::class, 'index'])->name('iot.installation');
+        Route::get('/iot/firmware/{release}/{format}', [App\Http\Controllers\IotInstallationController::class, 'download'])
+            ->where('release', '[a-zA-Z0-9_-]+')->where('format', 'ino|bin')->name('iot.firmware.download');
+
         Route::view('/users', 'users.index')
             ->name('users.index');
 

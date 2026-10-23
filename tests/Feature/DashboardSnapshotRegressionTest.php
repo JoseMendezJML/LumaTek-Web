@@ -11,7 +11,7 @@ class DashboardSnapshotRegressionTest extends TestCase
     use CreatesGreenhouseFixtures;
     use UsesInMemoryDatabase;
 
-    public function test_dashboard_payload_is_unchanged_after_extraction(): void
+    public function test_dashboard_preserves_percentage_metrics_and_identifies_simulated_source(): void
     {
         $this->travelTo('2026-10-22 12:00:00');
         $company = $this->company();
@@ -39,9 +39,12 @@ class DashboardSnapshotRegressionTest extends TestCase
                         'temperature' => $noData('°C'),
                         'soil_humidity' => [
                             'value' => 25.0, 'unit' => '%', 'status' => 'low', 'status_label' => 'Baja',
-                            'connection_status' => 'connected', 'connection_label' => 'Conectado',
+                            'connection_status' => 'simulated', 'connection_label' => 'Simulación / manual',
+                            'provenance' => 'manual_or_simulated', 'source' => 'simulation', 'source_label' => 'Simulación / manual',
                             'sensor_id' => $r['sensor']->id, 'sensor_name' => 'Sensor',
                             'recorded_at' => '2026-10-22 12:00:00',
+                            'last_authenticated_communication_at' => null, 'measurement_is_stale' => false,
+                            'measurement_label' => 'Medición reciente',
                         ],
                         'ambient_humidity' => $noData('%'),
                     ],

@@ -26,6 +26,16 @@ return Application::configure(
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        // Proxy IPs are configured in AppServiceProvider after config/env boot.
+        // Infer the original URL per request; never force HTTPS globally.
+        $middleware->trustProxies(headers:
+            Request::HEADER_X_FORWARDED_FOR |
+            Request::HEADER_X_FORWARDED_HOST |
+            Request::HEADER_X_FORWARDED_PORT |
+            Request::HEADER_X_FORWARDED_PROTO |
+            Request::HEADER_X_FORWARDED_PREFIX
+        );
+
         $middleware->alias([
             'company.owner' => EnsureCompanyOwner::class,
             'platform.admin' => EnsureSuperadmin::class,

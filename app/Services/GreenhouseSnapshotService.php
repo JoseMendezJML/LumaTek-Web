@@ -105,7 +105,9 @@ class GreenhouseSnapshotService
                         'value' => $metric['value'],
                         'unit' => $metric['unit'],
                         'status_label' => $metric['status_label'],
-                        'threshold' => $threshold
+                        'source' => $metric['source'] ?? null,
+                        'source_label' => $metric['source_label'] ?? 'Sin lecturas',
+                        'threshold' => $threshold && $metric['unit'] !== 'raw'
                             ? [
                                 'min' => $threshold->min_value !== null ? (float) $threshold->min_value : null,
                                 'max' => $threshold->max_value !== null ? (float) $threshold->max_value : null,
@@ -321,6 +323,7 @@ class GreenhouseSnapshotService
                         );
                 },
                 'zones.devices.sensors.latestReading',
+                'zones.devices.sensors.latestRawReading',
             ])
             ->orderBy('name')
             ->get();
@@ -506,6 +509,8 @@ class GreenhouseSnapshotService
 
                         'reading' => $alert->reading
                             ? [
+                                'provenance' => $alert->reading->provenance,
+                                'source_label' => $alert->reading->source_label,
                                 'value' =>
                                 (float) $alert
                                     ->reading
@@ -525,10 +530,7 @@ class GreenhouseSnapshotService
                                 ->sensor
                                 ?->name,
 
-                            'unit' =>
-                            $alert
-                                ->sensor
-                                ?->unit,
+                            'unit' => $alert->reading ? ($alert->reading->unit ?? 'unknown') : $alert->sensor?->unit,
                         ],
 
                         'zone' => [
@@ -569,8 +571,46 @@ class GreenhouseSnapshotService
 
 
     /**
-     * Construye la información de una métrica actual.
+     * Métrica de suelo compartida por el resumen y la consulta del invernadero.
      */
+    public function soilMetricForGreenhouse(Greenhouse $greenhouse): array
+    {
+        $sensors = Sensor::query()
+            ->where('sensor_type', 'soil_humidity')->where('status', 'active')->where('plan_restricted', false)
+            ->whereHas('device', fn ($q) => $q->where('status', 'active'))
+            ->whereHas('device.zone', fn ($q) => $q->where('greenhouse_id', $greenhouse->id)
+                ->where('status', 'active')->where('plan_restricted', false))
+            ->with(['latestReading', 'latestRawReading'])->orderBy('id')->get();
+        if ($greenhouse->status !== 'active' || $greenhouse->plan_restricted) {
+            $sensors = collect();
+        }
+        $metric = $this->buildMetric($sensors, 'soil_humidity', $greenhouse->thresholds()->where('variable', 'soil_humidity')->first());
+        if ($sensors->isEmpty()) {
+            $metric['connection_status'] = 'no_sensor';
+            $metric['connection_label'] = 'Sin sensor';
+        }
+
+        return $metric;
+    }
+
+    public function soilMetricForSensor(Sensor $sensor): array
+    {
+        $sensor->loadMissing(['latestReading', 'latestRawReading', 'device.zone.greenhouse']);
+        return $this->buildMetric(collect([$sensor]), 'soil_humidity',
+            $sensor->device->zone->greenhouse->thresholds()->where('variable', 'soil_humidity')->first());
+    }
+
+    private function isRawSoil(Sensor $sensor): bool
+    {
+        $reading = $this->summaryReading($sensor);
+        return $reading ? $reading->unit === 'raw' : ($sensor->sensor_type === 'soil_humidity' && $sensor->unit === 'raw');
+    }
+
+    private function summaryReading(Sensor $sensor)
+    {
+        return app(MeasurementHistory::class)->latest($sensor);
+    }
+
     private function buildMetric(
         $sensors,
         string $sensorType,
@@ -583,25 +623,22 @@ class GreenhouseSnapshotService
         |--------------------------------------------------------------------------
         */
 
-        $sensor = $sensors
-            ->filter(
-                function ($sensor) use ($sensorType) {
-
-                    return
-                        $sensor->sensor_type === $sensorType
-                        && $sensor->latestReading;
-                }
-            )
-            ->sortByDesc(
-                function ($sensor) {
-
-                    return $sensor
-                        ->latestReading
-                        ?->recorded_at;
-                }
-            )
+        $eligible = $sensors->filter(fn ($sensor) => $sensor->sensor_type === $sensorType);
+        $sensor = $eligible
+            ->filter(fn ($sensor) => $this->summaryReading($sensor) !== null)
+            ->sortByDesc(fn ($sensor) => $this->summaryReading($sensor)->recorded_at)
             ->first();
-
+        // Preserve the unit of an uncalibrated sensor even before its first capture.
+        $pendingRaw = $sensor === null ? $eligible->first(fn ($candidate) => $this->isRawSoil($candidate)) : null;
+        if ($pendingRaw) {
+            return [
+                'value' => null, 'unit' => 'raw', 'status' => 'pending_calibration',
+                'status_label' => 'Pendiente de calibración',
+                'connection_status' => 'no_data', 'connection_label' => 'Sin datos',
+                'sensor_id' => $pendingRaw->id, 'sensor_name' => $pendingRaw->name,
+                'recorded_at' => null, 'source' => null, 'source_label' => 'Sin lecturas',
+            ];
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -645,12 +682,11 @@ class GreenhouseSnapshotService
 
 
         $reading =
-            $sensor->latestReading;
+            $this->summaryReading($sensor);
 
 
         $value =
             (float) $reading->value;
-
 
         /*
         |--------------------------------------------------------------------------
@@ -658,11 +694,6 @@ class GreenhouseSnapshotService
         |--------------------------------------------------------------------------
         */
 
-        $isDisconnected = $reading
-            ->recorded_at
-            ->lt(
-                now()->subMinutes(10)
-            );
 
 
         /*
@@ -671,42 +702,37 @@ class GreenhouseSnapshotService
         |--------------------------------------------------------------------------
         */
 
-        $status =
+        $status = $this->isRawSoil($sensor) ? 'pending_calibration' : ($threshold && $threshold->unit !== $reading->unit ? 'unverified_unit' :
             $this->metricStatus(
                 $sensorType,
                 $value,
                 $threshold
-            );
+            ));
 
 
         return [
             'value' =>
-            round(
-                $value,
-                1
-            ),
+            $this->isRawSoil($sensor) ? (int) $value : round($value, 1),
 
             'unit' =>
-            $sensor->unit,
+            $reading->unit ?? 'unknown',
 
             'status' =>
             $status,
 
             'status_label' =>
-            $this->statusLabel(
-                $sensorType,
-                $status
-            ),
+            $this->isRawSoil($sensor) ? 'Pendiente de calibración' : ($status === 'unverified_unit' ? 'Unidad no acreditada' : $this->statusLabel($sensorType, $status)),
 
             'connection_status' =>
-            $isDisconnected
-                ? 'disconnected'
-                : 'connected',
+            $reading->connectionStatus($sensor->device->measurement_interval, $sensor),
 
             'connection_label' =>
-            $isDisconnected
-                ? 'Sin conexión'
-                : 'Conectado',
+            $reading->connectionLabel($sensor->device->measurement_interval, $sensor),
+
+            ...$reading->connectionDetails($sensor),
+            'source' => $reading->source,
+            'source_label' => $reading->source_label,
+            'provenance' => $reading->provenance,
 
             'sensor_id' =>
             $sensor->id,

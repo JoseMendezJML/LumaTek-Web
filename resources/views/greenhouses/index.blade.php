@@ -983,14 +983,14 @@
                     data.connection_status ===
                     'connected'
                         ? 'connection-connected'
-                        : 'connection-disconnected'
+                        : (['simulated', 'unverified'].includes(data.connection_status) ? 'connection-no-data' : 'connection-disconnected')
                 );
 
 
             detailElement.textContent =
                 lastReadingText(
                     data.minutes_since_last_reading
-                );
+                ) + (data.source_label ? ' - ' + data.source_label : '') + ' - ' + (data.measurement_label ?? '') + ' - ' + (data.recorded_at ?? '');
 
 
             alertElement.className =
@@ -1135,7 +1135,7 @@
 ) {
 
     valueElement.textContent =
-        '-- %';
+        `-- ${data.unit ?? '%'}`;
 
     connectionElement.textContent =
         'Restringido';
@@ -1167,7 +1167,7 @@
             ) {
 
                 valueElement.textContent =
-                    '-- %';
+                    `-- ${data.unit ?? '%'}`;
 
                 connectionElement.textContent =
                     'Sin sensor';
@@ -1198,7 +1198,7 @@
             ) {
 
                 valueElement.textContent =
-                    '-- %';
+                    `-- ${data.unit ?? '%'}`;
 
                 connectionElement.textContent =
                     'Sin datos';
@@ -1210,7 +1210,7 @@
                     'El sensor aún no ha enviado lecturas.';
 
                 levelElement.textContent =
-                    'Sin datos';
+                    data.level_label ?? 'Sin datos';
 
                 levelElement.className =
                     'soil-level soil-level-neutral';
@@ -1226,8 +1226,8 @@
             valueElement.textContent =
                 Number(
                     data.humidity
-                ).toFixed(1)
-                + ' %';
+                ).toFixed(data.unit === 'raw' ? 0 : 1)
+                + ' ' + (data.unit ?? '%');
 
 
             connectionElement.textContent =
@@ -1240,21 +1240,25 @@
                     data.connection_status ===
                     'connected'
                         ? 'connection-connected'
-                        : 'connection-disconnected'
+                        : (['simulated', 'unverified'].includes(data.connection_status) ? 'connection-no-data' : 'connection-disconnected')
                 );
 
 
             detailElement.textContent =
                 lastReadingText(
                     data.minutes_since_last_reading
-                );
+                ) + (data.source_label ? ' · ' + data.source_label : '') + ' - ' + (data.measurement_label ?? '') + ' - ' + (data.recorded_at ?? '');
 
 
             levelElement.textContent =
                 data.level_label;
 
 
-            if (
+            if (data.unit === 'raw') {
+                levelElement.className = 'soil-level soil-level-neutral';
+                alertElement.classList.remove('show');
+            }
+            else if (
                 data.level ===
                 'low'
             ) {
@@ -1300,7 +1304,7 @@
         } catch (error) {
 
             valueElement.textContent =
-                '-- %';
+                '--';
 
             connectionElement.textContent =
                 'Error';
@@ -1441,7 +1445,7 @@
                                     <strong>
                                         ${Number(
                                             reading.humidity
-                                        ).toFixed(1)} %
+                                        ).toFixed(reading.unit === 'raw' ? 0 : 1)} ${escapeHtml(reading.unit ?? 'unknown')}<small>${escapeHtml(reading.source_label ?? 'Origen no verificado')}</small>
                                     </strong>
 
                                 </div>
@@ -1663,7 +1667,7 @@
                     data.connection_status ===
                     'connected'
                         ? 'connection-connected'
-                        : 'connection-disconnected'
+                        : (['simulated', 'unverified'].includes(data.connection_status) ? 'connection-no-data' : 'connection-disconnected')
                 );
 
 
@@ -1674,7 +1678,7 @@
             detailElement.textContent =
                 lastReadingText(
                     data.minutes_since_last_reading
-                );
+                ) + (data.source_label ? ' - ' + data.source_label : '') + ' - ' + (data.measurement_label ?? '') + ' - ' + (data.recorded_at ?? '');
 
 
             /*

@@ -42,6 +42,9 @@ class ResourcePermissionsTest extends TestCase
         if ($operation === 'activate') {
             ${$resource}->update(['status' => 'inactive']);
         }
+        if ($resource === 'sensor' && $operation === 'create') {
+            $sensor->update(['pin' => null]);
+        }
         $before = $this->snapshot();
         if ($role !== 'guest') {
             $user = $this->user($company, $role, $state);
@@ -211,7 +214,7 @@ class ResourcePermissionsTest extends TestCase
         return match ($resource) {
             'zone' => ['name' => 'Updated resource', 'position_x' => 20, 'position_y' => 30],
             'device' => ['name' => 'Updated resource', 'device_code' => 'NEW-DEVICE', 'device_type' => 'ESP32', 'connection_type' => 'wifi'],
-            'sensor' => ['name' => 'Updated resource', 'sensor_code' => 'NEW-SENSOR', 'sensor_type' => 'temperature', 'position_x' => 20, 'position_y' => 30],
+            'sensor' => ['name' => 'Updated resource', 'sensor_code' => 'NEW-SENSOR', 'sensor_type' => 'temperature', 'model' => 'DHT22', 'pin' => 4, 'position_x' => 20, 'position_y' => 30],
         };
     }
 

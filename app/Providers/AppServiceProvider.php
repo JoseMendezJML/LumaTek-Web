@@ -27,6 +27,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $trustedProxies = trim((string) config('app.trusted_proxies'));
 
+        // Local Caddy terminates TLS and connects to Laravel over IPv4 loopback.
+        // Preserve explicit deployment settings and direct HTTP development.
+        if ($trustedProxies === '' && $this->app->environment('local')) {
+            $trustedProxies = '127.0.0.1';
+        }
+
         if ($trustedProxies !== '') {
             TrustProxies::at(
                 $trustedProxies === '*'
