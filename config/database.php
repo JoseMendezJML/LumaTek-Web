@@ -38,10 +38,17 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
+            // Opcionales. En desarrollo con escrituras concurrentes (p. ej. la
+            // ESP32 enviando lecturas mientras se navega el panel) se recomienda
+            // DB_BUSY_TIMEOUT=5000 y DB_JOURNAL_MODE=wal para evitar
+            // «database is locked».
+            'busy_timeout' => env('DB_BUSY_TIMEOUT'),
+            'journal_mode' => env('DB_JOURNAL_MODE'),
+            'synchronous' => env('DB_SYNCHRONOUS'),
+            // IMMEDIATE toma el bloqueo de escritura al iniciar la transacción,
+            // así busy_timeout sí espera en lugar de fallar al pasar de lectura
+            // a escritura dentro de una transacción.
+            'transaction_mode' => env('DB_TRANSACTION_MODE', 'DEFERRED'),
         ],
 
         'mysql' => [
