@@ -191,6 +191,7 @@ class GoogleAuthTest extends TestCase
 
     public function test_existing_web_user_is_linked_by_email_and_verified(): void
     {
+        \Illuminate\Support\Facades\Notification::fake();
         $user = $this->createUser('employee', ['email_verified_at' => null]);
 
         $this->fakeGoogleUser('google-existing', strtoupper($user->email));
@@ -204,6 +205,7 @@ class GoogleAuthTest extends TestCase
         $this->assertAuthenticatedAs($user, 'web');
         $this->assertSame('google-existing', $user->google_id);
         $this->assertTrue($user->hasVerifiedEmail());
+        \Illuminate\Support\Facades\Notification::assertNothingSent();
     }
 
     public function test_web_login_rejects_unverified_google_email(): void

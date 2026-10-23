@@ -54,6 +54,17 @@ return Application::configure(
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
+        $exceptions->render(function (\Illuminate\Routing\Exceptions\InvalidSignatureException $error, Request $request) {
+            if (! $request->routeIs('verification.verify')) {
+                return null;
+            }
+            // Only distinguish expiration after authenticating the complete signed URL.
+            $expired = \Illuminate\Support\Facades\URL::hasCorrectSignature($request)
+                && ! \Illuminate\Support\Facades\URL::signatureHasNotExpired($request);
+
+            return \App\Http\Controllers\EmailVerificationController::result($request, $expired ? 'expired' : 'invalid', $expired ? 410 : 403);
+        });
+
         // Conserva estados, claves y cabeceras; localiza solo mensajes públicos
         // del framework. Los detalles técnicos siguen disponibles en los logs.
         $exceptions->respond(function (Response $response): Response {

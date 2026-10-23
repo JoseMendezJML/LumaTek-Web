@@ -22,7 +22,6 @@ use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\ZoneIrrigationSettingController;
 use App\Http\Middleware\EnsureManualReadingAccess;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -47,7 +46,7 @@ Route::middleware(['auth:api', 'active.user'])->group(function () {
 Route::post(
     '/register',
     [AuthController::class, 'register']
-)->name('api.register');
+)->middleware('throttle:company-registration')->name('api.register');
 
 Route::post(
     '/login',
@@ -83,40 +82,10 @@ Route::post(
 |--------------------------------------------------------------------------
 */
 
-Route::get(
-    '/email/verify/{id}/{hash}',
-    function (
-        Request $request,
-        string $id,
-        string $hash
-    ) {
+Route::post('/email/verification-notification', [App\Http\Controllers\EmailVerificationController::class, 'resend'])
+    ->middleware('throttle:verification-resend')->name('verification.send');
 
-        $user = User::findOrFail($id);
-
-        abort_unless(
-            hash_equals(
-                (string) $hash,
-                sha1(
-                    $user->getEmailForVerification()
-                )
-            ),
-            403
-        );
-
-        if ($user->hasVerifiedEmail()) {
-
-            return response()->json([
-                'message' => 'El correo electrónico ya estaba verificado.',
-            ]);
-        }
-
-        $user->markEmailAsVerified();
-
-        return response()->json([
-            'message' => 'Correo electrónico verificado correctamente.',
-        ]);
-    }
-)
+Route::get('/email/verify/{id}/{hash}', [App\Http\Controllers\EmailVerificationController::class, 'verify'])
     ->middleware([
         'signed',
         'throttle:6,1',
