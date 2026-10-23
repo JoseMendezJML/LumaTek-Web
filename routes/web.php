@@ -28,6 +28,8 @@ Route::post(
 Route::view('/register', 'auth.register')
     ->name('register');
 
+Route::view('/email/verification', 'auth.verification-notice')->name('verification.notice');
+
 /*
 |--------------------------------------------------------------------------
 | Inicio de sesión con Google

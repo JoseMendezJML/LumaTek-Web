@@ -102,6 +102,7 @@
 
     </form>
 
+    <div class="auth-footer"><a href="{{ route('verification.notice') }}">¿Necesitas verificar tu correo? Solicitar un nuevo enlace</a></div>
     @include('auth.partials.google-button')
 
     <div class="auth-footer">

@@ -153,6 +153,7 @@
 
     </form>
 
+    <div class="auth-footer"><a href="{{ route('verification.notice') }}">¿Cuenta pendiente o correo no recibido? Reenviar verificación</a></div>
     @include('auth.partials.google-button')
 
     <div class="auth-footer">
@@ -391,6 +392,7 @@
 
 
                 registerForm.reset();
+                document.getElementById('register-form').hidden = true;
 
 
             } catch (error) {

@@ -67,10 +67,14 @@ class AuthController extends Controller
             return $user;
         });
 
-        $user->sendEmailVerificationNotification();
+        $delivery = app(\App\Services\VerificationMail::class)->send($user);
 
         return response()->json([
-            'message' => 'Registro realizado correctamente. Revisa tu correo para verificar tu cuenta.',
+            'message' => $delivery === 'submitted'
+                ? 'Cuenta creada. Se solicitó el envío del correo de verificación; esto no confirma su entrega. Revisa también spam.'
+                : 'Cuenta creada, pero no se pudo solicitar el envío del correo. Puedes reintentarlo desde la página de verificación; no registres otra cuenta.',
+            'verification_status' => $delivery === 'submitted' ? 'pending' : 'delivery_failed',
+            'verification_url' => route('verification.notice'),
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -150,6 +154,8 @@ class AuthController extends Controller
 
         if (! $user->hasVerifiedEmail()) {
             return response()->json([
+                'code' => 'email_verification_required',
+                'verification_url' => route('verification.notice'),
                 'message' => 'Debes verificar tu correo electrónico antes de iniciar sesión.',
             ], 403);
         }
@@ -301,6 +307,8 @@ class AuthController extends Controller
         if (! $user->hasVerifiedEmail()) {
 
             return response()->json([
+                'code' => 'email_verification_required',
+                'verification_url' => route('verification.notice'),
                 'message' => 'Debes verificar tu correo electrónico antes de iniciar sesión.',
             ], 403);
         }
