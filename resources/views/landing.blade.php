@@ -19,6 +19,8 @@
         LumaTek | Monitoreo inteligente de invernaderos
     </title>
 
+    @include('partials.favicon')
+
     <style>
 
         * {

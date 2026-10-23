@@ -12,6 +12,8 @@
 
     <title>Acceso no permitido | LumaTek</title>
 
+    @include('partials.favicon')
+
     <style>
 
         * {
