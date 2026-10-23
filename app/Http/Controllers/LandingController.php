@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Plan;
+use App\Support\AppDownloadQr;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -16,7 +17,7 @@ class LandingController extends Controller
         'max_additional_admins' => 'Administradores adicionales',
     ];
 
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request, AppDownloadQr $appQr): View
     {
         $plans = Plan::query()->whereIn('slug', ['free', 'pro'])->where('is_active', true)
             ->get(['name', 'slug', 'description', 'price_monthly', 'price_yearly', 'currency', ...array_keys(self::LIMIT_LABELS)])
@@ -45,6 +46,7 @@ class LandingController extends Controller
         return view('landing', [
             'plans' => $plans,
             'proAudience' => $isOwner ? 'owner' : ($user ? 'member' : 'guest'),
+            'appQr' => $appQr,
         ]);
     }
 

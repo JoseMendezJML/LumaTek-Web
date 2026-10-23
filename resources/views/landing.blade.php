@@ -406,6 +406,79 @@
 
 
         /* =========================================================
+           DESCARGA DE LA APP MÓVIL (QR)
+        ========================================================== */
+
+        .hero-layout {
+            position: relative;
+            z-index: 2;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            gap: 48px;
+        }
+
+        .hero-app {
+            flex-shrink: 0;
+
+            width: 270px;
+
+            padding: 22px 22px 20px;
+
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 20px;
+
+            background: rgba(255, 255, 255, .1);
+
+            backdrop-filter: blur(10px);
+
+            color: #ffffff;
+
+            text-align: center;
+        }
+
+        .hero-app-qr {
+            display: block;
+
+            padding: 12px;
+
+            border-radius: 14px;
+
+            background: #ffffff;
+        }
+
+        .hero-app-qr svg {
+            display: block;
+
+            width: 100%;
+            height: auto;
+        }
+
+        .hero-app strong {
+            display: block;
+
+            margin-top: 16px;
+
+            font-size: 17px;
+        }
+
+        .hero-app p {
+            margin: 6px 0 0;
+
+            color: rgba(255, 255, 255, .78);
+
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .hero-app-mobile {
+            display: none;
+        }
+
+
+        /* =========================================================
            SECCIONES
         ========================================================== */
 
@@ -1129,6 +1202,14 @@
 
         @media (max-width: 950px) {
 
+            .hero-app {
+                display: none;
+            }
+
+            .hero-app-mobile {
+                display: inline-flex;
+            }
+
             .nav-links {
                 display: none;
             }
@@ -1371,7 +1452,7 @@
     class="hero"
 >
 
-    <div class="container">
+    <div class="container hero-layout">
 
         <div class="hero-content">
 
@@ -1413,6 +1494,15 @@
                     Conocer la plataforma
                 </a>
 
+
+                {{-- En celular el QR no sirve: se muestra el enlace directo. --}}
+                <a
+                    href="{{ route('app.download') }}"
+                    class="hero-secondary hero-app-mobile"
+                >
+                    Descargar app para Android
+                </a>
+
             </div>
 
 
@@ -1436,6 +1526,29 @@
             </div>
 
         </div>
+
+
+        {{-- QR para descargar la app móvil (Android) --}}
+        <aside class="hero-app">
+
+            <a
+                href="{{ route('app.download') }}"
+                class="hero-app-qr"
+                data-app-download-qr="{{ $appQr->url() }}"
+                aria-label="Descargar la app de LumaTek para Android"
+            >
+                {!! $appQr->svg() !!}
+            </a>
+
+            <strong>
+                Descarga la app
+            </strong>
+
+            <p>
+                Escanea el código con tu celular Android para instalar LumaTek.
+            </p>
+
+        </aside>
 
     </div>
 
