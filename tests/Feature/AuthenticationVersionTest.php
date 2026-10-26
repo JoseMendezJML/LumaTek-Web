@@ -19,6 +19,7 @@ use Tests\Concerns\UsesInMemoryDatabase;
 use Tests\TestCase;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
+#[TestDox('Seguridad de autenticación JWT y sesiones')]
 class AuthenticationVersionTest extends TestCase
 {
     use UsesInMemoryDatabase;
@@ -28,7 +29,7 @@ class AuthenticationVersionTest extends TestCase
     private const EXPIRED_MESSAGE = 'Las credenciales han caducado. Inicia sesión nuevamente.';
 
     #[DataProvider('roles')]
-    #[TestDox('Restablecer la contraseña invalida los JWT anteriores y conserva los datos del usuario')]
+    #[TestDox('Restablecer la contraseña invalida los JWT anteriores y conserva los datos del usuario — con $_dataName')]
     public function test_password_reset_revokes_old_jwts_and_preserves_identity(string $role): void
     {
         [, $user] = $this->createManagedUser($role);
@@ -118,13 +119,13 @@ class AuthenticationVersionTest extends TestCase
     public static function roles(): array
     {
         return [
-            'employee' => ['employee'],
-            'additional company administrator' => ['company_admin'],
+             'empleado' => ['employee'],
+            'administrador adicional de la empresa' => ['company_admin'],
         ];
     }
 
     #[DataProvider('roles')]
-    #[TestDox('Los JWT antiguos siguen invalidados tras reactivar la cuenta')]
+    #[TestDox('Los JWT antiguos siguen invalidados tras reactivar la cuenta — con $_dataName')]
     public function test_previously_issued_jwts_remain_revoked_after_administrator_reactivation(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -174,7 +175,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
-    #[TestDox('Una sesión antigua se rechaza y un nuevo inicio de sesión funciona')]
+    #[TestDox('Una sesión antigua se rechaza y un nuevo inicio de sesión funciona — con $_dataName')]
     public function test_unvisited_web_session_is_rejected_after_reactivation_and_new_login_succeeds(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -207,7 +208,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
-    #[TestDox('Una cookie anterior no permite autenticarse tras la reactivación')]
+    #[TestDox('Una cookie anterior no permite autenticarse tras la reactivación — con $_dataName')]
     public function test_previous_remember_cookie_cannot_authenticate_after_reactivation(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -236,7 +237,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
-    #[TestDox('Un JWT antiguo sin versión mantiene acceso hasta cambiar el estado de la cuenta')]
+    #[TestDox('Un JWT antiguo sin versión mantiene acceso hasta cambiar el estado de la cuenta — con $_dataName')]
     public function test_legacy_jwt_without_version_preserves_active_access_until_a_status_change(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -258,7 +259,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
-    #[TestDox('Una sesión web antigua sin versión no se recupera tras reactivar la cuenta')]
+    #[TestDox('Una sesión web antigua sin versión no se recupera tras reactivar la cuenta — con $_dataName')]
     public function test_legacy_web_session_without_version_is_not_upgraded_after_reactivation(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -285,7 +286,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
-    #[TestDox('Renovar el JWT no restaura credenciales revocadas')]
+    #[TestDox('Renovar el JWT no restaura credenciales revocadas — con $_dataName')]
     public function test_refresh_preserves_version_and_cannot_restore_revoked_credentials(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -376,17 +377,17 @@ class AuthenticationVersionTest extends TestCase
     public static function invalidSessionMarkers(): array
     {
         return [
-            'another user' => [['user_id' => 'another-user', 'version' => '0']],
-            'missing identity' => [['version' => '0']],
-            'missing version' => [['user_id' => 'current']],
-            'non-string version' => [['user_id' => 'current', 'version' => 0]],
-            'wrong version' => [['user_id' => 'current', 'version' => 'wrong-version']],
-            'malformed marker' => ['invalid'],
+            'otro usuario' => [['user_id' => 'another-user', 'version' => '0']],
+            'identidad ausente' => [['version' => '0']],
+            'versión ausente' => [['user_id' => 'current']],
+            'versión de tipo incorrecto' => [['user_id' => 'current', 'version' => 0]],
+            'versión incorrecta' => [['user_id' => 'current', 'version' => 'wrong-version']],
+            'marcador malformado' => ['invalid'],
         ];
     }
 
     #[DataProvider('invalidSessionMarkers')]
-    #[TestDox('Los marcadores de sesión inválidos se rechazan sin afectar credenciales válidas')]
+    #[TestDox('Los marcadores de sesión inválidos se rechazan sin afectar credenciales válidas — con $_dataName')]
     public function test_invalid_session_markers_fail_closed_without_revoking_valid_credentials(array|string $marker): void
     {
         [, $user] = $this->createManagedUser('employee');
