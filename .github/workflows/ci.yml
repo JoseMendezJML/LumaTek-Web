@@ -119,7 +119,7 @@ jobs:
       - name: Ejecutar pruebas automatizadas con PHPUnit
         run: php vendor/bin/phpunit --configuration phpunit.xml --testdox
 
-      - name: Comunicar resultado del pipeline en español
+      - name: Comunicar resultado del pipeline
         if: always()
         shell: bash
         run: |
