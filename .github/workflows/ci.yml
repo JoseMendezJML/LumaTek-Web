@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   tests:
-    name: PHPUnit (PHP 8.3 y SQLite en memoria)
+    name: PHPUnit (PHP 8.3, SQLite in memory)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
