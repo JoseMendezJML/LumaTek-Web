@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestDox;
 use Tests\Concerns\UsesInMemoryDatabase;
 use Tests\TestCase;
 use Tymon\JWTAuth\Facades\JWTAuth;
@@ -27,6 +28,7 @@ class AuthenticationVersionTest extends TestCase
     private const EXPIRED_MESSAGE = 'Las credenciales han caducado. Inicia sesión nuevamente.';
 
     #[DataProvider('roles')]
+    #[TestDox('Restablecer la contraseña invalida los JWT anteriores y conserva los datos del usuario')]
     public function test_password_reset_revokes_old_jwts_and_preserves_identity(string $role): void
     {
         [, $user] = $this->createManagedUser($role);
@@ -65,6 +67,7 @@ class AuthenticationVersionTest extends TestCase
         $this->api($newToken, 'GET', '/api/greenhouses')->assertOk();
     }
 
+    #[TestDox('Restablecer la contraseña invalida sesiones web y cookies de recordar sesión')]
     public function test_password_reset_revokes_an_unvisited_web_session_and_remember_cookie(): void
     {
         [, $user] = $this->createManagedUser('employee');
@@ -98,6 +101,7 @@ class AuthenticationVersionTest extends TestCase
         $this->get('/dashboard')->assertOk();
     }
 
+    #[TestDox('Un restablecimiento fallido no invalida las credenciales')]
     public function test_unsuccessful_reset_does_not_revoke_credentials(): void
     {
         [, $user] = $this->createManagedUser('employee');
@@ -120,6 +124,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
+    #[TestDox('Los JWT antiguos siguen invalidados tras reactivar la cuenta')]
     public function test_previously_issued_jwts_remain_revoked_after_administrator_reactivation(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -169,6 +174,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
+    #[TestDox('Una sesión antigua se rechaza y un nuevo inicio de sesión funciona')]
     public function test_unvisited_web_session_is_rejected_after_reactivation_and_new_login_succeeds(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -181,7 +187,7 @@ class AuthenticationVersionTest extends TestCase
         ], session(User::AUTH_VERSION_SESSION_KEY));
         $oldSession = session()->all();
 
-        // No request from this browser occurs while the account is inactive.
+        // Este navegador no realiza solicitudes mientras la cuenta está inactiva.
         $this->cycleAccount($ownerToken, $user);
         $this->withSession($oldSession);
         $this->resetGuards();
@@ -201,6 +207,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
+    #[TestDox('Una cookie anterior no permite autenticarse tras la reactivación')]
     public function test_previous_remember_cookie_cannot_authenticate_after_reactivation(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -210,7 +217,7 @@ class AuthenticationVersionTest extends TestCase
         $recaller = $response->getCookie($recallerName);
         $this->assertNotNull($recaller);
 
-        // First prove this cookie can authenticate a fresh browser session.
+        // Primero comprobamos que esta cookie permite autenticar una sesión nueva.
         $this->clearBrowserSession();
         $this->withCookie($recallerName, $recaller->getValue());
         $this->get('/dashboard')->assertOk();
@@ -229,6 +236,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
+    #[TestDox('Un JWT antiguo sin versión mantiene acceso hasta cambiar el estado de la cuenta')]
     public function test_legacy_jwt_without_version_preserves_active_access_until_a_status_change(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -250,6 +258,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
+    #[TestDox('Una sesión web antigua sin versión no se recupera tras reactivar la cuenta')]
     public function test_legacy_web_session_without_version_is_not_upgraded_after_reactivation(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -276,6 +285,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('roles')]
+    #[TestDox('Renovar el JWT no restaura credenciales revocadas')]
     public function test_refresh_preserves_version_and_cannot_restore_revoked_credentials(string $role): void
     {
         [$owner, $user] = $this->createManagedUser($role);
@@ -293,8 +303,8 @@ class AuthenticationVersionTest extends TestCase
             ->assertUnauthorized()
             ->assertExactJson(['message' => self::EXPIRED_MESSAGE]);
 
-        // Even if a token is cryptographically refreshed outside a protected
-        // route, its retained version must not bypass account revocation.
+        // Aunque el token se renueve fuera de una ruta protegida,
+        // su versión original no debe eludir la revocación de la cuenta.
         $this->resetGuards();
         $refreshedAfterRevocation = JWTAuth::setToken($refreshed)->refresh();
         $this->assertSame($version, JWTAuth::setToken($refreshedAfterRevocation)->getPayload()->get('auth_version'));
@@ -303,6 +313,7 @@ class AuthenticationVersionTest extends TestCase
             ->assertExactJson(['message' => self::EXPIRED_MESSAGE]);
     }
 
+    #[TestDox('Solo los cambios de estado renuevan credenciales y la versión no admite asignación masiva')]
     public function test_only_status_changes_rotate_credentials_and_version_is_not_mass_assignable(): void
     {
         [, $user] = $this->createManagedUser('employee');
@@ -335,6 +346,7 @@ class AuthenticationVersionTest extends TestCase
         $this->assertNotContains($thirdVersion, [$firstVersion, $secondVersion, '0']);
     }
 
+    #[TestDox('Empleados y administradores de otra empresa no pueden cambiar estados ni revocar credenciales')]
     public function test_employees_and_foreign_administrators_cannot_change_status_or_revoke_credentials(): void
     {
         [$owner, $user] = $this->createManagedUser('employee');
@@ -374,6 +386,7 @@ class AuthenticationVersionTest extends TestCase
     }
 
     #[DataProvider('invalidSessionMarkers')]
+    #[TestDox('Los marcadores de sesión inválidos se rechazan sin afectar credenciales válidas')]
     public function test_invalid_session_markers_fail_closed_without_revoking_valid_credentials(array|string $marker): void
     {
         [, $user] = $this->createManagedUser('employee');
@@ -387,13 +400,13 @@ class AuthenticationVersionTest extends TestCase
             $marker['user_id'] = $user->id;
         }
 
-        // Keep the valid browser's stored session and create a separate one.
+        // Conservamos la sesión válida del navegador y creamos otra independiente.
         session()->migrate(false);
         $invalidSessionId = session()->getId();
         $this->assertNotSame($validSessionId, $invalidSessionId);
         $this->withSession([User::AUTH_VERSION_SESSION_KEY => $marker]);
-        // StartSession reloads the handler on the next request, so put() alone
-        // cannot replace the credentials persisted by the real web login.
+        // StartSession vuelve a cargar la sesión en la siguiente solicitud; por eso,
+        // put() no reemplaza por sí solo las credenciales del inicio de sesión real.
         session()->save();
         $storedSession = $this->readStoredSession($invalidSessionId);
         $this->assertSame($marker, $storedSession->get(User::AUTH_VERSION_SESSION_KEY));
@@ -411,7 +424,7 @@ class AuthenticationVersionTest extends TestCase
         $this->assertSame($rememberToken, $user->fresh()->remember_token);
         $this->assertNull($user->fresh()->auth_version);
 
-        // Rejecting one browser must not revoke a valid token or another session.
+        // Rechazar un navegador no debe invalidar otro token o sesión válidos.
         $this->api($validToken, 'GET', '/api/greenhouses')->assertOk();
         $this->withCookie(config('session.cookie'), $validSessionId);
         $this->resetGuards();
@@ -419,6 +432,7 @@ class AuthenticationVersionTest extends TestCase
         $this->assertAuthenticatedAs($user, 'web');
     }
 
+    #[TestDox('Los modelos desactualizados no reutilizan versiones de credenciales')]
     public function test_stale_model_instances_do_not_reuse_credential_versions(): void
     {
         [, $user] = $this->createManagedUser('employee');
@@ -437,10 +451,11 @@ class AuthenticationVersionTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $user->id, 'status' => 'inactive']);
     }
 
+    #[TestDox('La migración de versión de autenticación es reversible y conserva usuarios existentes')]
     public function test_auth_version_migration_is_additive_and_reversible_for_existing_users(): void
     {
-        // The shared setup has verified that this connection is SQLite :memory:.
-        // Exercise only this migration, never migrate:rollback against a real DB.
+        // La configuración compartida ya comprobó que la conexión usa SQLite :memory:.
+        // Probamos solo esta migración; nunca ejecutamos migrate:rollback en una base de datos real.
         $migration = require database_path('migrations/2026_10_19_000000_add_auth_version_to_users_table.php');
         $migration->down();
         $this->assertFalse(Schema::hasColumn('users', 'auth_version'));
@@ -543,7 +558,7 @@ class AuthenticationVersionTest extends TestCase
 
     private function readStoredSession(string $sessionId): Store
     {
-        // Preserve the application's serialization while discarding memory state.
+        // Conservamos la serialización de la aplicación, pero descartamos su estado en memoria.
         $session = clone session()->driver();
         $session->flush();
         $session->setId($sessionId);
