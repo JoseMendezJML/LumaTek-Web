@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -33,9 +34,14 @@ class SqliteDatabaseConfigTest extends TestCase
         $app = require __DIR__.'/../../bootstrap/app.php';
         $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+        // Laravel registra controladores globales de errores durante el arranque.
+        // Restauramos su estado para no interferir con las comprobaciones de PHPUnit.
+        \Illuminate\Foundation\Bootstrap\HandleExceptions::flushState();
+
         return require __DIR__.'/../../config/database.php';
     }
 
+    #[TestDox('SQLite utiliza las opciones configuradas en el entorno')]
     public function test_sqlite_options_are_read_from_the_environment(): void
     {
         $sqlite = $this->sqliteConfig([
@@ -51,6 +57,7 @@ class SqliteDatabaseConfigTest extends TestCase
         $this->assertSame('IMMEDIATE', $sqlite['transaction_mode']);
     }
 
+    #[TestDox('SQLite utiliza valores predeterminados cuando no se configuran las opciones')]
     public function test_sqlite_options_default_to_null_when_not_configured(): void
     {
         $sqlite = $this->sqliteConfig([])['connections']['sqlite'];
