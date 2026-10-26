@@ -1,4 +1,4 @@
-name: CI
+name: CI - Pruebas automatizadas LumaTek
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   tests:
-    name: PHPUnit (PHP 8.3, SQLite in memory)
+    name: PHPUnit (PHP 8.3 y SQLite en memoria)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -33,19 +33,19 @@ jobs:
       TELESCOPE_ENABLED: 'false'
       NIGHTWATCH_ENABLED: 'false'
     steps:
-      - name: Check out source
+      - name: Descargar código del repositorio
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Reject local environment files and cached configuration
+      - name: Verificar ausencia de archivos locales y caché de configuración
         shell: bash
         run: |
           test ! -e .env
           test ! -e .env.testing
           test ! -e bootstrap/cache/config.php
 
-      - name: Set up PHP and Composer
+      - name: Preparar PHP y Composer
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -53,17 +53,17 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Generate an ephemeral test application key
+      - name: Generar clave temporal para las pruebas
         shell: bash
         run: php -r 'echo "APP_KEY=base64:".base64_encode(random_bytes(32)).PHP_EOL;' >> "$GITHUB_ENV"
 
-      - name: Install locked dependencies
+      - name: Instalar dependencias del proyecto
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Check platform requirements
+      - name: Comprobar requisitos del entorno
         run: composer check-platform-reqs
 
-      - name: Verify isolation and run migrations in memory
+      - name: Verificar aislamiento y ejecutar migraciones en memoria
         shell: bash
         run: |
           php <<'PHP'
@@ -73,7 +73,7 @@ jobs:
 
               $app = require 'bootstrap/app.php';
               if ($app->configurationIsCached()) {
-                  throw new RuntimeException('Cached configuration is forbidden in CI.');
+                  throw new RuntimeException('No se permite usar configuración en caché durante las pruebas.');
               }
               $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
               $kernel->bootstrap();
@@ -83,25 +83,25 @@ jobs:
                   || config('database.connections.sqlite.driver') !== 'sqlite'
                   || config('database.connections.sqlite.database') !== ':memory:'
                   || !in_array(config('database.connections.sqlite.url'), [null, ''], true)) {
-                  throw new RuntimeException('CI requires SQLite :memory: without a database URL.');
+                  throw new RuntimeException('Las pruebas requieren SQLite en memoria y ninguna URL de base de datos.');
               }
               if (Illuminate\Support\Facades\DB::getConnections() !== []) {
-                  throw new RuntimeException('A database connection was opened before isolation was verified.');
+                  throw new RuntimeException('Se abrió una conexión a la base de datos antes de verificar el aislamiento.');
               }
 
-              // Remove every other connection before any migration can run.
+              // Eliminamos las demás conexiones antes de ejecutar cualquier migración.
               config(['database.connections' => ['sqlite' => config('database.connections.sqlite')]]);
               $connection = Illuminate\Support\Facades\DB::connection('sqlite');
               if ($connection->getDriverName() !== 'sqlite' || $connection->getDatabaseName() !== ':memory:') {
-                  throw new RuntimeException('Unexpected database connection.');
+                  throw new RuntimeException('Se detectó una conexión de base de datos inesperada.');
               }
               $databases = $connection->select('PRAGMA database_list');
               if ($databases === []) {
-                  throw new RuntimeException('SQLite isolation could not be verified.');
+                  throw new RuntimeException('No se pudo verificar el aislamiento de SQLite.');
               }
               foreach ($databases as $database) {
                   if ($database->file !== '') {
-                      throw new RuntimeException('File-backed databases are forbidden in CI.');
+                      throw new RuntimeException('No se permiten bases de datos guardadas en archivos durante las pruebas.');
                   }
               }
 
@@ -114,7 +114,17 @@ jobs:
           }
           PHP
 
-      # Database tests independently verify isolation before migrating their own
-      # in-memory connection. No Node/Vite build is needed: they use withoutVite().
-      - name: Run PHPUnit
-        run: php vendor/bin/phpunit --configuration phpunit.xml
+      # Cada prueba de base de datos verifica el aislamiento antes de migrar
+      # en SQLite en memoria. No se requiere compilar Node/Vite porque usan withoutVite().
+      - name: Ejecutar pruebas automatizadas con PHPUnit
+        run: php vendor/bin/phpunit --configuration phpunit.xml --testdox
+
+      - name: Comunicar resultado del pipeline en español
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Las comprobaciones y pruebas automatizadas finalizaron correctamente."
+          else
+            echo "Se detectaron fallos. Revisa el detalle de la etapa que produjo el error."
+          fi
