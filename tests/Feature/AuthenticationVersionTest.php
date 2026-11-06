@@ -111,8 +111,7 @@ class AuthenticationVersionTest extends TestCase
         $this->postJson('/api/password/reset', [
             'email' => $user->email, 'token' => 'invalid-token',
             'password' => 'Nueva-Clave-123!', 'password_confirmation' => 'Nueva-Clave-123!',
-        //])->assertUnprocessable();
-        ])->assertOk();
+        ])->assertUnprocessable();
         $this->assertSame($before, $user->fresh()->only(array_keys($before)));
         $this->api($token, 'GET', '/api/greenhouses')->assertOk();
     }
